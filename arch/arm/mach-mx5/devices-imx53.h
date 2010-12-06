@@ -33,3 +33,7 @@ extern const struct imx_spi_imx_data imx53_ecspi_data[] __initconst;
 extern const struct imx_imx2_wdt_data imx53_imx2_wdt_data[] __initconst;
 #define imx53_add_imx2_wdt(id, pdata)	\
 	imx_add_imx2_wdt(&imx53_imx2_wdt_data[id])
+
+extern const struct imx_ipuv3_data imx53_ipuv3_data __initconst;
+#define imx53_add_ipuv3(pdata)	\
+	imx_add_ipuv3(&imx53_ipuv3_data, pdata)

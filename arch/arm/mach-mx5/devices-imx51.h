@@ -55,3 +55,7 @@ extern const struct imx_mxc_pwm_data imx51_mxc_pwm_data[] __initconst;
 extern const struct imx_imx_keypad_data imx51_imx_keypad_data __initconst;
 #define imx51_add_imx_keypad(pdata)	\
 	imx_add_imx_keypad(&imx51_imx_keypad_data, pdata)
+
+extern const struct imx_ipuv3_data imx51_ipuv3_data __initconst;
+#define imx51_add_ipuv3(pdata)	\
+	imx_add_ipuv3(&imx51_ipuv3_data, pdata)
