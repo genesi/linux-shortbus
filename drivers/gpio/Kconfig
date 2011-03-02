@@ -416,4 +416,11 @@ config AB8500_GPIO
 	depends on AB8500_CORE
 	help
 	  Select this to enable the AB8500 IC GPIO driver
+
+config DA9052_GPIO_ENABLE
+	bool "Dialog DA9052 GPIO"
+	depends on PMIC_DIALOG
+	help
+	  Say Y  to enable the GPIO driver for the DA9052 chip
+
 endif

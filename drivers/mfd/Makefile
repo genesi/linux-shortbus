@@ -89,3 +89,5 @@ obj-$(CONFIG_MFD_VX855)		+= vx855.o
 obj-$(CONFIG_MFD_WL1273_CORE)	+= wl1273-core.o
 obj-$(CONFIG_MFD_CS5535)	+= cs5535-mfd.o
 obj-$(CONFIG_MFD_OMAP_USB_HOST)	+= omap-usb-host.o
+da9052-objs			:= da9052-spi.o da9052-i2c.o da9052-core.o
+obj-$(CONFIG_PMIC_DIALOG)	+= da9052.o
