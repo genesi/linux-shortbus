@@ -417,8 +417,7 @@ static struct regulator_ops da9052_ldo_buck_ops = {
 static int __devinit da9052_regulator_probe(struct platform_device *pdev)
 {
 	struct da9052_regulator_priv *priv;
-	struct da9052_regulator_platform_data *pdata =
-				(pdev->dev.platform_data);
+	struct da9052_regulator_platform_data *pdata = mfd_get_data(pdev);
 	struct da9052 *da9052 = dev_get_drvdata(pdev->dev.parent);
 	struct regulator_init_data  *init_data;
 	int i, ret = 0;

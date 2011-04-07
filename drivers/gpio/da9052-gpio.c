@@ -643,7 +643,7 @@ static int da9052_gpio_to_irq(struct gpio_chip *gc, u32 offset)
 static int __devinit da9052_gpio_probe(struct platform_device *pdev)
 {
 	struct da9052_gpio_chip *gpio;
-	struct da9052_platform_data *pdata = (pdev->dev.platform_data);
+	struct da9052_platform_data *pdata = mfd_get_data(pdev);
 	s32 ret;
 	gpio = kzalloc(sizeof(*gpio), GFP_KERNEL);
 	if (gpio == NULL)

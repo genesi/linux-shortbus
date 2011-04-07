@@ -1354,7 +1354,7 @@ static s32 __devinit da9052_tsi_probe(struct platform_device *pdev)
 {
 
 	struct da9052_ts_priv *priv;
-	struct da9052_tsi_platform_data *pdata = pdev->dev.platform_data;
+	struct da9052_tsi_platform_data *pdata = mfd_get_data(pdev);
 
 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
 	if (!priv)

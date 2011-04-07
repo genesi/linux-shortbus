@@ -181,7 +181,7 @@ out:
 
 static int __devinit da9052_led_probe(struct platform_device *pdev)
 {
-	struct da9052_leds_platform_data *pdata = (pdev->dev.platform_data);
+	struct da9052_leds_platform_data *pdata = mfd_get_data(pdev);
 	struct da9052_led_platform_data *led_cur;
 	struct da9052_led_data *led, *led_dat;
 	int ret, i;

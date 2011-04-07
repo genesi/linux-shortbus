@@ -375,8 +375,7 @@ static int da9052_add_subdevice_pdata(struct da9052 *da9052,
 {
 	struct mfd_cell cell = {
 		.name = name,
-		.platform_data = pdata,
-		.data_size = pdata_size,
+		.mfd_data = pdata,
 	};
 	return mfd_add_devices(da9052->dev, -1, &cell, 1, NULL, 0);
 }
