@@ -49,7 +49,7 @@
  * Increase size of DMA-consistent memory region.
  * This is required for mx3 camera driver to capture at least two QXGA frames.
  */
-#define CONSISTENT_DMA_SIZE SZ_8M
+#define CONSISTENT_DMA_SIZE (SZ_8M * 4)
 
 #elif defined(CONFIG_MX1_VIDEO) || defined(CONFIG_VIDEO_MX2_HOSTSUPPORT)
 /*
