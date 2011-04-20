@@ -1,5 +1,9 @@
-linux-linaro-lt-mx5 (2.6.38-1000.0) UNRELEASED; urgency=low
+linux-linaro-lt-mx5 (2.6.38-1000.1) natty; urgency=low
 
-  * Initial release.
+  * Initial release based on Freescale's early 2.6.38 kernel release
+
+  * SAUCE: MX5: GPIO registers start differently between i.MX51/53
+
+  * SAUCE: MX51: fix build error of mx51_get_cpu_op() not declared
 
  -- Eric Miao <eric.miao@linaro.org>  Fri, 18 Feb 2011 22:52:49 +0800
