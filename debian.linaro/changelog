@@ -1,0 +1,5 @@
+linux-linaro-lt-mx5 (2.6.38-1000.0) UNRELEASED; urgency=low
+
+  * Initial release.
+
+ -- Eric Miao <eric.miao@linaro.org>  Fri, 18 Feb 2011 22:52:49 +0800
