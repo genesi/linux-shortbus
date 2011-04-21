@@ -5159,7 +5159,7 @@ int __init mx53_clocks_init(unsigned long ckil, unsigned long osc, unsigned long
 	/* set the freq of asrc_serial_clk */
 	clk_set_rate(&asrc_clk[0], clk_round_rate(&asrc_clk[0],
 			1190000));
-
+	clk_set_parent(&uart_main_clk, &pll2_sw_clk);
 	/* System timer */
 	mxc_timer_init(&gpt_clk[0], MX53_IO_ADDRESS(MX53_GPT1_BASE_ADDR),
 		MX53_INT_GPT);
