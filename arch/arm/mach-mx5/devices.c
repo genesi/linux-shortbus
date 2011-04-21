@@ -214,7 +214,7 @@ struct platform_device mxc_usbh2_wakeup_device = {
 	.resource = usbh2_wakeup_resources,
 };
 
-static struct mxc_gpio_port mxc_gpio_ports[] = {
+static struct mxc_gpio_port imx51_gpio_ports[] = {
 	{
 		.chip.label = "gpio-0",
 		.base = MX51_IO_ADDRESS(MX51_GPIO1_BASE_ADDR),
@@ -239,6 +239,37 @@ static struct mxc_gpio_port mxc_gpio_ports[] = {
 	{
 		.chip.label = "gpio-3",
 		.base = MX51_IO_ADDRESS(MX51_GPIO4_BASE_ADDR),
+		.irq = MX51_MXC_INT_GPIO4_LOW,
+		.irq_high = MX51_MXC_INT_GPIO4_HIGH,
+		.virtual_irq_start = MXC_GPIO_IRQ_START + 32 * 3
+	},
+};
+
+static struct mxc_gpio_port imx53_gpio_ports[] = {
+	{
+		.chip.label = "gpio-0",
+		.base = MX53_IO_ADDRESS(MX53_GPIO1_BASE_ADDR),
+		.irq = MX51_MXC_INT_GPIO1_LOW,
+		.irq_high = MX51_MXC_INT_GPIO1_HIGH,
+		.virtual_irq_start = MXC_GPIO_IRQ_START
+	},
+	{
+		.chip.label = "gpio-1",
+		.base = MX53_IO_ADDRESS(MX53_GPIO2_BASE_ADDR),
+		.irq = MX51_MXC_INT_GPIO2_LOW,
+		.irq_high = MX51_MXC_INT_GPIO2_HIGH,
+		.virtual_irq_start = MXC_GPIO_IRQ_START + 32 * 1
+	},
+	{
+		.chip.label = "gpio-2",
+		.base = MX53_IO_ADDRESS(MX53_GPIO3_BASE_ADDR),
+		.irq = MX51_MXC_INT_GPIO3_LOW,
+		.irq_high = MX51_MXC_INT_GPIO3_HIGH,
+		.virtual_irq_start = MXC_GPIO_IRQ_START + 32 * 2
+	},
+	{
+		.chip.label = "gpio-3",
+		.base = MX53_IO_ADDRESS(MX53_GPIO4_BASE_ADDR),
 		.irq = MX51_MXC_INT_GPIO4_LOW,
 		.irq_high = MX51_MXC_INT_GPIO4_HIGH,
 		.virtual_irq_start = MXC_GPIO_IRQ_START + 32 * 3
@@ -268,11 +299,11 @@ static struct mxc_gpio_port mxc_gpio_ports[] = {
 
 int __init imx51_register_gpios(void)
 {
-	return mxc_gpio_init(mxc_gpio_ports, 4);
+	return mxc_gpio_init(imx51_gpio_ports, ARRAY_SIZE(imx51_gpio_ports));
 }
 
 int __init imx53_register_gpios(void)
 {
-	return mxc_gpio_init(mxc_gpio_ports, ARRAY_SIZE(mxc_gpio_ports));
+	return mxc_gpio_init(imx53_gpio_ports, ARRAY_SIZE(imx53_gpio_ports));
 }
 
