@@ -6,6 +6,7 @@ nfs-modules
 md-modules
 usb-modules
 mouse-modules
+input-modules
 irda-modules
 parport-modules
 nic-usb-modules
