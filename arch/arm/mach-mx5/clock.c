@@ -5176,6 +5176,7 @@ static int cpu_clk_set_op(int op)
 	struct cpu_op *p;
 	u32 reg, pll_hfsm;
 	u32 stat;
+	int relock_timeout = 10;
 
 	if (op == cpu_curr_op)
 		return 0;
@@ -5242,14 +5243,12 @@ static int cpu_clk_set_op(int op)
 		__raw_writel(reg, pll1_base + MXC_PLL_DP_CTL);
 
 		/* Wait for the PLL to lock */
-		getnstimeofday(&nstimeofday);
 		do {
-			getnstimeofday(&curtime);
-			if ((curtime.tv_nsec - nstimeofday.tv_nsec) > SPIN_DELAY)
-				panic("pll1 relock failed\n");
-			stat = __raw_readl(pll1_base + MXC_PLL_DP_CTL) &
-			    MXC_PLL_DP_CTL_LRF;
-		} while (!stat);
+			stat = __raw_readl(pll1_base + MXC_PLL_DP_CTL);
+			if (stat & MXC_PLL_DP_CTL_LRF)
+				break;
+			udelay(100);
+		} while (--relock_timeout);
 
 		reg = __raw_readl(MXC_CCM_CCSR);
 		/* Move the PLL1 back to the pll1_main_clk */
