@@ -62,7 +62,7 @@
 #else
 
 #ifdef CONFIG_ARCH_MX5
-#define CONSISTENT_DMA_SIZE     (96 * SZ_1M)
+#define CONSISTENT_DMA_SIZE     (128 * SZ_1M)
 #else
 #define CONSISTENT_DMA_SIZE     (32 * SZ_1M)
 #endif
@@ -71,6 +71,7 @@
 
 #ifndef __ASSEMBLY__
 
+#if 0
 #ifdef CONFIG_DMA_ZONE_SIZE
 #define MXC_DMA_ZONE_SIZE       ((CONFIG_DMA_ZONE_SIZE * SZ_1M) >> PAGE_SHIFT)
 #else
@@ -89,6 +90,7 @@ static inline void __arch_adjust_zones(unsigned long *zone_size,
 
 #define arch_adjust_zones(size, holes) \
 	__arch_adjust_zones(size, holes)
+#endif
 
 #endif
 
