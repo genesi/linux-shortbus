@@ -34,6 +34,7 @@ struct da9052_eh_nb eve_nb_array[EVE_CNT];
 static struct da9052_ssc_ops ssc_ops;
 struct mutex manconv_lock;
 static struct semaphore eve_nb_array_lock;
+static struct da9052 *da9052_data;
 
 void da9052_lock(struct da9052 *da9052)
 {
@@ -370,6 +371,22 @@ static void da9052_eh_restore_irq(struct da9052 *da9052)
 	free_irq(da9052->irq, NULL);
 }
 
+void da9053_power_off(void)
+{
+	struct da9052_ssc_msg ssc_msg;
+	if (!da9052_data)
+		return;
+
+	ssc_msg.addr = DA9052_CONTROLB_REG;
+	da9052_data->read(da9052_data, &ssc_msg);
+	ssc_msg.data |= DA9052_CONTROLB_SHUTDOWN;
+	pr_info("da9052 shutdown: DA9052_CONTROLB_REG=%x\n", ssc_msg.data);
+	da9052_data->write(da9052_data, &ssc_msg);
+	ssc_msg.addr = DA9052_GPID9_REG;
+	ssc_msg.data = 0;
+	da9052_data->read(da9052_data, &ssc_msg);
+}
+
 static int da9052_add_subdevice_pdata(struct da9052 *da9052,
 		const char *name, void *pdata, size_t pdata_size)
 {
@@ -512,6 +529,7 @@ int da9052_ssc_init(struct da9052 *da9052)
 		DA9052_EH_DEVICE_NAME, da9052))
 		return -EIO;
 	enable_irq_wake(da9052->irq);
+	da9052_data = da9052;
  
 	return 0;
 }

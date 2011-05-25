@@ -28,6 +28,7 @@
 #include <linux/pwm_backlight.h>
 #include <linux/ahci_platform.h>
 #include <linux/gpio_keys.h>
+#include <linux/mfd/da9052/da9052.h>
 
 #include <mach/common.h>
 #include <mach/hardware.h>
@@ -774,6 +775,8 @@ static void __init mx53_loco_board_init(void)
 	  * during boot, even if SCC2 driver is not part of the image
 	  */
 	imx53_add_mxc_scc2();
+
+	pm_power_off = da9053_power_off;
 }
 
 static void __init mx53_loco_timer_init(void)
