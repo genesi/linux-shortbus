@@ -506,7 +506,6 @@ static struct fsl_mxc_ddc_platform_data bbg_ddc_dvi_data = {
 	.di = 0,
 	.init = ddc_dvi_init,
 	.update = ddc_dvi_update,
-	.boot_enable = 1,
 };
 
 static struct i2c_board_info mxc_i2c1_board_info[] __initdata = {
