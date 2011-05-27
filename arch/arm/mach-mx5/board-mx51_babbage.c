@@ -42,9 +42,12 @@
 #include "devices.h"
 #include "crm_regs.h"
 #include "cpu_op-mx51.h"
+#include "usb.h"
 
 #define BABBAGE_USB_HUB_RESET	IMX_GPIO_NR(1, 7)
 #define BABBAGE_USBH1_STP	IMX_GPIO_NR(1, 27)
+#define BABBAGE_USBCLK_EN_B	IMX_GPIO_NR(2, 1)
+#define BABBAGE_OSC_EN_B	IMX_GPIO_NR(2, 2)
 #define BABBAGE_PHY_RESET	IMX_GPIO_NR(2, 5)
 #define BABBAGE_VGA_RESET	IMX_GPIO_NR(2, 13)
 #define BABBAGE_FEC_PHY_RESET	IMX_GPIO_NR(2, 14)
@@ -56,6 +59,7 @@
 #define MX51_BBG_SD2_CD         IMX_GPIO_NR(1, 6)
 #define MX51_BBG_SD2_WP         IMX_GPIO_NR(1, 5)
 #define BABBAGE_AUDAMP_STBY	IMX_GPIO_NR(2, 17)
+#define BABBAGE_26M_OSC_EN	IMX_GPIO_NR(3, 1)
 #define BABBAGE_HEADPHONE_DET	IMX_GPIO_NR(3, 26)
 #define BABBAGE_AUDIO_CLK_EN	IMX_GPIO_NR(4, 26)
 
@@ -137,6 +141,13 @@ static iomux_v3_cfg_t mx51babbage_pads[] = {
 
 	/* USB HUB reset line*/
 	MX51_PAD_GPIO1_7__GPIO1_7,
+
+	/* USB PHY & CLK */
+	MX51_PAD_EIM_D17__GPIO2_1,
+	MX51_PAD_EIM_D18__GPIO2_2,
+	MX51_PAD_EIM_D21__GPIO2_5,
+	MX51_PAD_DI1_PIN12__GPIO3_1,
+	MX51_PAD_OWIRE_LINE__SPDIF_OUT,
 
 	/* FEC */
 	MX51_PAD_EIM_EB2__FEC_MDIO,
@@ -239,11 +250,11 @@ static const struct esdhc_platform_data mx51_bbg_sd2_data __initconst = {
 	.cd_gpio = MX51_BBG_SD2_CD,
 };
 
-static void babbage_suspend_enter()
+static void babbage_suspend_enter(void)
 {
 }
 
-static void babbage_suspend_exit()
+static void babbage_suspend_exit(void)
 {
 	/*clear the EMPGC0/1 bits */
 	__raw_writel(0, MXC_SRPG_EMPGC0_SRPGCR);
@@ -254,37 +265,6 @@ static struct mxc_pm_platform_data babbage_pm_data = {
 	.suspend_enter = babbage_suspend_enter,
 	.suspend_exit = babbage_suspend_exit,
 };
-
-static int gpio_usbh1_active(void)
-{
-	iomux_v3_cfg_t usbh1stp_gpio = MX51_PAD_USBH1_STP__GPIO1_27;
-	iomux_v3_cfg_t phyreset_gpio = MX51_PAD_EIM_D21__GPIO2_5;
-	int ret;
-
-	/* Set USBH1_STP to GPIO and toggle it */
-	mxc_iomux_v3_setup_pad(usbh1stp_gpio);
-	ret = gpio_request(BABBAGE_USBH1_STP, "usbh1_stp");
-
-	if (ret) {
-		pr_debug("failed to get MX51_PAD_USBH1_STP__GPIO_1_27: %d\n", ret);
-		return ret;
-	}
-	gpio_direction_output(BABBAGE_USBH1_STP, 0);
-	gpio_set_value(BABBAGE_USBH1_STP, 1);
-	msleep(100);
-	gpio_free(BABBAGE_USBH1_STP);
-
-	/* De-assert USB PHY RESETB */
-	mxc_iomux_v3_setup_pad(phyreset_gpio);
-	ret = gpio_request(BABBAGE_PHY_RESET, "phy_reset");
-
-	if (ret) {
-		pr_debug("failed to get MX51_PAD_EIM_D21__GPIO_2_5: %d\n", ret);
-		return ret;
-	}
-	gpio_direction_output(BABBAGE_PHY_RESET, 1);
-	return 0;
-}
 
 static inline void babbage_usbhub_reset(void)
 {
@@ -319,84 +299,6 @@ static inline void babbage_fec_reset(void)
 	msleep(1);
 	gpio_set_value(BABBAGE_FEC_PHY_RESET, 1);
 }
-
-/* This function is board specific as the bit mask for the plldiv will also
-be different for other Freescale SoCs, thus a common bitmask is not
-possible and cannot get place in /plat-mxc/ehci.c.*/
-static int initialize_otg_port(struct platform_device *pdev)
-{
-	u32 v;
-	void __iomem *usb_base;
-	void __iomem *usbother_base;
-
-	usb_base = ioremap(MX51_OTG_BASE_ADDR, SZ_4K);
-	if (!usb_base)
-		return -ENOMEM;
-	usbother_base = usb_base + MX5_USBOTHER_REGS_OFFSET;
-
-	/* Set the PHY clock to 19.2MHz */
-	v = __raw_readl(usbother_base + MXC_USB_PHY_CTR_FUNC2_OFFSET);
-	v &= ~MX5_USB_UTMI_PHYCTRL1_PLLDIV_MASK;
-	v |= MX51_USB_PLL_DIV_19_2_MHZ;
-	__raw_writel(v, usbother_base + MXC_USB_PHY_CTR_FUNC2_OFFSET);
-	iounmap(usb_base);
-
-	mdelay(10);
-
-	return mx51_initialize_usb_hw(0, MXC_EHCI_INTERNAL_PHY);
-}
-
-static int initialize_usbh1_port(struct platform_device *pdev)
-{
-	u32 v;
-	void __iomem *usb_base;
-	void __iomem *usbother_base;
-
-	usb_base = ioremap(MX51_OTG_BASE_ADDR, SZ_4K);
-	if (!usb_base)
-		return -ENOMEM;
-	usbother_base = usb_base + MX5_USBOTHER_REGS_OFFSET;
-
-	/* The clock for the USBH1 ULPI port will come externally from the PHY. */
-	v = __raw_readl(usbother_base + MX51_USB_CTRL_1_OFFSET);
-	__raw_writel(v | MX51_USB_CTRL_UH1_EXT_CLK_EN, usbother_base + MX51_USB_CTRL_1_OFFSET);
-	iounmap(usb_base);
-
-	mdelay(10);
-
-	return mx51_initialize_usb_hw(1, MXC_EHCI_POWER_PINS_ENABLED |
-			MXC_EHCI_ITC_NO_THRESHOLD);
-}
-
-static struct mxc_usbh_platform_data dr_utmi_config = {
-	.init		= initialize_otg_port,
-	.portsc	= MXC_EHCI_UTMI_16BIT,
-};
-
-static struct fsl_usb2_platform_data usb_pdata = {
-	.operating_mode	= FSL_USB2_DR_DEVICE,
-	.phy_mode	= FSL_USB2_PHY_UTMI_WIDE,
-};
-
-static struct mxc_usbh_platform_data usbh1_config = {
-	.init		= initialize_usbh1_port,
-	.portsc	= MXC_EHCI_MODE_ULPI,
-};
-
-static int otg_mode_host;
-
-static int __init babbage_otg_mode(char *options)
-{
-	if (!strcmp(options, "host"))
-		otg_mode_host = 1;
-	else if (!strcmp(options, "device"))
-		otg_mode_host = 0;
-	else
-		pr_info("otg_mode neither \"host\" nor \"device\". "
-			"Defaulting to device\n");
-	return 0;
-}
-__setup("otg_mode=", babbage_otg_mode);
 
 static struct spi_board_info mx51_babbage_spi_board_info[] __initdata = {
 	{
@@ -487,13 +389,13 @@ static struct fsl_mxc_lcd_platform_data vga_data = {
 	.reset = vga_reset,
 };
 
-static void ddc_dvi_init()
+static void ddc_dvi_init(void)
 {
 	/* enable DVI I2C */
 	gpio_set_value(BABBAGE_DVI_I2C_EN, 1);
 }
 
-static int ddc_dvi_update()
+static int ddc_dvi_update(void)
 {
 	/* DVI cable state */
 	if (gpio_get_value(BABBAGE_DVI_DET) == 1)
@@ -625,12 +527,44 @@ static struct platform_device bbg_audio_device = {
 	.name = "imx-sgtl5000",
 };
 
+static void __init mx51_bbg_init_usb(void)
+{
+	imx_otg_base = MX51_IO_ADDRESS(MX51_OTG_BASE_ADDR);
+
+	/* Bring USB hub out of reset */
+	gpio_request(BABBAGE_USB_HUB_RESET, "GPIO1_7");
+	gpio_direction_output(BABBAGE_USB_HUB_RESET, 0);
+	/* USB HUB RESET - De-assert USB HUB RESET_N */
+	msleep(1);
+	gpio_set_value(BABBAGE_USB_HUB_RESET, 0);
+	msleep(1);
+	gpio_set_value(BABBAGE_USB_HUB_RESET, 1);
+
+	/* Enable 26M_OSC */
+	gpio_request(BABBAGE_26M_OSC_EN, "26M-OSC-CLK");
+	gpio_direction_output(BABBAGE_26M_OSC_EN, 1);
+
+	/* OSC_EN */
+	gpio_request(BABBAGE_USBCLK_EN_B, "usb-clk_en_b");
+	gpio_direction_output(BABBAGE_USBCLK_EN_B, 0);
+
+	/* OSC_EN */
+	gpio_request(BABBAGE_OSC_EN_B, "osc-en");
+	gpio_direction_output(BABBAGE_OSC_EN_B, 1);
+
+	/* De-assert USB PHY RESETB */
+	gpio_request(BABBAGE_PHY_RESET, "phy_reset");
+	gpio_direction_output(BABBAGE_PHY_RESET, 1);
+
+	mx5_usb_dr_init();
+	mx5_usbh1_init();
+}
+
 /*
  * Board specific initialization.
  */
 static void __init mx51_babbage_init(void)
 {
-	iomux_v3_cfg_t usbh1stp = MX51_PAD_USBH1_STP__USBH1_STP;
 	iomux_v3_cfg_t power_key = _MX51_PAD_EIM_A27__GPIO2_21 |
 		MUX_PAD_CTRL(PAD_CTL_SRE_FAST | PAD_CTL_DSE_HIGH | PAD_CTL_PUS_100K_UP);
 
@@ -673,19 +607,6 @@ static void __init mx51_babbage_init(void)
 	i2c_register_board_info(3, mxc_i2c_hs_board_info,
 				ARRAY_SIZE(mxc_i2c_hs_board_info));
 
-	/*if (otg_mode_host)
-		mxc_register_device(&mxc_usbdr_host_device, &dr_utmi_config);
-	else {
-		initialize_otg_port(NULL);
-		mxc_register_device(&mxc_usbdr_udc_device, &usb_pdata);
-	}
-
-	gpio_usbh1_active();
-	mxc_register_device(&mxc_usbh1_device, &usbh1_config);*/
-	/* setback USBH1_STP to be function */
-	mxc_iomux_v3_setup_pad(usbh1stp);
-	babbage_usbhub_reset();
-
 	imx51_add_sdhci_esdhc_imx(0, &mx51_bbg_sd1_data);
 	imx51_add_sdhci_esdhc_imx(1, &mx51_bbg_sd2_data);
 
@@ -700,6 +621,9 @@ static void __init mx51_babbage_init(void)
 	  * even if SCC2 driver is not part of the image
 	  */
 	imx51_add_mxc_scc2();
+
+	/* USB HOST and OTG */
+	mx51_bbg_init_usb();
 
 	if (mx51_revision() >= IMX_CHIP_REVISION_3_0) {
 		/* DVI_I2C_ENB = 0 tristates the DVI I2C level shifter */

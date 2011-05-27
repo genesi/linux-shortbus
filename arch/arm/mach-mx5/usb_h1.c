@@ -158,6 +158,7 @@ static void usbh1_wakeup_event_clear(void)
 }
 static int fsl_usb_host_init_ext(struct platform_device *pdev)
 {
+	iomux_v3_cfg_t usbh1stp_func = MX51_PAD_USBH1_STP__USBH1_STP;
 	int ret;
 	struct clk *usb_clk;
 
@@ -197,6 +198,8 @@ static int fsl_usb_host_init_ext(struct platform_device *pdev)
 				  PAD_CTL_DRV_VOT_LOW);
 		gpio_free(IOMUX_TO_GPIO(MX51_PIN_USBH1_STP));
 #endif
+		mxc_iomux_v3_setup_pad(usbh1stp_func);
+		gpio_free(MX5X_USBH1_STP);
 	}
 
 	/* disable remote wakeup irq */
