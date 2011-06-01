@@ -166,6 +166,12 @@ config DRM_SAVAGE
 	  Choose this option if you have a Savage3D/4/SuperSavage/Pro/Twister
 	  chipset. If M is selected the module will be called savage.
 
+config DRM_I2C_SII902X
+	tristate "sii902x"
+	depends on DRM && I2C
+	help
+	  Support for sii902x DVI/HDMI encoder chips
+
 config DRM_IMX_IPUV3
 	tristate "i.MX IPUv3"
 	depends on DRM && ARCH_MXC
