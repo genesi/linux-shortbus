@@ -249,4 +249,11 @@ config CHARGER_MAX8998
 	  Say Y to enable support for the battery charger control sysfs and
 	  platform data of MAX8998/LP3974 PMICs.
 
+config BATTERY_DA9052
+	tristate "Dialog DA9052 Battery"
+	depends on PMIC_DIALOG
+	help
+	  Say Y here to enable support for batteries charger integrated into
+	  DA9052 PMIC.
+
 endif # POWER_SUPPLY
