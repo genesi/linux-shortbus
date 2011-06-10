@@ -317,5 +317,12 @@ config REGULATOR_AAT2870
 	  If you have a AnalogicTech AAT2870 say Y to enable the
 	  regulator driver.
 
+config REGULATOR_DA9052
+	tristate "Dialog DA9052 regulators"
+	depends on PMIC_DIALOG
+	help
+	  Say y here to support the BUCKs and LDOs regulators found on
+	  Dialog Semiconductor DA9052 PMIC.
+
 endif
 
