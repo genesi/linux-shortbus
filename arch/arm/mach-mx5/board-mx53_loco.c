@@ -22,10 +22,12 @@
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/gpio.h>
+#include <drm/imx-ipu-v3.h>
 
 #include <mach/common.h>
 #include <mach/hardware.h>
 #include <mach/iomux-mx53.h>
+#include <mach/ipu-v3.h>
 
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
@@ -225,16 +227,47 @@ static const struct imxi2c_platform_data mx53_loco_i2c_data __initconst = {
 	.bitrate = 100000,
 };
 
+static struct imx_ipuv3_platform_data ipu_data = {
+};
+
+#define DISP0_POWER_EN		IMX_GPIO_NR(3, 24)
+#define DISP0_DET_INT		IMX_GPIO_NR(3, 31)
+#define DISP0_RESET		IMX_GPIO_NR(5, 0)
+
+static struct i2c_board_info loco_i2c1_info[] __initdata = {
+	{
+		.type = "sii9022",
+		.addr = 0x39,
+		.irq  = gpio_to_irq(DISP0_DET_INT),
+	},
+};
+
 static void __init mx53_loco_board_init(void)
 {
 	mxc_iomux_v3_setup_multiple_pads(mx53_loco_pads,
 					ARRAY_SIZE(mx53_loco_pads));
+	/* Sii9022 HDMI controller */
+	gpio_request(DISP0_RESET, "disp0-reset");
+	gpio_direction_output(DISP0_RESET, 0);
+	msleep(10);
+	gpio_set_value(DISP0_RESET, 1);
+
+	gpio_request(DISP0_DET_INT, "disp0-detect");
+	gpio_direction_input(DISP0_DET_INT);
+	gpio_free(DISP0_DET_INT);
+
+	/* LCD panel power enable */
+	gpio_request(DISP0_POWER_EN, "disp0-power-en");
+	gpio_direction_output(DISP0_POWER_EN, 1);
+
 	imx53_add_imx_uart(0, NULL);
 	mx53_loco_fec_reset();
 	imx53_add_fec(&mx53_loco_fec_data);
 	imx53_add_imx2_wdt(0, NULL);
 	imx53_add_imx_i2c(0, &mx53_loco_i2c_data);
 	imx53_add_imx_i2c(1, &mx53_loco_i2c_data);
+	i2c_register_board_info(1, loco_i2c1_info, ARRAY_SIZE(loco_i2c1_info));
+
 	imx53_add_sdhci_esdhc_imx(0, NULL);
 	imx53_add_sdhci_esdhc_imx(2, NULL);
 	imx_add_gpio_keys(&loco_button_data);
@@ -248,6 +281,16 @@ static void __init mx53_loco_timer_init(void)
 static struct sys_timer mx53_loco_timer = {
 	.init	= mx53_loco_timer_init,
 };
+
+static int mx53_loco_fb_init(void)
+{
+	if (!machine_is_mx53_loco())
+		return 0;
+
+	imx53_add_ipuv3(&ipu_data);
+	return 0;
+}
+late_initcall(mx53_loco_fb_init);
 
 MACHINE_START(MX53_LOCO, "Freescale MX53 LOCO Board")
 	.map_io = mx53_map_io,
