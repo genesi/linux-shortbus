@@ -23,6 +23,13 @@
 static LIST_HEAD(clocks);
 static DEFINE_MUTEX(clocks_mutex);
 
+/* For USE_COMMON_STRUCT_CLK, these are provided in clk.c, but not exported
+ * through other headers; we don't want them used anywhere but here. */
+#ifdef CONFIG_USE_COMMON_STRUCT_CLK
+extern int __clk_get(struct clk *clk);
+extern void __clk_put(struct clk *clk);
+#endif
+
 /*
  * Find the correct struct clk for the device and connection ID.
  * We do slightly fuzzy matching here:
@@ -93,6 +100,7 @@ void clkdev_add(struct clk_lookup *cl)
 {
 	mutex_lock(&clocks_mutex);
 	list_add_tail(&cl->node, &clocks);
+	clk_debug_register(cl->clk);
 	mutex_unlock(&clocks_mutex);
 }
 EXPORT_SYMBOL(clkdev_add);
@@ -102,6 +110,7 @@ void __init clkdev_add_table(struct clk_lookup *cl, size_t num)
 	mutex_lock(&clocks_mutex);
 	while (num--) {
 		list_add_tail(&cl->node, &clocks);
+		clk_debug_register(cl->clk);
 		cl++;
 	}
 	mutex_unlock(&clocks_mutex);
