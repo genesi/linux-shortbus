@@ -31,11 +31,11 @@
 #  define PLAT_PHYS_OFFSET		MX27_PHYS_OFFSET
 # elif defined CONFIG_ARCH_MX3
 #  define PLAT_PHYS_OFFSET		MX3x_PHYS_OFFSET
-# elif defined CONFIG_ARCH_MX50
+# elif defined CONFIG_SOC_IMX50
 #  define PLAT_PHYS_OFFSET		MX50_PHYS_OFFSET
-# elif defined CONFIG_ARCH_MX51
+# elif defined CONFIG_SOC_IMX51
 #  define PLAT_PHYS_OFFSET		MX51_PHYS_OFFSET
-# elif defined CONFIG_ARCH_MX53
+# elif defined CONFIG_SOC_IMX53
 #  define PLAT_PHYS_OFFSET		MX53_PHYS_OFFSET
 # endif
 #endif
