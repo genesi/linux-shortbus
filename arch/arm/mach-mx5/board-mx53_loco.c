@@ -461,6 +461,21 @@ static int sata_init(struct device *dev, void __iomem *addr)
 	int ret = 0;
 	u32 tmpdata;
 
+	/* configure the sata source clk from internal usb_phy1 clk */
+	clk = clk_get(NULL, "iim_clk");
+	if (IS_ERR(clk)) {
+		pr_err("AHCI can't get IIM clock.\n");
+		return PTR_ERR(clk);
+	}
+	clk_enable(clk);
+
+	/* Fuse bank4 row3 bit2 */
+	mmio = ioremap(MX53_IIM_BASE_ADDR, SZ_8K);
+	writel((readl(mmio + 0x180C) & (~0x7)) | 0x4, mmio + 0x180C);
+	iounmap(mmio);
+	clk_disable(clk);
+	clk_put(clk);
+
 	clk = clk_get(dev, "imx_sata_clk");
 	ret = IS_ERR(clk);
 	if (ret) {
@@ -513,6 +528,8 @@ static int sata_init(struct device *dev, void __iomem *addr)
 		clk_put(clk);
 		goto no_ahb_clk;
 	}
+
+	msleep(15);
 
 	/* Release resources when there is no device on the port */
 	if ((readl(mmio + PORT_SATA_SR) & 0xF) == 0) {
