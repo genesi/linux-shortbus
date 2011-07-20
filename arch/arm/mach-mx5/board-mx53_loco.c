@@ -240,7 +240,7 @@ static inline void mx53_loco_fec_reset(void)
 	/* reset FEC PHY */
 	ret = gpio_request(LOCO_FEC_PHY_RST, "fec-phy-reset");
 	if (ret) {
-		printk(KERN_ERR"failed to get GPIO_FEC_PHY_RESET: %d\n", ret);
+		pr_err("failed to get GPIO_FEC_PHY_RESET: %d\n", ret);
 		return;
 	}
 	gpio_direction_output(LOCO_FEC_PHY_RST, 0);
@@ -424,14 +424,14 @@ static void __init mx53_loco_io_init(void)
 	/* Sii902x HDMI controller */
 	ret = gpio_request(LOCO_DISP0_RESET, "disp0-reset");
 	if (ret) {
-		printk(KERN_ERR"failed to get GPIO_LOCO_DISP0_RESET: %d\n", ret);
+		pr_err("failed to get GPIO_LOCO_DISP0_RESET: %d\n", ret);
 		return;
 	}
 	gpio_direction_output(LOCO_DISP0_RESET, 0);
 
 	ret = gpio_request(LOCO_DISP0_DET_INT, "disp0-detect");
 	if (ret) {
-		printk(KERN_ERR"failed to get GPIO_LOCO_DISP0_DET_INT: %d\n", ret);
+		pr_err("failed to get GPIO_LOCO_DISP0_DET_INT: %d\n", ret);
 		return;
 	}
 	gpio_direction_input(LOCO_DISP0_DET_INT);
@@ -439,7 +439,7 @@ static void __init mx53_loco_io_init(void)
 	/* enable disp0 power */
 	ret = gpio_request(LOCO_DISP0_PWR, "disp0-power-en");
 	if (ret) {
-		printk(KERN_ERR"failed to get GPIO_LOCO_DISP0_PWR: %d\n", ret);
+		pr_err("failed to get GPIO_LOCO_DISP0_PWR: %d\n", ret);
 		return;
 	}
 	gpio_direction_output(LOCO_DISP0_PWR, 1);
@@ -447,7 +447,7 @@ static void __init mx53_loco_io_init(void)
 	/* usb host1 vbus */
 	ret = gpio_request(LOCO_USBH1_VBUS, "usbh1-vbus");
 	if (ret) {
-		printk(KERN_ERR"failed to get GPIO LOCO_USBH1_VBUS: %d\n", ret);
+		pr_err("failed to get GPIO LOCO_USBH1_VBUS: %d\n", ret);
 		return;
 	}
 	gpio_direction_output(LOCO_USBH1_VBUS, 0);
@@ -464,12 +464,12 @@ static int sata_init(struct device *dev, void __iomem *addr)
 	clk = clk_get(dev, "imx_sata_clk");
 	ret = IS_ERR(clk);
 	if (ret) {
-		printk(KERN_ERR "AHCI can't get clock.\n");
+		pr_err("AHCI can't get clock.\n");
 		return ret;
 	}
 	ret = clk_enable(clk);
 	if (ret) {
-		printk(KERN_ERR "AHCI can't enable clock.\n");
+		pr_err("AHCI can't enable clock.\n");
 		clk_put(clk);
 		return ret;
 	}
@@ -478,13 +478,13 @@ static int sata_init(struct device *dev, void __iomem *addr)
 	clk = clk_get(NULL, "ahb_clk");
 	ret = IS_ERR(clk);
 	if (ret) {
-		printk(KERN_ERR "AHCI can't get AHB clock.\n");
+		pr_err("AHCI can't get AHB clock.\n");
 		goto no_ahb_clk;
 	}
 
 	mmio = ioremap(MX53_SATA_BASE_ADDR, SZ_2K);
 	if (mmio == NULL) {
-		printk(KERN_ERR "Failed to map SATA REGS\n");
+		pr_err("Failed to map SATA REGS\n");
 		goto no_ahb_clk;
 	}
 
@@ -504,12 +504,12 @@ static int sata_init(struct device *dev, void __iomem *addr)
 	clk = clk_get(dev, "usb_phy1_clk");
 	ret = IS_ERR(clk);
 	if (ret) {
-		printk(KERN_ERR "AHCI can't get USB PHY1 CLK.\n");
+		pr_err("AHCI can't get USB PHY1 CLK.\n");
 		goto no_ahb_clk;
 	}
 	ret = clk_enable(clk);
 	if (ret) {
-		printk(KERN_ERR "AHCI Can't enable USB PHY1 clock.\n");
+		pr_err("AHCI Can't enable USB PHY1 clock.\n");
 		clk_put(clk);
 		goto no_ahb_clk;
 	}
@@ -526,11 +526,11 @@ static int sata_init(struct device *dev, void __iomem *addr)
 	return ret;
 
 no_device:
-	printk(KERN_INFO "NO SATA device is found, relase resource!\n");
+	pr_info("NO SATA device is found, relase resource!\n");
 	clk = clk_get(dev, "usb_phy1_clk");
 	if (IS_ERR(clk)) {
 		clk = NULL;
-		printk(KERN_ERR "AHCI can't get USB PHY1 CLK.\n");
+		pr_err("AHCI can't get USB PHY1 CLK.\n");
 	} else {
 		clk_disable(clk);
 		clk_put(clk);
@@ -540,7 +540,7 @@ no_ahb_clk:
 	clk = clk_get(dev, "imx_sata_clk");
 	if (IS_ERR(clk)) {
 		clk = NULL;
-		printk(KERN_ERR "IMX SATA can't get clock.\n");
+		pr_err("IMX SATA can't get clock.\n");
 	} else {
 		clk_disable(clk);
 		clk_put(clk);
@@ -556,7 +556,7 @@ static void sata_exit(struct device *dev)
 	clk = clk_get(dev, "usb_phy1_clk");
 	if (IS_ERR(clk)) {
 		clk = NULL;
-		printk(KERN_ERR "AHCI can't get USB PHY1 CLK.\n");
+		pr_err("AHCI can't get USB PHY1 CLK.\n");
 	} else {
 		clk_disable(clk);
 		clk_put(clk);
@@ -565,7 +565,7 @@ static void sata_exit(struct device *dev)
 	clk = clk_get(dev, "imx_sata_clk");
 	if (IS_ERR(clk)) {
 		clk = NULL;
-		printk(KERN_ERR "IMX SATA can't get clock.\n");
+		pr_err("IMX SATA can't get clock.\n");
 	} else {
 		clk_disable(clk);
 		clk_put(clk);
@@ -590,7 +590,7 @@ static int loco_sgtl5000_init(void)
 	}
 	rate = clk_round_rate(ssi_ext1, 24000000);
 	if (rate < 8000000 || rate > 27000000) {
-			printk(KERN_ERR "Error: SGTL5000 mclk freq %d out of range!\n",
+			pr_err("Error: SGTL5000 mclk freq %d out of range!\n",
 				   rate);
 			clk_put(ssi_ext1);
 			return -1;
