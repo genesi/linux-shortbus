@@ -1096,8 +1096,8 @@ int32_t ipu_init_sync_panel(int disp, uint32_t pixel_clk,
 		 * so if the clk rate is not fit, try ext clk.
 		 */
 		if (!sig.int_clk &&
-			((rounded_pixel_clk >= pixel_clk + pixel_clk/16) ||
-			(rounded_pixel_clk <= pixel_clk - pixel_clk/16))) {
+			((rounded_pixel_clk >= pixel_clk + pixel_clk/100) ||
+			(rounded_pixel_clk <= pixel_clk - pixel_clk/100))) {
 			dev_dbg(g_ipu_dev, "try ipu ext di clk\n");
 			rounded_pixel_clk = pixel_clk * 2;
 			while (rounded_pixel_clk < 150000000)
@@ -1518,6 +1518,9 @@ void ipu_uninit_sync_panel(int disp)
 	unsigned long lock_flags;
 	uint32_t reg;
 	uint32_t di_gen;
+
+    if (disp < 0 || disp > 1)
+           return;
 
 	spin_lock_irqsave(&ipu_lock, lock_flags);
 
