@@ -614,7 +614,7 @@ static struct platform_device smd_audio_device = {
 };
 
 static struct imx_ssi_platform_data smd_ssi_pdata = {
-	.flags = IMX_SSI_DMA,
+	.flags = IMX_SSI_DMA | IMX_SSI_SYN,
 };
 
 static struct fb_videomode video_modes[] = {
