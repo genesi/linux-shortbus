@@ -1,0 +1,9 @@
+# drivers/mxc/Kconfig
+
+if ARCH_MXC
+
+menu "MXC support drivers"
+
+endmenu
+
+endif
