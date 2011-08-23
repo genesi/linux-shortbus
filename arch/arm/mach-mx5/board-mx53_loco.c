@@ -317,6 +317,8 @@ static void __init mx53_loco_board_init(void)
 
 	i2c_register_board_info(0, mxc_i2c0_board_info,
 				ARRAY_SIZE(mxc_i2c0_board_info));
+
+	imx53_add_ahci_imx(0, NULL);
 }
 
 static void __init mx53_loco_timer_init(void)
