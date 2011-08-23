@@ -48,3 +48,7 @@ extern const struct imx_srtc_data imx53_imx_srtc_data __initconst;
 extern const struct imx_iim_data imx53_imx_iim_data __initconst;
 #define imx53_add_iim(pdata) \
 	imx_add_iim(&imx53_imx_iim_data, pdata)
+
+extern const struct imx_ahci_imx_data imx53_ahci_imx_data __initconst;
+#define imx53_add_ahci_imx(id, pdata)   \
+	imx_add_ahci_imx(&imx53_ahci_imx_data, pdata)
