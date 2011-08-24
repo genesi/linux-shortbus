@@ -38,6 +38,7 @@ config	SOC_IMX53
 	select ARM_L1_CACHE_SHIFT_6
 	select MXC_TZIC
 	select ARCH_MXC_IOMUX_V3
+	select ARCH_HAS_CPUFREQ
 	select ARCH_MX5
 	select ARCH_MX53
 

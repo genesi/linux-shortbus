@@ -179,7 +179,16 @@ extern unsigned int __mxc_cpu_type;
 #ifndef __ASSEMBLY__
 
 struct cpu_op {
+	u32 pll_reg;
+	u32 pll_rate;
 	u32 cpu_rate;
+	u32 pdr0_reg;
+	u32 pdf;
+	u32 mfi;
+	u32 mfd;
+	u32 mfn;
+	u32 cpu_voltage;
+	u32 cpu_podf;
 };
 
 int tzic_enable_wake(int is_idle);
@@ -191,10 +200,16 @@ enum mxc_cpu_pwr_mode {
 	STOP_POWER_OFF,		/* STOP + SRPG */
 };
 
+extern void mxc_cpu_lp_set(enum mxc_cpu_pwr_mode mode);
 extern struct cpu_op *(*get_cpu_op)(int *op);
 #endif
 
 #define cpu_is_mx3()	(cpu_is_mx31() || cpu_is_mx35())
 #define cpu_is_mx2()	(cpu_is_mx21() || cpu_is_mx27())
+
+#define MXC_PGCR_PCR		1
+#define MXC_SRPGCR_PCR		1
+#define MXC_EMPGCR_PCR		1
+#define MXC_PGSR_PSR		1
 
 #endif /*  __ASM_ARCH_MXC_H__ */
