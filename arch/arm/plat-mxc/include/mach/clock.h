@@ -62,6 +62,8 @@ struct clk {
 	int (*set_parent) (struct clk *, struct clk *);
 };
 
+int clk_get_usecount(struct clk *clk);
+
 int clk_register(struct clk *clk);
 void clk_unregister(struct clk *clk);
 
