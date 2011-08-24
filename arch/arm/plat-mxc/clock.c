@@ -112,6 +112,24 @@ void clk_disable(struct clk *clk)
 }
 EXPORT_SYMBOL(clk_disable);
 
+/*!
+ * @brief Function to get the usage count for the requested clock.
+ *
+ * This function returns the reference count for the clock.
+ *
+ * @param clk 	Handle to clock to disable.
+ *
+ * @return Returns the usage count for the requested clock.
+ */
+int clk_get_usecount(struct clk *clk)
+{
+	if (clk == NULL || IS_ERR(clk))
+		return 0;
+
+	return clk->usecount;
+}
+EXPORT_SYMBOL(clk_get_usecount);
+
 /* Retrieve the *current* clock rate. If the clock itself
  * does not provide a special calculation routine, ask
  * its parent and so on, until one is able to return
