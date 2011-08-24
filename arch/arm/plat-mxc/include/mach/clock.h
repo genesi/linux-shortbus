@@ -67,6 +67,14 @@ int clk_get_usecount(struct clk *clk);
 int clk_register(struct clk *clk);
 void clk_unregister(struct clk *clk);
 
+/* Clock flags */
+#define RATE_PROPAGATES		(1 << 0)	/* Program children too */
+#define ALWAYS_ENABLED		(1 << 1)	/* Clock cannot be disabled */
+#define RATE_FIXED		(1 << 2)	/* Fixed clock rate */
+#define CPU_FREQ_TRIG_UPDATE	(1 << 3)	/* CPUFREQ trig update */
+#define AHB_HIGH_SET_POINT	(1 << 4)	/* Requires max AHB clock */
+#define AHB_MED_SET_POINT	(1 << 5)	/* Requires med AHB clock */
+
 unsigned long mxc_decode_pll(unsigned int pll, u32 f_ref);
 
 #ifdef CONFIG_CLK_DEBUG
