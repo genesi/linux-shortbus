@@ -1464,6 +1464,11 @@ static int fsl_pullup(struct usb_gadget *gadget, int is_on)
 	return 0;
 }
 
+static int fsl_udc_start(struct usb_gadget_driver *driver,
+			int (*bind)(struct usb_gadget *));
+static int fsl_udc_stop(struct usb_gadget_driver *driver);
+
+
 /* defined in gadget.h */
 static struct usb_gadget_ops fsl_gadget_ops = {
 	.get_frame = fsl_get_frame,
@@ -1472,6 +1477,8 @@ static struct usb_gadget_ops fsl_gadget_ops = {
 	.vbus_session = fsl_vbus_session,
 	.vbus_draw = fsl_vbus_draw,
 	.pullup = fsl_pullup,
+	.start = fsl_udc_start,
+	.stop = fsl_udc_stop,
 };
 
 /* Set protocol stall on ep0, protocol stall will automatically be cleared
@@ -2285,8 +2292,8 @@ irq_end:
  * Hook to gadget drivers
  * Called by initialization code of gadget drivers
 *----------------------------------------------------------------*/
-int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
-	int (*bind)(struct usb_gadget *))
+static int fsl_udc_start(struct usb_gadget_driver *driver,
+			 int (*bind)(struct usb_gadget *))
 {
 	int retval = -ENODEV;
 	unsigned long flags = 0;
@@ -2367,10 +2374,9 @@ out:
 	}
 	return retval;
 }
-EXPORT_SYMBOL(usb_gadget_probe_driver);
 
 /* Disconnect from gadget driver */
-int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
+static int fsl_udc_stop(struct usb_gadget_driver *driver)
 {
 	struct fsl_ep *loop_ep;
 	unsigned long flags;
@@ -2422,7 +2428,6 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 	       driver->driver.name);
 	return 0;
 }
-EXPORT_SYMBOL(usb_gadget_unregister_driver);
 
 /*-------------------------------------------------------------------------
 		PROC File System Support
@@ -2994,8 +2999,12 @@ static int __init fsl_udc_probe(struct platform_device *pdev)
 	dr_clk_gate(false);
 
 	create_proc_file();
-	return 0;
 
+	ret = usb_add_gadget_udc(&pdev->dev, &udc_controller->gadget);
+	if (!ret)
+		return ret;
+
+	remove_proc_file();
 err4:
 	device_unregister(&udc_controller->gadget.dev);
 err3:
@@ -3022,6 +3031,8 @@ static int __exit fsl_udc_remove(struct platform_device *pdev)
 	struct fsl_usb2_platform_data *pdata = pdev->dev.platform_data;
 
 	DECLARE_COMPLETION(done);
+
+	usb_del_gadget_udc(&udc_controller->gadget);
 
 	if (!udc_controller)
 		return -ENODEV;
