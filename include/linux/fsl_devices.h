@@ -50,6 +50,15 @@ enum fsl_usb2_operating_modes {
 	FSL_USB2_DR_OTG,
 };
 
+/* this used for usb port type */
+enum fsl_usb2_modes {
+	FSL_USB_DR_HOST,
+	FSL_USB_DR_DEVICE,
+	FSL_USB_MPH_HOST1,
+	FSL_USB_MPH_HOST2,
+	FSL_USB_UNKNOWN, /* unkonwn status */
+};
+
 enum fsl_usb2_phy_modes {
 	FSL_USB2_PHY_NONE,
 	FSL_USB2_PHY_ULPI,
@@ -61,6 +70,90 @@ enum fsl_usb2_phy_modes {
 struct clk;
 struct platform_device;
 
+#ifdef CONFIG_USB_EHCI_ARC
+#include <linux/wait.h>
+#include <linux/mutex.h>
+#include <linux/completion.h>
+
+struct fsl_usb2_wakeup_platform_data;
+
+struct fsl_usb2_platform_data {
+	/* board specific information */
+	enum fsl_usb2_operating_modes	operating_mode;
+	enum fsl_usb2_phy_modes		phy_mode;
+	unsigned int			port_enables;
+	unsigned int			workaround;
+
+	int		(*init)(struct platform_device *);
+	void		(*exit)(struct platform_device *);
+	void __iomem	*regs;		/* ioremap'd register base */
+	struct clk	*clk;
+	unsigned	big_endian_mmio:1;
+	unsigned	big_endian_desc:1;
+	unsigned	es:1;		/* need USBMODE:ES */
+	unsigned	le_setup_buf:1;
+	unsigned	have_sysif_regs:1;
+	unsigned	invert_drvvbus:1;
+	unsigned	invert_pwr_fault:1;
+
+	/* Freescale private */
+	char		*name;
+	u32		phy_regs;	/* usb phy register base */
+	u32 		xcvr_type;	/* PORTSC_PTS_* */
+	char 		*transceiver;	/* transceiver name */
+	unsigned 	power_budget;	/* for hcd->power_budget */
+	u32		id_gpio;
+
+	struct fsl_xcvr_ops *xcvr_ops;
+	struct fsl_xcvr_power *xcvr_pwr;
+	int (*gpio_usb_active) (void);
+	void (*gpio_usb_inactive) (void);
+	void (*usb_clock_for_pm) (bool);
+	void (*platform_suspend)(struct fsl_usb2_platform_data *);
+	void (*platform_resume)(struct fsl_usb2_platform_data *);
+	void (*wake_up_enable)(struct fsl_usb2_platform_data *, bool);
+	void (*phy_lowpower_suspend)(struct fsl_usb2_platform_data *, bool);
+	void (*platform_driver_vbus)(bool on); /* for vbus shutdown/open */
+	enum usb_wakeup_event (*is_wakeup_event)(struct fsl_usb2_platform_data *);
+	void (*wakeup_handler)(struct fsl_usb2_platform_data *);
+
+	struct fsl_usb2_wakeup_platform_data *wakeup_pdata;
+	struct platform_device *pdev;
+	unsigned	change_ahb_burst:1;
+	unsigned	ahb_burst_mode:3;
+	unsigned	lowpower:1;
+	unsigned	irq_delay:1;
+	unsigned	wakeup_event:1;
+	u32		pmflags;	/* PM from otg or system */
+
+	/* register save area for suspend/resume */
+	u32		pm_command;
+	u32		pm_status;
+	u32		pm_intr_enable;
+	u32		pm_frame_index;
+	u32		pm_segment;
+	u32		pm_frame_list;
+	u32		pm_async_next;
+	u32		pm_configured_flag;
+	u32		pm_portsc;
+};
+
+struct fsl_usb2_wakeup_platform_data {
+	char *name;
+	void (*usb_clock_for_pm) (bool);
+	void (*usb_wakeup_exhandle) (void);
+	struct fsl_usb2_platform_data *usb_pdata[3];
+	/* This waitqueue is used to wait "usb_wakeup thread" to finish
+	 * during system resume routine. "usb_wakeup theard" should be finished
+	 * prior to usb resume routine.
+	 */
+	wait_queue_head_t wq;
+	/* This flag is used to indicate the "usb_wakeup thread" is finished during
+	 * usb wakeup routine.
+	 */
+	bool usb_wakeup_is_pending;
+};
+#else
 struct fsl_usb2_platform_data {
 	/* board specific information */
 	enum fsl_usb2_operating_modes	operating_mode;
@@ -96,6 +189,7 @@ struct fsl_usb2_platform_data {
 	u32		pm_portsc;
 	u32		pm_usbgenctrl;
 };
+#endif
 
 struct mxc_pm_platform_data {
         void (*suspend_enter) (void);
