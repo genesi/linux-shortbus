@@ -4459,10 +4459,6 @@ static struct clk_lookup lookups[] = {
 	_REGISTER_CLOCK(NULL, "usb_phy1_clk", usb_phy_clk[0]),
 	_REGISTER_CLOCK(NULL, "usb_utmi_clk", usb_utmi_clk),
 	_REGISTER_CLOCK(NULL, "usb_clk", usb_clk),
-	_REGISTER_CLOCK("sdhci-esdhc-imx.0", NULL, esdhc1_clk[0]),
-	_REGISTER_CLOCK("sdhci-esdhc-imx.1", NULL, esdhc2_clk[0]),
-	_REGISTER_CLOCK("sdhci-esdhc-imx.2", NULL, esdhc3_clk[0]),
-	_REGISTER_CLOCK("sdhci-esdhc-imx.3", NULL, esdhc4_clk[0]),
 	_REGISTER_CLOCK(NULL, "emi_slow_clk", emi_slow_clk),
 	_REGISTER_CLOCK(NULL, "ddr_clk", ddr_clk),
 	_REGISTER_CLOCK(NULL, "emi_enfc_clk", emi_enfc_clk),
@@ -4496,6 +4492,10 @@ static struct clk_lookup mx51_lookups[] = {
 	_REGISTER_CLOCK("imx51-ecspi.0", NULL, cspi1_clk[0]),
 	_REGISTER_CLOCK("imx51-ecspi.1", NULL, cspi2_clk[0]),
 	_REGISTER_CLOCK("imx51-cspi.0", NULL, cspi3_clk),
+	_REGISTER_CLOCK("sdhci-esdhc-imx51.0", NULL, esdhc1_clk[0]),
+	_REGISTER_CLOCK("sdhci-esdhc-imx51.1", NULL, esdhc2_clk[0]),
+	_REGISTER_CLOCK("sdhci-esdhc-imx51.2", NULL, esdhc3_clk[0]),
+	_REGISTER_CLOCK("sdhci-esdhc-imx51.3", NULL, esdhc4_clk[0]),
 };
 
 static struct clk_lookup mx53_lookups[] = {
@@ -4520,6 +4520,10 @@ static struct clk_lookup mx53_lookups[] = {
 	_REGISTER_CLOCK("imx53-ecspi.0", NULL, cspi1_clk[0]),
 	_REGISTER_CLOCK("imx53-ecspi.1", NULL, cspi2_clk[0]),
 	_REGISTER_CLOCK("imx53-cspi.0", NULL, cspi3_clk),
+	_REGISTER_CLOCK("sdhci-esdhc-imx53.0", NULL, esdhc1_clk[0]),
+	_REGISTER_CLOCK("sdhci-esdhc-imx53.1", NULL, esdhc2_clk[0]),
+	_REGISTER_CLOCK("sdhci-esdhc-imx53.2", NULL, esdhc3_clk[0]),
+	_REGISTER_CLOCK("sdhci-esdhc-imx53.3", NULL, esdhc4_clk[0]),
 };
 
 static void clk_tree_init(void)
