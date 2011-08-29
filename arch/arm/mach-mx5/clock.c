@@ -4479,7 +4479,6 @@ static struct clk_lookup lookups[] = {
 	_REGISTER_CLOCK("mxc_scc.0", NULL, scc_clk[0]),
 	_REGISTER_CLOCK(NULL, "cko1", cko1_clk),
 	_REGISTER_CLOCK(NULL, "gpt", gpt_clk[0]),
-	_REGISTER_CLOCK("fec.0", NULL, fec_clk[0]),
 	_REGISTER_CLOCK("mxc_w1.0", NULL, owire_clk),
 };
 
@@ -4496,6 +4495,7 @@ static struct clk_lookup mx51_lookups[] = {
 	_REGISTER_CLOCK("sdhci-esdhc-imx51.1", NULL, esdhc2_clk[0]),
 	_REGISTER_CLOCK("sdhci-esdhc-imx51.2", NULL, esdhc3_clk[0]),
 	_REGISTER_CLOCK("sdhci-esdhc-imx51.3", NULL, esdhc4_clk[0]),
+	_REGISTER_CLOCK("imx27-fec.0", NULL, fec_clk[0]),
 };
 
 static struct clk_lookup mx53_lookups[] = {
@@ -4524,6 +4524,7 @@ static struct clk_lookup mx53_lookups[] = {
 	_REGISTER_CLOCK("sdhci-esdhc-imx53.1", NULL, esdhc2_clk[0]),
 	_REGISTER_CLOCK("sdhci-esdhc-imx53.2", NULL, esdhc3_clk[0]),
 	_REGISTER_CLOCK("sdhci-esdhc-imx53.3", NULL, esdhc4_clk[0]),
+	_REGISTER_CLOCK("imx25-fec.0", NULL, fec_clk[0]),
 };
 
 static void clk_tree_init(void)
