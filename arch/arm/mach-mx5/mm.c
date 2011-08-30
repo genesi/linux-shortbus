@@ -14,6 +14,7 @@
 #include <linux/mm.h>
 #include <linux/init.h>
 
+#include <asm/sizes.h>
 #include <asm/mach/map.h>
 
 #include <mach/hardware.h>
@@ -99,6 +100,7 @@ void __init imx53_init_early(void)
 	mxc_set_cpu_type(MXC_CPU_MX53);
 	mxc_iomux_v3_init(MX53_IO_ADDRESS(MX53_IOMUXC_BASE_ADDR));
 	mxc_arch_reset_init(MX53_IO_ADDRESS(MX53_WDOG1_BASE_ADDR));
+	init_consistent_dma_size(SZ_128M);
 }
 
 void __init mx50_init_irq(void)
