@@ -54,3 +54,7 @@ extern const struct imx_srtc_data imx53_imx_srtc_data __initconst;
 extern const struct imx_iim_data imx53_imx_iim_data __initconst;
 #define imx53_add_iim(pdata) \
 	imx_add_iim(&imx53_imx_iim_data, pdata)
+
+extern const struct imx_ipuv3_data imx53_ipuv3_data __initconst;
+#define imx53_add_ipuv3(id, pdata)	imx_add_ipuv3(id, &imx53_ipuv3_data, pdata)
+#define imx53_add_ipuv3fb(id, pdata)	imx_add_ipuv3_fb(id, pdata)
