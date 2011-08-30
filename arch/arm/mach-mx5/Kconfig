@@ -33,6 +33,7 @@ config	SOC_IMX51
 	select ARCH_MX51
 	select IMX_HAVE_PLATFORM_IMX_IIM
 	select IMX_HAVE_PLATFORM_IMX_IPUV3
+	select IMX_HAVE_PLATFORM_IMX_TVE
 
 config	SOC_IMX53
 	bool
@@ -44,6 +45,7 @@ config	SOC_IMX53
 	select ARCH_MX53
 	select IMX_HAVE_PLATFORM_IMX_IIM
 	select IMX_HAVE_PLATFORM_IMX_IPUV3
+	select IMX_HAVE_PLATFORM_IMX_TVE
 
 #comment "i.MX50 machines:"
 

@@ -159,4 +159,9 @@ int fsl_deep_sleep(void);
 static inline int fsl_deep_sleep(void) { return 0; }
 #endif
 
+struct fsl_mxc_tve_platform_data {
+	char *dac_reg;
+	char *dig_reg;
+};
+
 #endif /* _FSL_DEVICE_H_ */
