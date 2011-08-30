@@ -27,3 +27,8 @@ config FB_MXC_TVOUT_TVE
 config FB_MXC_SII902X
 	depends on FB_MXC_SYNC_PANEL
 	tristate "Si Image SII9022 DVI/HDMI Interface Chip"
+
+config FB_MXC_LDB
+	tristate "MXC LDB"
+	depends on FB_MXC_SYNC_PANEL
+	depends on MXC_IPU_V3

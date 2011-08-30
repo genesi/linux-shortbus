@@ -199,6 +199,15 @@ struct platform_device *__init imx_add_tve(
 		const struct imx_tve_data *data,
 		const struct fsl_mxc_tve_platform_data *pdata);
 
+struct imx_ldb_data {
+	resource_size_t iobase;
+	resource_size_t iosize;
+};
+
+struct platform_device *__init imx_add_ldb(
+	const struct imx_ldb_data *data,
+	struct fsl_mxc_ldb_platform_data *pdata);
+
 #include <mach/mx1_camera.h>
 struct imx_mx1_camera_data {
 	resource_size_t iobase;
