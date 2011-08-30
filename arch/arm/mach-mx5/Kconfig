@@ -46,6 +46,7 @@ config	SOC_IMX53
 	select IMX_HAVE_PLATFORM_IMX_IIM
 	select IMX_HAVE_PLATFORM_IMX_IPUV3
 	select IMX_HAVE_PLATFORM_IMX_TVE
+	select IMX_HAVE_PLATFORM_LDB
 
 #comment "i.MX50 machines:"
 
