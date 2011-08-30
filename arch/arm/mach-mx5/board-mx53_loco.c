@@ -23,10 +23,12 @@
 #include <linux/delay.h>
 #include <linux/gpio.h>
 #include <linux/fsl_devices.h>
+#include <linux/ipu.h>
 
 #include <mach/common.h>
 #include <mach/hardware.h>
 #include <mach/iomux-mx53.h>
+#include <mach/ipu-v3.h>
 
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
@@ -44,6 +46,9 @@
 #define LOCO_SD3_CD			IMX_GPIO_NR(3, 11)
 #define LOCO_SD3_WP			IMX_GPIO_NR(3, 12)
 #define LOCO_SD1_CD			IMX_GPIO_NR(3, 13)
+#define LOCO_DISP0_PWR			IMX_GPIO_NR(3, 24)
+#define LOCO_DISP0_DET_INT		IMX_GPIO_NR(3, 31)
+#define LOCO_DISP0_RESET		IMX_GPIO_NR(5, 0)
 
 extern void __iomem *ccm_base;
 
@@ -244,6 +249,20 @@ static struct fec_platform_data mx53_loco_fec_data = {
 	.phy = PHY_INTERFACE_MODE_RMII,
 };
 
+static void sii902x_hdmi_reset(void)
+{
+	gpio_set_value(LOCO_DISP0_RESET, 0);
+	msleep(10);
+	gpio_set_value(LOCO_DISP0_RESET, 1);
+	msleep(10);
+}
+
+static struct fsl_mxc_lcd_platform_data sii902x_hdmi_data = {
+	.ipu_id = 0,
+	.disp_id = 0,
+	.reset = sii902x_hdmi_reset,
+};
+
 static const struct imxi2c_platform_data mx53_loco_i2c_data __initconst = {
 	.bitrate = 100000,
 };
@@ -253,6 +272,46 @@ static struct i2c_board_info mxc_i2c0_board_info[] __initdata = {
 		.type = "mma8450",
 		.addr = 0x1C,
 	},
+};
+
+static struct i2c_board_info mxc_i2c1_board_info[] __initdata = {
+	{
+	.type = "sii902x",
+	.addr = 0x39,
+	.irq = gpio_to_irq(LOCO_DISP0_DET_INT),
+	.platform_data = &sii902x_hdmi_data,
+	},
+};
+
+static struct fsl_mxc_ldb_platform_data ldb_data = {
+	.ipu_id = 0,
+	.disp_id = 0,
+	.ext_ref = 1,
+	.mode = LDB_SIN0,
+};
+
+static struct fsl_mxc_tve_platform_data tve_data = {
+	.dac_reg = "DA9052_LDO7",
+};
+
+static struct ipuv3_fb_platform_data loco_fb_data[] = {
+	{ /*fb0*/
+	.disp_dev = "hdmi",
+	.interface_pix_fmt = IPU_PIX_FMT_RGB24,
+	.mode_str = "1920x1080M@60",
+	.default_bpp = 16,
+	.int_clk = false,
+	}, {
+	.disp_dev = "vga",
+	.interface_pix_fmt = IPU_PIX_FMT_GBR24,
+	.mode_str = "VGA-XGA",
+	.default_bpp = 16,
+	.int_clk = false,
+	},
+};
+
+static struct imx_ipuv3_platform_data ipu_data = {
+	.rev = 3,
 };
 
 static const struct gpio_led mx53loco_leds[] __initconst = {
@@ -318,18 +377,61 @@ static struct mxc_pm_platform_data loco_pm_data = {
 extern int __init mx53_loco_init_da9052(void);
 extern void da9053_power_off(void);
 
-static void __init mx53_loco_board_init(void)
+static void __init mx53_loco_io_init(void)
 {
-	imx53_soc_init();
+	int ret;
 
 	mxc_iomux_v3_setup_multiple_pads(mx53_loco_pads,
 					ARRAY_SIZE(mx53_loco_pads));
+
+	/* Sii902x HDMI controller */
+	ret = gpio_request(LOCO_DISP0_RESET, "disp0-reset");
+	if (ret) {
+		printk(KERN_ERR"failed to get GPIO_LOCO_DISP0_RESET: %d\n", ret);
+		return;
+	}
+	gpio_direction_output(LOCO_DISP0_RESET, 0);
+
+	ret = gpio_request(LOCO_DISP0_DET_INT, "disp0-detect");
+	if (ret) {
+		printk(KERN_ERR"failed to get GPIO_LOCO_DISP0_DET_INT: %d\n", ret);
+		return;
+	}
+	gpio_direction_input(LOCO_DISP0_DET_INT);
+
+	/* enable disp0 power */
+	ret = gpio_request(LOCO_DISP0_PWR, "disp0-power-en");
+	if (ret) {
+		printk(KERN_ERR"failed to get GPIO_LOCO_DISP0_PWR: %d\n", ret);
+		return;
+	}
+	gpio_direction_output(LOCO_DISP0_PWR, 1);
+}
+
+static void __init mx53_loco_board_init(void)
+{
+	int i;
+
+	imx53_soc_init();
+
+	mx53_loco_io_init();
+
+	imx53_add_ipuv3(0, &ipu_data);
+
+	for (i = 0; i < ARRAY_SIZE(loco_fb_data); i++)
+		imx53_add_ipuv3fb(i, &loco_fb_data[i]);
+
+	imx53_add_ldb(&ldb_data);
+	imx53_add_tve(&tve_data);
+
 	imx53_add_imx_uart(0, NULL);
 	mx53_loco_fec_reset();
 	imx53_add_fec(&mx53_loco_fec_data);
 	imx53_add_imx2_wdt(0, NULL);
 	imx53_add_imx_i2c(0, &mx53_loco_i2c_data);
 	imx53_add_imx_i2c(1, &mx53_loco_i2c_data);
+	i2c_register_board_info(1, mxc_i2c1_board_info,
+				ARRAY_SIZE(mxc_i2c1_board_info));
 	imx53_add_sdhci_esdhc_imx(0, &mx53_loco_sd1_data);
 	imx53_add_sdhci_esdhc_imx(2, &mx53_loco_sd3_data);
 	imx53_add_srtc();
