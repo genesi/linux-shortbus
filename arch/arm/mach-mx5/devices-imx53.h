@@ -64,3 +64,7 @@ extern const struct imx_tve_data imx53_tve_data __initconst;
 extern const struct imx_ldb_data imx53_ldb_data __initconst;
 #define imx53_add_ldb(pdata) \
 	imx_add_ldb(&imx53_ldb_data, pdata);
+
+extern const struct imx_mxc_pwm_data imx53_mxc_pwm_data[] __initconst;
+#define imx53_add_mxc_pwm(id)	\
+	imx_add_mxc_pwm(&imx53_mxc_pwm_data[id])
