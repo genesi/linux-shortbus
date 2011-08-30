@@ -979,6 +979,16 @@ config VIDEO_S5P_MIPI_CSIS
 
 source "drivers/media/video/s5p-tv/Kconfig"
 
+config VIDEO_MXC_OUTPUT
+        tristate "MXC Video For Linux Video Output"
+        depends on VIDEO_DEV && ARCH_MXC
+        default y
+        ---help---
+          This is the video4linux2 output driver based on MXC IPU/eMMA module.
+
+source "drivers/media/video/mxc/output/Kconfig"
+
+
 #
 # USB Multimedia device configuration
 #
