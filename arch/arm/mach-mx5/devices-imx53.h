@@ -68,3 +68,7 @@ extern const struct imx_ldb_data imx53_ldb_data __initconst;
 extern const struct imx_mxc_pwm_data imx53_mxc_pwm_data[] __initconst;
 #define imx53_add_mxc_pwm(id)	\
 	imx_add_mxc_pwm(&imx53_mxc_pwm_data[id])
+
+#define imx53_add_mxc_pwm_backlight(id, pdata)			\
+	platform_device_register_resndata(NULL, "pwm-backlight",\
+			id, NULL, 0, pdata, sizeof(*pdata));

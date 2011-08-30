@@ -24,6 +24,7 @@
 #include <linux/gpio.h>
 #include <linux/fsl_devices.h>
 #include <linux/ipu.h>
+#include <linux/pwm_backlight.h>
 
 #include <mach/common.h>
 #include <mach/hardware.h>
@@ -377,6 +378,13 @@ static struct mxc_pm_platform_data loco_pm_data = {
 extern int __init mx53_loco_init_da9052(void);
 extern void da9053_power_off(void);
 
+static struct platform_pwm_backlight_data loco_pwm_backlight_data = {
+	.pwm_id = 1,
+	.max_brightness = 255,
+	.dft_brightness = 128,
+	.pwm_period_ns = 50000,
+};
+
 static void __init mx53_loco_io_init(void)
 {
 	int ret;
@@ -447,6 +455,9 @@ static void __init mx53_loco_board_init(void)
 	mxc_register_device(&mxc_pm_device, &loco_pm_data);
 	mx53_loco_init_da9052();
 	pm_power_off = da9053_power_off;
+
+	imx53_add_mxc_pwm(1);
+	imx53_add_mxc_pwm_backlight(0, &loco_pwm_backlight_data);
 }
 
 static void __init mx53_loco_timer_init(void)
