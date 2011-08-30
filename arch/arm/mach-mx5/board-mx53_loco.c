@@ -431,6 +431,7 @@ static void __init mx53_loco_board_init(void)
 
 	imx53_add_ldb(&ldb_data);
 	imx53_add_tve(&tve_data);
+	imx53_add_v4l2_output(0);
 
 	imx53_add_imx_uart(0, NULL);
 	mx53_loco_fec_reset();

@@ -60,3 +60,7 @@ extern const struct imx_ipuv3_data imx51_ipuv3_data __initconst;
 extern const struct imx_tve_data imx51_tve_data __initconst;
 #define imx51_add_tve(pdata)	\
 	imx_add_tve(&imx51_tve_data, pdata)
+
+#define imx51_add_v4l2_output(id)	\
+	platform_device_register_resndata(NULL, "mxc_v4l2_output",\
+			id, NULL, 0, NULL, 0);
