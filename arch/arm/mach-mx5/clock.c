@@ -4421,7 +4421,7 @@ static struct clk_lookup lookups[] = {
 	_REGISTER_CLOCK(NULL, "pll1_sw_clk", pll1_sw_clk),
 	_REGISTER_CLOCK(NULL, "pll2", pll2_sw_clk),
 	_REGISTER_CLOCK(NULL, "pll3", pll3_sw_clk),
-	_REGISTER_CLOCK(NULL, "gpc_dvfs_clk", gpc_dvfs_clk),
+	_REGISTER_CLOCK(NULL, "gpc_dvfs", gpc_dvfs_clk),
 	_REGISTER_CLOCK(NULL, "lp_apm", lp_apm_clk),
 	_REGISTER_CLOCK(NULL, "cpu_clk", cpu_clk),
 	_REGISTER_CLOCK(NULL, "periph_apm_clk", periph_apm_clk),
