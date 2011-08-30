@@ -190,6 +190,15 @@ struct platform_device *__init imx_add_ipuv3_fb(
 		const int id,
 		const struct ipuv3_fb_platform_data *pdata);
 
+#include <linux/fsl_devices.h>
+struct imx_tve_data {
+	resource_size_t iobase;
+	resource_size_t irq;
+};
+struct platform_device *__init imx_add_tve(
+		const struct imx_tve_data *data,
+		const struct fsl_mxc_tve_platform_data *pdata);
+
 #include <mach/mx1_camera.h>
 struct imx_mx1_camera_data {
 	resource_size_t iobase;
