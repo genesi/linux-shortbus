@@ -39,6 +39,7 @@
 #include "crm_regs.h"
 #include "devices-imx53.h"
 #include "devices.h"
+#include "usb.h"
 
 #define MX53_LOCO_POWER			IMX_GPIO_NR(1, 8)
 #define MX53_LOCO_UI1			IMX_GPIO_NR(2, 14)
@@ -53,6 +54,9 @@
 #define LOCO_DISP0_RESET		IMX_GPIO_NR(5, 0)
 
 extern void __iomem *ccm_base;
+extern void __iomem *imx_otg_base;
+
+#define LOCO_USBH1_VBUS			IMX_GPIO_NR(7, 8)
 
 static iomux_v3_cfg_t mx53_loco_pads[] = {
 	/* FEC */
@@ -390,6 +394,14 @@ static struct platform_pwm_backlight_data loco_pwm_backlight_data = {
 	.pwm_period_ns = 50000,
 };
 
+static void mx53_loco_usbh1_vbus(bool on)
+{
+        if (on)
+                gpio_set_value(LOCO_USBH1_VBUS, 1);
+        else
+                gpio_set_value(LOCO_USBH1_VBUS, 0);
+}
+
 static void __init mx53_loco_io_init(void)
 {
 	int ret;
@@ -423,7 +435,7 @@ static void __init mx53_loco_io_init(void)
 
 static void __init mx53_loco_board_init(void)
 {
-	int i;
+	int i, ret;
 
 	imx53_soc_init();
 
@@ -472,6 +484,19 @@ static void __init mx53_loco_board_init(void)
 	else
 		gpu_data.z160_revision = 0;
 	imx53_add_mxc_gpu(&gpu_data);
+
+        /* USB */
+	imx_otg_base = MX53_IO_ADDRESS(MX53_OTG_BASE_ADDR);
+	/* usb host1 vbus */
+        ret = gpio_request(LOCO_USBH1_VBUS, "usbh1-vbus");
+        if (ret) {
+                printk(KERN_ERR"failed to get GPIO LOCO_USBH1_VBUS: %d\n", ret);
+                return;
+        }
+        gpio_direction_output(LOCO_USBH1_VBUS, 0);
+        mx5_set_host1_vbus_func(mx53_loco_usbh1_vbus);
+        mx5_usbh1_init();
+	mx5_usb_dr_init();
 }
 
 static void __init mx53_loco_timer_init(void)

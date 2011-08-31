@@ -55,6 +55,12 @@ source "arch/arm/mach-mx5/Kconfig"
 
 endmenu
 
+# set if we need the UTMI transceiver
+config UTMI_MXC
+        bool
+        default y
+        depends on ARCH_MX25 || ARCH_MX35 || ARCH_MX37 || ARCH_MX503
+
 config MXC_IRQ_PRIOR
 	bool "Use IRQ priority"
 	help

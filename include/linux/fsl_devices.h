@@ -67,6 +67,13 @@ enum fsl_usb2_phy_modes {
 	FSL_USB2_PHY_SERIAL,
 };
 
+enum usb_wakeup_event {
+        WAKEUP_EVENT_INVALID,
+        WAKEUP_EVENT_VBUS,
+        WAKEUP_EVENT_ID,
+        WAKEUP_EVENT_DPDM, /* for remote wakeup */
+};
+
 struct clk;
 struct platform_device;
 
