@@ -118,3 +118,8 @@ struct platform_device mxc_usbh2_device = {
 		.coherent_dma_mask = DMA_BIT_MASK(32),
 	},
 };
+
+struct platform_device mxc_pm_device = {
+  .name = "mx5_pm",
+  .id = 0,
+};
