@@ -120,6 +120,25 @@ struct fsl_spi_platform_data {
 	u32	sysclk;
 };
 
+struct mxc_iim_platform_data {
+	const s8        *name;
+	u32     virt_base;
+	u32     reg_base;
+	u32     reg_end;
+	u32     reg_size;
+	u32     bank_start;
+	u32     bank_end;
+	u32     irq;
+	u32     action;
+	struct mutex mutex;
+	struct completion completion;
+	spinlock_t lock;
+	struct clk *clk;
+	struct device *dev;
+	void   (*enable_fuse)(void);
+	void   (*disable_fuse)(void);
+};
+
 struct mpc8xx_pcmcia_ops {
 	void(*hw_ctrl)(int slot, int enable);
 	int(*voltage_set)(int slot, int vcc, int vpp);
