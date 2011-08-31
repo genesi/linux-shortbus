@@ -3,7 +3,8 @@
 #
 
 # Object file lists.
-obj-y   := cpu.o mm.o devices.o ehci.o system.o bus_freq.o sdram_autogating.o suspend.o
+obj-y   := cpu.o mm.o devices.o ehci.o system.o bus_freq.o sdram_autogating.o \
+	   suspend.o
 obj-$(CONFIG_SOC_IMX50) += mm-mx50.o
 obj-$(CONFIG_SOC_IMX51)	+= clock.o
 obj-$(CONFIG_SOC_IMX53)	+= clock.o
@@ -27,3 +28,4 @@ obj-$(CONFIG_MACH_MX50_RDP) += board-mx50_rdp.o
 
 obj-$(CONFIG_MACH_IMX51_DT) += imx51-dt.o
 obj-$(CONFIG_MACH_IMX53_DT) += imx53-dt.o
+obj-$(CONFIG_USB_SUPPORT)	+= usb_h1.o usb_dr.o

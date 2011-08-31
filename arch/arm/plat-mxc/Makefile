@@ -3,7 +3,7 @@
 #
 
 # Common support
-obj-y := clock.o time.o devices.o cpu.o system.o irq-common.o usb_common.o
+obj-y := clock.o time.o devices.o cpu.o system.o irq-common.o
 
 obj-$(CONFIG_ARM_GIC) += gic.o
 obj-$(CONFIG_MXC_TZIC) += tzic.o
@@ -30,3 +30,6 @@ obj-$(CONFIG_ARCH_MX5) += dvfs_core.o
 
 # DVFS-PER support
 obj-$(CONFIG_MXC_DVFS_PER)	+= dvfs_per.o
+obj-$(CONFIG_UTMI_MXC)    += utmixc.o
+
+obj-$(CONFIG_USB_EHCI_ARC)	+= usb_common.o usb_wakeup.o

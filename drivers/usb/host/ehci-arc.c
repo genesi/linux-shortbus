@@ -264,7 +264,7 @@ err2:
 err1:
 	dev_err(&pdev->dev, "init %s fail, %d\n", dev_name(&pdev->dev), retval);
 	if (pdata->exit)
-		pdata->exit(pdata->pdev);
+		pdata->exit(pdev);
 	return retval;
 }
 

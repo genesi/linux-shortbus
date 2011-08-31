@@ -47,6 +47,7 @@
 #include <asm/unaligned.h>
 #include <asm/dma.h>
 #include <asm/cacheflush.h>
+#include <asm/mach-types.h>
 
 #include "arcotg_udc.h"
 #include <mach/arc_otg.h>
@@ -2169,8 +2170,10 @@ bool try_wake_up_udc(struct fsl_udc *udc)
 		u32 tmp;
 		fsl_writel(irq_src, &dr_regs->otgsc);
 		/* only handle device interrupt event */
-		if (!(fsl_readl(&dr_regs->otgsc) & OTGSC_STS_USB_ID))
-			return false;
+		if (!machine_is_mx53_loco()) {
+			if (!(fsl_readl(&dr_regs->otgsc) & OTGSC_STS_USB_ID))
+				return false;
+		}
 
 		tmp = fsl_readl(&dr_regs->usbcmd);
 		/* check BSV bit to see if fall or rise */
