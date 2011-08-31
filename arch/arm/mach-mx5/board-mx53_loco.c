@@ -299,6 +299,7 @@ static void __init mx53_loco_board_init(void)
 	imx_add_gpio_keys(&loco_button_data);
 	gpio_led_register_device(-1, &mx53loco_leds_data);
 	imx53_add_ahci_imx();
+	irq_set_irq_wake(gpio_to_irq(MX53_LOCO_POWER), 1);
 }
 
 static void __init mx53_loco_timer_init(void)
