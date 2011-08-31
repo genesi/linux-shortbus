@@ -23,6 +23,7 @@
 #include <linux/delay.h>
 #include <linux/gpio.h>
 #include <linux/i2c.h>
+#include <linux/fsl_devices.h>
 
 #include <mach/common.h>
 #include <mach/hardware.h>
@@ -34,6 +35,7 @@
 
 #include "crm_regs.h"
 #include "devices-imx53.h"
+#include "devices.h"
 
 #define MX53_LOCO_POWER			IMX_GPIO_NR(1, 8)
 #define MX53_LOCO_UI1			IMX_GPIO_NR(2, 14)
@@ -313,6 +315,26 @@ static struct mxc_iim_platform_data iim_data = {
 	.disable_fuse = mxc_iim_disable_fuse,
 };
 
+static void loco_suspend_enter(void)
+{
+	/* da9053 suspend preparation */
+}
+
+static void loco_suspend_exit(void)
+{
+	/*clear the EMPGC0/1 bits */
+	__raw_writel(0, MXC_SRPG_EMPGC0_SRPGCR);
+	__raw_writel(0, MXC_SRPG_EMPGC1_SRPGCR);
+	/* da9053 resmue resore */
+}
+
+static struct mxc_pm_platform_data loco_pm_data = {
+        .suspend_enter = loco_suspend_enter,
+        .suspend_exit = loco_suspend_exit,
+};
+
+extern int __init mx53_loco_init_da9052(void);
+
 static void __init mx53_loco_board_init(void)
 {
 	int ret;
@@ -343,6 +365,9 @@ static void __init mx53_loco_board_init(void)
 
 	i2c_register_board_info(0, mxc_i2c0_board_info,
 				ARRAY_SIZE(mxc_i2c0_board_info));
+
+	mxc_register_device(&mxc_pm_device, &loco_pm_data);
+	mx53_loco_init_da9052();
 }
 
 static void __init mx53_loco_timer_init(void)
