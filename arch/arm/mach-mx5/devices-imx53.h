@@ -44,3 +44,7 @@ extern const struct imx_imx_keypad_data imx53_imx_keypad_data;
 extern const struct imx_srtc_data imx53_imx_srtc_data __initconst;
 #define imx53_add_srtc()	\
 	imx_add_srtc(&imx53_imx_srtc_data)
+
+extern const struct imx_iim_data imx53_imx_iim_data __initconst;
+#define imx53_add_iim(pdata) \
+	imx_add_iim(&imx53_imx_iim_data, pdata)

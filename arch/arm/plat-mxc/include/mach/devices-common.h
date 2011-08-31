@@ -308,3 +308,11 @@ struct imx_srtc_data {
 };
 struct platform_device *__init imx_add_srtc(
 		const struct imx_srtc_data *data);
+
+struct imx_iim_data {
+	resource_size_t iobase;
+	resource_size_t irq;
+};
+struct platform_device *__init imx_add_iim(
+		const struct imx_iim_data *data,
+		const struct mxc_iim_platform_data *pdata);

@@ -31,6 +31,7 @@ config	SOC_IMX51
 	select ARCH_MXC_AUDMUX_V2
 	select ARCH_HAS_CPUFREQ
 	select ARCH_MX5
+	select IMX_HAVE_PLATFORM_IMX_IIM
 
 config	SOC_IMX53
 	bool
@@ -41,6 +42,7 @@ config	SOC_IMX53
 	select ARCH_HAS_CPUFREQ
 	select ARCH_MX5
 	select ARCH_MX53
+	select IMX_HAVE_PLATFORM_IMX_IIM
 
 if ARCH_MX50_SUPPORTED
 #comment "i.MX50 machines:"
