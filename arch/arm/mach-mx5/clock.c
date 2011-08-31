@@ -37,6 +37,7 @@
 static unsigned long external_high_reference, external_low_reference;
 static unsigned long oscillator_reference, ckih2_reference;
 
+static struct clk dummy_clk;
 static struct clk pll1_main_clk;
 static struct clk pll1_sw_clk;
 static struct clk pll2_sw_clk;
@@ -4405,6 +4406,10 @@ static struct clk asrc_clk[] = {
 	},
 };
 
+static struct clk dummy_clk = {
+	.id = 0,
+};
+
 #define _REGISTER_CLOCK(d, n, c) \
 	{ \
 		.dev_id = d, \
@@ -4496,6 +4501,8 @@ static struct clk_lookup mx51_lookups[] = {
 	_REGISTER_CLOCK("sdhci-esdhc-imx51.2", NULL, esdhc3_clk[0]),
 	_REGISTER_CLOCK("sdhci-esdhc-imx51.3", NULL, esdhc4_clk[0]),
 	_REGISTER_CLOCK("imx27-fec.0", NULL, fec_clk[0]),
+	_REGISTER_CLOCK("imx2-wdt.0", NULL, dummy_clk),
+	_REGISTER_CLOCK("imx2-wdt.1", NULL, dummy_clk),
 };
 
 static struct clk_lookup mx53_lookups[] = {
@@ -4525,6 +4532,8 @@ static struct clk_lookup mx53_lookups[] = {
 	_REGISTER_CLOCK("sdhci-esdhc-imx53.2", NULL, esdhc3_clk[0]),
 	_REGISTER_CLOCK("sdhci-esdhc-imx53.3", NULL, esdhc4_clk[0]),
 	_REGISTER_CLOCK("imx25-fec.0", NULL, fec_clk[0]),
+	_REGISTER_CLOCK("imx2-wdt.0", NULL, dummy_clk),
+	_REGISTER_CLOCK("imx2-wdt.1", NULL, dummy_clk),
 };
 
 static void clk_tree_init(void)
