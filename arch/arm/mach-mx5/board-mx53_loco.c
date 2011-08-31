@@ -244,6 +244,13 @@ static const struct imxi2c_platform_data mx53_loco_i2c_data __initconst = {
 	.bitrate = 100000,
 };
 
+static struct i2c_board_info mxc_i2c0_board_info[] __initdata = {
+	{
+		.type = "mma8450",
+		.addr = 0x1C,
+	},
+};
+
 static const struct gpio_led mx53loco_leds[] __initconst = {
 	{
 		.name			= "green",
@@ -275,6 +282,9 @@ static void __init mx53_loco_board_init(void)
 	imx_add_gpio_keys(&loco_button_data);
 	gpio_led_register_device(-1, &mx53loco_leds_data);
 	irq_set_irq_wake(gpio_to_irq(MX53_LOCO_POWER), 1);
+
+	i2c_register_board_info(0, mxc_i2c0_board_info,
+				ARRAY_SIZE(mxc_i2c0_board_info));
 }
 
 static void __init mx53_loco_timer_init(void)
