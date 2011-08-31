@@ -44,6 +44,7 @@ static int mx5_suspend_enter(suspend_state_t state)
 		__raw_writel(0, MXC_SRPG_EMPGC1_SRPGCR);
 	}
 	cpu_do_idle();
+	__raw_writel(0, MXC_CORTEXA8_PLAT_LPC);
 	clk_disable(gpc_dvfs_clk);
 
 	return 0;
