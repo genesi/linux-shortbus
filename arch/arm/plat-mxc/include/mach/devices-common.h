@@ -171,6 +171,19 @@ struct platform_device *__init imx_add_imx_udc(
 		const struct imx_imx_udc_data *data,
 		const struct imxusb_platform_data *pdata);
 
+#include <mach/mxc_vpu.h>
+struct imx_vpu_data {
+	resource_size_t iobase;
+	resource_size_t irq_ipi;
+	resource_size_t irq_jpg;
+	bool iram_enable;
+	int iram_size;
+	void (*reset) (void);
+	void (*pg) (int);
+};
+struct platform_device *__init imx_add_vpu(
+		const struct imx_vpu_data *data);
+
 #include <mach/ipu-v3.h>
 struct imx_ipuv3_data {
 	resource_size_t iobase;

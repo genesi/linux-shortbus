@@ -76,3 +76,6 @@ extern const struct imx_mxc_pwm_data imx53_mxc_pwm_data[] __initconst;
 #define imx53_add_v4l2_output(id)	\
 	platform_device_register_resndata(NULL, "mxc_v4l2_output",\
 			id, NULL, 0, NULL, 0);
+
+extern const struct imx_vpu_data imx53_vpu_data __initconst;
+#define imx53_add_vpu()	imx_add_vpu(&imx53_vpu_data)
