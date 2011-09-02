@@ -316,6 +316,7 @@ static struct mxc_pm_platform_data loco_pm_data = {
 };
 
 extern int __init mx53_loco_init_da9052(void);
+extern void da9053_power_off(void);
 
 static void __init mx53_loco_board_init(void)
 {
@@ -343,6 +344,7 @@ static void __init mx53_loco_board_init(void)
 	imx53_add_ahci_imx(0, NULL);
 	mxc_register_device(&mxc_pm_device, &loco_pm_data);
 	mx53_loco_init_da9052();
+	pm_power_off = da9053_power_off;
 }
 
 static void __init mx53_loco_timer_init(void)
