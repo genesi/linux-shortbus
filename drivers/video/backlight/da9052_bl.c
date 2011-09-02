@@ -264,6 +264,7 @@ static int da9052_backlight_probe1(struct platform_device *pdev)
 
 	memset(&props, 0, sizeof(struct backlight_properties));
 	props.max_brightness = DA9052_MAX_BRIGHTNESS;
+	props.type = BACKLIGHT_RAW;
 	bl = backlight_device_register(pdev->name, data->da9052_dev,
 				       data, &da9052_backlight_ops, &props);
 	if (IS_ERR(bl)) {
@@ -302,6 +303,7 @@ static int da9052_backlight_probe2(struct platform_device *pdev)
 
 	memset(&props, 0, sizeof(struct backlight_properties));
 	props.max_brightness = DA9052_MAX_BRIGHTNESS;
+	props.type = BACKLIGHT_RAW;
 	bl = backlight_device_register(pdev->name, data->da9052_dev,
 				       data, &da9052_backlight_ops, &props);
 	if (IS_ERR(bl)) {
@@ -340,6 +342,7 @@ static int da9052_backlight_probe3(struct platform_device *pdev)
 
 	memset(&props, 0, sizeof(struct backlight_properties));
 	props.max_brightness = DA9052_MAX_BRIGHTNESS;
+	props.type = BACKLIGHT_RAW;
 	bl = backlight_device_register(pdev->name, data->da9052_dev,
 				       data, &da9052_backlight_ops, &props);
 	if (IS_ERR(bl)) {
