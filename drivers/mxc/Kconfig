@@ -20,6 +20,7 @@ config MXC_IPU
 source "drivers/mxc/ipu3/Kconfig"
 
 source "drivers/mxc/vpu/Kconfig"
+source "drivers/mxc/amd-gpu/Kconfig"
 
 endmenu
 
