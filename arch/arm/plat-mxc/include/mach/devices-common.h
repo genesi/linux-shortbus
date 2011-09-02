@@ -301,3 +301,10 @@ struct platform_device *__init imx_add_spi_imx(
 struct platform_device *imx_add_imx_dma(void);
 struct platform_device *imx_add_imx_sdma(char *name,
 	resource_size_t iobase, int irq, struct sdma_platform_data *pdata);
+
+struct imx_srtc_data {
+	resource_size_t iobase;
+	resource_size_t irq;
+};
+struct platform_device *__init imx_add_srtc(
+		const struct imx_srtc_data *data);
