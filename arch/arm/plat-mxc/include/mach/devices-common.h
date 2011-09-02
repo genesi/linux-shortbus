@@ -358,3 +358,17 @@ struct imx_ahci_imx_data {
 struct platform_device *__init imx_add_ahci_imx(
 		const struct imx_ahci_imx_data *data,
 		const struct ahci_platform_data *pdata);
+
+#include <mach/mxc_gpu.h>
+struct imx_mxc_gpu_data {
+	resource_size_t irq_2d;
+	resource_size_t irq_3d;
+	resource_size_t iobase_2d;
+	resource_size_t iobase_3d;
+	resource_size_t gmem_base;
+	resource_size_t gmem_size;
+};
+
+struct platform_device *__init imx_add_mxc_gpu(
+		const struct imx_mxc_gpu_data *data,
+		const struct mxc_gpu_platform_data *pdata);
