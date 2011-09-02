@@ -29,6 +29,10 @@ extern const struct imx_spi_imx_data imx53_ecspi_data[];
 #define imx53_add_ecspi(id, pdata)	\
 	imx_add_spi_imx(&imx53_ecspi_data[id], pdata)
 
+extern const struct imx_mxc_gpu_data imx53_gpu_data __initconst;
+#define imx53_add_mxc_gpu(pdata) \
+	imx_add_mxc_gpu(&imx53_gpu_data, pdata)
+
 extern const struct imx_imx2_wdt_data imx53_imx2_wdt_data[];
 #define imx53_add_imx2_wdt(id, pdata)	\
 	imx_add_imx2_wdt(&imx53_imx2_wdt_data[id])

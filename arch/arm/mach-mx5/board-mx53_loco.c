@@ -26,6 +26,7 @@
 #include <linux/fsl_devices.h>
 #include <linux/ipu.h>
 #include <linux/pwm_backlight.h>
+#include <linux/memblock.h>
 
 #include <mach/common.h>
 #include <mach/hardware.h>
@@ -346,6 +347,10 @@ static struct i2c_board_info mx53loco_i2c_devices[] = {
 	},
 };
 
+static struct mxc_gpu_platform_data gpu_data __initdata = {
+	.reserved_mem_size	= SZ_64M,
+};
+
 static void mxc_iim_enable_fuse(void)
 {
 	u32 reg;
@@ -485,6 +490,13 @@ static void __init mx53_loco_board_init(void)
 
 	imx53_add_mxc_pwm(1);
 	imx53_add_mxc_pwm_backlight(0, &loco_pwm_backlight_data);
+
+	/*GPU*/
+	if (mx53_revision() >= IMX_CHIP_REVISION_2_0)
+		gpu_data.z160_revision = 1;
+	else
+		gpu_data.z160_revision = 0;
+	imx53_add_mxc_gpu(&gpu_data);
 }
 
 static void __init mx53_loco_timer_init(void)
@@ -496,6 +508,18 @@ static struct sys_timer mx53_loco_timer = {
 	.init	= mx53_loco_timer_init,
 };
 
+static void __init mx53_loco_reserve(void)
+{
+	phys_addr_t phys;
+
+	if (gpu_data.reserved_mem_size) {
+		phys = memblock_alloc(gpu_data.reserved_mem_size, SZ_4K);
+		memblock_free(phys, gpu_data.reserved_mem_size);
+		memblock_remove(phys, gpu_data.reserved_mem_size);
+		gpu_data.reserved_mem_base = phys;
+	}
+}
+
 MACHINE_START(MX53_LOCO, "Freescale MX53 LOCO Board")
 	.map_io = mx53_map_io,
 	.init_early = imx53_init_early,
@@ -503,4 +527,5 @@ MACHINE_START(MX53_LOCO, "Freescale MX53 LOCO Board")
 	.handle_irq = imx53_handle_irq,
 	.timer = &mx53_loco_timer,
 	.init_machine = mx53_loco_board_init,
+	.reserve = mx53_loco_reserve,
 MACHINE_END
