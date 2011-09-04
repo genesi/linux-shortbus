@@ -45,6 +45,8 @@
 #define LOCO_SD1_CD			IMX_GPIO_NR(3, 13)
 #define LOCO_ACCEL_EN			IMX_GPIO_NR(6, 14)
 
+extern void __iomem *ccm_base;
+
 static iomux_v3_cfg_t mx53_loco_pads[] = {
 	/* FEC */
 	MX53_PAD_FEC_MDC__FEC_MDC,
@@ -282,6 +284,35 @@ static struct i2c_board_info mx53loco_i2c_devices[] = {
 	},
 };
 
+static void mxc_iim_enable_fuse(void)
+{
+	u32 reg;
+	if (!ccm_base)
+		return;
+	/* enable fuse blown */
+	reg = readl(ccm_base + 0x64);
+	reg |= 0x10;
+	writel(reg, ccm_base + 0x64);
+}
+
+static void mxc_iim_disable_fuse(void)
+{
+	u32 reg;
+	if (!ccm_base)
+		return;
+	/* enable fuse blown */
+	reg = readl(ccm_base + 0x64);
+	reg &= ~0x10;
+	writel(reg, ccm_base + 0x64);
+}
+
+static struct mxc_iim_platform_data iim_data = {
+	.bank_start = MXC_IIM_MX53_BANK_START_ADDR,
+	.bank_end   = MXC_IIM_MX53_BANK_END_ADDR,
+	.enable_fuse = mxc_iim_enable_fuse,
+	.disable_fuse = mxc_iim_disable_fuse,
+};
+
 static void __init mx53_loco_board_init(void)
 {
 	int ret;
@@ -308,6 +339,7 @@ static void __init mx53_loco_board_init(void)
 	gpio_led_register_device(-1, &mx53loco_leds_data);
 	imx53_add_ahci_imx();
 	irq_set_irq_wake(gpio_to_irq(MX53_LOCO_POWER), 1);
+	imx53_add_iim(&iim_data);
 
 	i2c_register_board_info(0, mxc_i2c0_board_info,
 				ARRAY_SIZE(mxc_i2c0_board_info));
