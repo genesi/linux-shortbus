@@ -43,6 +43,8 @@
 #define LOCO_SD3_WP			IMX_GPIO_NR(3, 12)
 #define LOCO_SD1_CD			IMX_GPIO_NR(3, 13)
 
+extern void __iomem *ccm_base;
+
 static iomux_v3_cfg_t mx53_loco_pads[] = {
 	/* FEC */
 	MX53_PAD_FEC_MDC__FEC_MDC,
@@ -264,6 +266,35 @@ static const struct gpio_led_platform_data mx53loco_leds_data __initconst = {
 	.num_leds	= ARRAY_SIZE(mx53loco_leds),
 };
 
+static void mxc_iim_enable_fuse(void)
+{
+	u32 reg;
+	if (!ccm_base)
+		return;
+	/* enable fuse blown */
+	reg = readl(ccm_base + 0x64);
+	reg |= 0x10;
+	writel(reg, ccm_base + 0x64);
+}
+
+static void mxc_iim_disable_fuse(void)
+{
+	u32 reg;
+	if (!ccm_base)
+		return;
+	/* enable fuse blown */
+	reg = readl(ccm_base + 0x64);
+	reg &= ~0x10;
+	writel(reg, ccm_base + 0x64);
+}
+
+static struct mxc_iim_platform_data iim_data = {
+	.bank_start = MXC_IIM_MX53_BANK_START_ADDR,
+	.bank_end   = MXC_IIM_MX53_BANK_END_ADDR,
+	.enable_fuse = mxc_iim_enable_fuse,
+	.disable_fuse = mxc_iim_disable_fuse,
+};
+
 static void __init mx53_loco_board_init(void)
 {
 	imx53_soc_init();
@@ -282,6 +313,7 @@ static void __init mx53_loco_board_init(void)
 	imx_add_gpio_keys(&loco_button_data);
 	gpio_led_register_device(-1, &mx53loco_leds_data);
 	irq_set_irq_wake(gpio_to_irq(MX53_LOCO_POWER), 1);
+	imx53_add_iim(&iim_data);
 
 	i2c_register_board_info(0, mxc_i2c0_board_info,
 				ARRAY_SIZE(mxc_i2c0_board_info));
