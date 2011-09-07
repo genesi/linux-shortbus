@@ -120,7 +120,7 @@ static struct resource usbotg_xcvr_resources[] = {
 		.flags = IORESOURCE_MEM,
 	},
 	{
-		.start = MX51_MXC_INT_USB_OTG,
+		.start = MX51_INT_USB_OTG,
 		.flags = IORESOURCE_IRQ,
 	},
 };
