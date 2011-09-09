@@ -4446,7 +4446,7 @@ static struct clk_lookup lookups[] = {
 	_REGISTER_CLOCK(NULL, "vpu_clk", vpu_clk[0]),
 	_REGISTER_CLOCK(NULL, "vpu_core_clk", vpu_clk[1]),
 	_REGISTER_CLOCK(NULL, "nfc_clk", emi_enfc_clk),
-	_REGISTER_CLOCK("imx-sdma", NULL, sdma_clk[0]),
+	_REGISTER_CLOCK("imx35-sdma", NULL, sdma_clk[0]),
 	_REGISTER_CLOCK(NULL, "ipu1_clk", ipu_clk[0]),
 	_REGISTER_CLOCK(NULL, "ipu1_di0_clk", ipu_di_clk[0]),
 	_REGISTER_CLOCK(NULL, "ipu1_di1_clk", ipu_di_clk[1]),
