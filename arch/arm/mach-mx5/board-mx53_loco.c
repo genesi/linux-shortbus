@@ -42,6 +42,7 @@
 #include "usb.h"
 
 #define MX53_LOCO_POWER			IMX_GPIO_NR(1, 8)
+#define LOCO_HEADPHONE_DET		IMX_GPIO_NR(2, 5)
 #define MX53_LOCO_UI1			IMX_GPIO_NR(2, 14)
 #define MX53_LOCO_UI2			IMX_GPIO_NR(2, 15)
 #define LOCO_FEC_PHY_RST		IMX_GPIO_NR(7, 6)
@@ -236,6 +237,49 @@ static const struct esdhc_platform_data mx53_loco_sd3_data __initconst = {
 	.wp_type = ESDHC_WP_GPIO,
 };
 
+static struct mxc_audio_platform_data loco_audio_data;
+
+static int loco_sgtl5000_init(void)
+{
+	struct clk *ssi_ext1;
+	int rate;
+
+	ssi_ext1 = clk_get(NULL, "ssi_ext1_clk");
+	if (IS_ERR(ssi_ext1))
+		return -1;
+
+	rate = clk_round_rate(ssi_ext1, 24000000);
+	if (rate < 8000000 || rate > 27000000) {
+			pr_err("Error: SGTL5000 mclk freq %d out of range!\n",
+				   rate);
+			clk_put(ssi_ext1);
+			return -1;
+	}
+
+	loco_audio_data.sysclk = rate;
+	clk_set_rate(ssi_ext1, rate);
+	clk_enable(ssi_ext1);
+
+	return 0;
+}
+
+static struct imx_ssi_platform_data loco_ssi_pdata = {
+	.flags = IMX_SSI_DMA,
+};
+
+static struct mxc_audio_platform_data loco_audio_data = {
+	.ssi_num = 1,
+	.src_port = 2,
+	.ext_port = 5,
+	.init = loco_sgtl5000_init,
+	.hp_gpio = LOCO_HEADPHONE_DET,
+	.hp_active_low = 1,
+};
+
+static struct platform_device loco_audio_device = {
+	.name = "imx-sgtl5000",
+};
+
 static inline void mx53_loco_fec_reset(void)
 {
 	int ret;
@@ -281,6 +325,10 @@ static struct i2c_board_info mxc_i2c0_board_info[] __initdata = {
 };
 
 static struct i2c_board_info mxc_i2c1_board_info[] __initdata = {
+	{
+	.type = "sgtl5000",
+	.addr = 0x0a,
+	},
 	{
 	.type = "sii902x",
 	.addr = 0x39,
@@ -457,18 +505,19 @@ static void __init mx53_loco_board_init(void)
 	imx53_add_imx2_wdt(0, NULL);
 	imx53_add_imx_i2c(0, &mx53_loco_i2c_data);
 	imx53_add_imx_i2c(1, &mx53_loco_i2c_data);
+	i2c_register_board_info(0, mxc_i2c0_board_info,
+				ARRAY_SIZE(mxc_i2c0_board_info));
 	i2c_register_board_info(1, mxc_i2c1_board_info,
 				ARRAY_SIZE(mxc_i2c1_board_info));
 	imx53_add_sdhci_esdhc_imx(0, &mx53_loco_sd1_data);
 	imx53_add_sdhci_esdhc_imx(2, &mx53_loco_sd3_data);
+	mxc_register_device(&loco_audio_device, &loco_audio_data);
+	imx53_add_imx_ssi(1, &loco_ssi_pdata);
 	imx53_add_srtc();
 	imx_add_gpio_keys(&loco_button_data);
 	gpio_led_register_device(-1, &mx53loco_leds_data);
 	irq_set_irq_wake(gpio_to_irq(MX53_LOCO_POWER), 1);
 	imx53_add_iim(&iim_data);
-
-	i2c_register_board_info(0, mxc_i2c0_board_info,
-				ARRAY_SIZE(mxc_i2c0_board_info));
 
 	imx53_add_ahci_imx(0, NULL);
 	mxc_register_device(&mxc_pm_device, &loco_pm_data);

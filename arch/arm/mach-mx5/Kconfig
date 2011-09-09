@@ -42,6 +42,7 @@ config	SOC_IMX53
 	select ARM_L1_CACHE_SHIFT_6
 	select MXC_TZIC
 	select ARCH_MXC_IOMUX_V3
+	select ARCH_MXC_AUDMUX_V2
 	select ARCH_HAS_CPUFREQ
 	select ARCH_MX5
 	select ARCH_MX53
@@ -218,6 +219,7 @@ config MACH_MX53_LOCO
 	select IMX_HAVE_PLATFORM_SDHCI_ESDHC_IMX
 	select IMX_HAVE_PLATFORM_GPIO_KEYS
 	select LEDS_GPIO_REGISTER
+	select IMX_HAVE_PLATFORM_IMX_SSI
 	help
 	  Include support for MX53 LOCO platform. This includes specific
 	  configurations for the board and its peripherals.
