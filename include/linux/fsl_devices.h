@@ -250,6 +250,32 @@ struct mpc8xx_pcmcia_ops {
 	int(*voltage_set)(int slot, int vcc, int vpp);
 };
 
+/*
+ * This struct is to define the number of SSIs on a platform,
+ * DAM source port config, DAM external port config,
+ * regulator names, and other stuff audio needs.
+ */
+struct mxc_audio_platform_data {
+	int ssi_num;
+	int src_port;
+	int ext_port;
+
+	int intr_id_hp;
+	int ext_ram;
+	struct clk *ssi_clk[2];
+
+	int hp_gpio;
+	int hp_active_low;	/* headphone irq is active loaw */
+
+	int sysclk;
+
+	int (*init) (void);	/* board specific init */
+	int (*amp_enable) (int enable);
+	int (*clock_enable) (int enable);
+	int (*finit) (void);	/* board specific finit */
+	void *priv;		/* used by board specific functions */
+};
+
 /* Returns non-zero if the current suspend operation would
  * lead to a deep sleep (i.e. power removed from the core,
  * instead of just the clock).
