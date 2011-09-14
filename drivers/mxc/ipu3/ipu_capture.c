@@ -94,9 +94,10 @@ ipu_csi_init_interface(struct ipu_soc *ipu, uint16_t width, uint16_t height,
 		cfg_param.force_eof << CSI_SENS_CONF_FORCE_EOF_SHIFT |
 		cfg_param.data_en_pol << CSI_SENS_CONF_DATA_EN_POL_SHIFT;
 
-	_ipu_get(ipu);
+	if (!ipu->clk_enabled)
+		clk_enable(ipu->ipu_clk);
 
-	_ipu_lock(ipu, &lock_flags);
+	spin_lock_irqsave(&ipu->ipu_lock, lock_flags);
 
 	ipu_csi_write(ipu, csi, data, CSI_SENS_CONF);
 
@@ -135,10 +136,11 @@ ipu_csi_init_interface(struct ipu_soc *ipu, uint16_t width, uint16_t height,
 			ipu_csi_write(ipu, csi, 0x40596, CSI_CCIR_CODE_2);
 			ipu_csi_write(ipu, csi, 0xFF0000, CSI_CCIR_CODE_3);
 		} else {
+			spin_unlock_irqrestore(&ipu->ipu_lock, lock_flags);
 			dev_err(ipu->dev, "Unsupported CCIR656 interlaced "
 					"video mode\n");
-			_ipu_unlock(ipu, &lock_flags);
-			_ipu_put(ipu);
+			if (!ipu->clk_enabled)
+				clk_disable(ipu->ipu_clk);
 			return -EINVAL;
 		}
 		_ipu_csi_ccir_err_detection_enable(ipu, csi);
@@ -163,9 +165,10 @@ ipu_csi_init_interface(struct ipu_soc *ipu, uint16_t width, uint16_t height,
 	dev_dbg(ipu->dev, "CSI_ACT_FRM_SIZE = 0x%08X\n",
 		ipu_csi_read(ipu, csi, CSI_ACT_FRM_SIZE));
 
-	_ipu_unlock(ipu, &lock_flags);
+	spin_unlock_irqrestore(&ipu->ipu_lock, lock_flags);
 
-	_ipu_put(ipu);
+	if (!ipu->clk_enabled)
+		clk_disable(ipu->ipu_clk);
 
 	return 0;
 }
@@ -253,17 +256,19 @@ void ipu_csi_get_window_size(struct ipu_soc *ipu, uint32_t *width, uint32_t *hei
 	uint32_t reg;
 	unsigned long lock_flags;
 
-	_ipu_get(ipu);
+	if (!ipu->clk_enabled)
+		clk_enable(ipu->ipu_clk);
 
-	_ipu_lock(ipu, &lock_flags);
+	spin_lock_irqsave(&ipu->ipu_lock, lock_flags);
 
 	reg = ipu_csi_read(ipu, csi, CSI_ACT_FRM_SIZE);
 	*width = (reg & 0xFFFF) + 1;
 	*height = (reg >> 16 & 0xFFFF) + 1;
 
-	_ipu_unlock(ipu, &lock_flags);
+	spin_unlock_irqrestore(&ipu->ipu_lock, lock_flags);
 
-	_ipu_put(ipu);
+	if (!ipu->clk_enabled)
+		clk_disable(ipu->ipu_clk);
 }
 EXPORT_SYMBOL(ipu_csi_get_window_size);
 
@@ -279,15 +284,17 @@ void ipu_csi_set_window_size(struct ipu_soc *ipu, uint32_t width, uint32_t heigh
 {
 	unsigned long lock_flags;
 
-	_ipu_get(ipu);
+	if (!ipu->clk_enabled)
+		clk_enable(ipu->ipu_clk);
 
-	_ipu_lock(ipu, &lock_flags);
+	spin_lock_irqsave(&ipu->ipu_lock, lock_flags);
 
 	ipu_csi_write(ipu, csi, (width - 1) | (height - 1) << 16, CSI_ACT_FRM_SIZE);
 
-	_ipu_unlock(ipu, &lock_flags);
+	spin_unlock_irqrestore(&ipu->ipu_lock, lock_flags);
 
-	_ipu_put(ipu);
+	if (!ipu->clk_enabled)
+		clk_disable(ipu->ipu_clk);
 }
 EXPORT_SYMBOL(ipu_csi_set_window_size);
 
@@ -304,18 +311,20 @@ void ipu_csi_set_window_pos(struct ipu_soc *ipu, uint32_t left, uint32_t top, ui
 	uint32_t temp;
 	unsigned long lock_flags;
 
-	_ipu_get(ipu);
+	if (!ipu->clk_enabled)
+		clk_enable(ipu->ipu_clk);
 
-	_ipu_lock(ipu, &lock_flags);
+	spin_lock_irqsave(&ipu->ipu_lock, lock_flags);
 
 	temp = ipu_csi_read(ipu, csi, CSI_OUT_FRM_CTRL);
 	temp &= ~(CSI_HSC_MASK | CSI_VSC_MASK);
 	temp |= ((top << CSI_VSC_SHIFT) | (left << CSI_HSC_SHIFT));
 	ipu_csi_write(ipu, csi, temp, CSI_OUT_FRM_CTRL);
 
-	_ipu_unlock(ipu, &lock_flags);
+	spin_unlock_irqrestore(&ipu->ipu_lock, lock_flags);
 
-	_ipu_put(ipu);
+	if (!ipu->clk_enabled)
+		clk_disable(ipu->ipu_clk);
 }
 EXPORT_SYMBOL(ipu_csi_set_window_pos);
 
@@ -329,10 +338,21 @@ EXPORT_SYMBOL(ipu_csi_set_window_pos);
 void _ipu_csi_horizontal_downsize_enable(struct ipu_soc *ipu, uint32_t csi)
 {
 	uint32_t temp;
+	unsigned long lock_flags;
+
+	if (!ipu->clk_enabled)
+		clk_enable(ipu->ipu_clk);
+
+	spin_lock_irqsave(&ipu->ipu_lock, lock_flags);
 
 	temp = ipu_csi_read(ipu, csi, CSI_OUT_FRM_CTRL);
 	temp |= CSI_HORI_DOWNSIZE_EN;
 	ipu_csi_write(ipu, csi, temp, CSI_OUT_FRM_CTRL);
+
+	spin_unlock_irqrestore(&ipu->ipu_lock, lock_flags);
+
+	if (!ipu->clk_enabled)
+		clk_disable(ipu->ipu_clk);
 }
 
 /*!
@@ -345,10 +365,21 @@ void _ipu_csi_horizontal_downsize_enable(struct ipu_soc *ipu, uint32_t csi)
 void _ipu_csi_horizontal_downsize_disable(struct ipu_soc *ipu, uint32_t csi)
 {
 	uint32_t temp;
+	unsigned long lock_flags;
+
+	if (!ipu->clk_enabled)
+		clk_enable(ipu->ipu_clk);
+
+	spin_lock_irqsave(&ipu->ipu_lock, lock_flags);
 
 	temp = ipu_csi_read(ipu, csi, CSI_OUT_FRM_CTRL);
 	temp &= ~CSI_HORI_DOWNSIZE_EN;
 	ipu_csi_write(ipu, csi, temp, CSI_OUT_FRM_CTRL);
+
+	spin_unlock_irqrestore(&ipu->ipu_lock, lock_flags);
+
+	if (!ipu->clk_enabled)
+		clk_disable(ipu->ipu_clk);
 }
 
 /*!
@@ -361,10 +392,21 @@ void _ipu_csi_horizontal_downsize_disable(struct ipu_soc *ipu, uint32_t csi)
 void _ipu_csi_vertical_downsize_enable(struct ipu_soc *ipu, uint32_t csi)
 {
 	uint32_t temp;
+	unsigned long lock_flags;
+
+	if (!ipu->clk_enabled)
+		clk_enable(ipu->ipu_clk);
+
+	spin_lock_irqsave(&ipu->ipu_lock, lock_flags);
 
 	temp = ipu_csi_read(ipu, csi, CSI_OUT_FRM_CTRL);
 	temp |= CSI_VERT_DOWNSIZE_EN;
 	ipu_csi_write(ipu, csi, temp, CSI_OUT_FRM_CTRL);
+
+	spin_unlock_irqrestore(&ipu->ipu_lock, lock_flags);
+
+	if (!ipu->clk_enabled)
+		clk_disable(ipu->ipu_clk);
 }
 
 /*!
@@ -377,14 +419,25 @@ void _ipu_csi_vertical_downsize_enable(struct ipu_soc *ipu, uint32_t csi)
 void _ipu_csi_vertical_downsize_disable(struct ipu_soc *ipu, uint32_t csi)
 {
 	uint32_t temp;
+	unsigned long lock_flags;
+
+	if (!ipu->clk_enabled)
+		clk_enable(ipu->ipu_clk);
+
+	spin_lock_irqsave(&ipu->ipu_lock, lock_flags);
 
 	temp = ipu_csi_read(ipu, csi, CSI_OUT_FRM_CTRL);
 	temp &= ~CSI_VERT_DOWNSIZE_EN;
 	ipu_csi_write(ipu, csi, temp, CSI_OUT_FRM_CTRL);
+
+	spin_unlock_irqrestore(&ipu->ipu_lock, lock_flags);
+
+	if (!ipu->clk_enabled)
+		clk_disable(ipu->ipu_clk);
 }
 
 /*!
- * _ipu_csi_set_test_generator
+ * ipu_csi_set_test_generator
  *
  * @param	ipu		ipu handler
  * @param	active       1 for active and 0 for inactive
@@ -395,10 +448,16 @@ void _ipu_csi_vertical_downsize_disable(struct ipu_soc *ipu, uint32_t csi)
  * @param	pixel_clk   desired pixel clock frequency in Hz
  * @param       csi          csi 0 or csi 1
  */
-void _ipu_csi_set_test_generator(struct ipu_soc *ipu, bool active, uint32_t r_value,
+void ipu_csi_set_test_generator(struct ipu_soc *ipu, bool active, uint32_t r_value,
 	uint32_t g_value, uint32_t b_value, uint32_t pix_clk, uint32_t csi)
 {
 	uint32_t temp;
+	unsigned long lock_flags;
+
+	if (!ipu->clk_enabled)
+		clk_enable(ipu->ipu_clk);
+
+	spin_lock_irqsave(&ipu->ipu_lock, lock_flags);
 
 	temp = ipu_csi_read(ipu, csi, CSI_TST_CTRL);
 
@@ -417,7 +476,13 @@ void _ipu_csi_set_test_generator(struct ipu_soc *ipu, bool active, uint32_t r_va
 			(b_value << CSI_TEST_GEN_B_SHIFT);
 		ipu_csi_write(ipu, csi, temp, CSI_TST_CTRL);
 	}
+
+	spin_unlock_irqrestore(&ipu->ipu_lock, lock_flags);
+
+	if (!ipu->clk_enabled)
+		clk_disable(ipu->ipu_clk);
 }
+EXPORT_SYMBOL(ipu_csi_set_test_generator);
 
 /*!
  * _ipu_csi_ccir_err_detection_en
@@ -431,10 +496,15 @@ void _ipu_csi_ccir_err_detection_enable(struct ipu_soc *ipu, uint32_t csi)
 {
 	uint32_t temp;
 
+	if (!ipu->clk_enabled)
+		clk_enable(ipu->ipu_clk);
+
 	temp = ipu_csi_read(ipu, csi, CSI_CCIR_CODE_1);
 	temp |= CSI_CCIR_ERR_DET_EN;
 	ipu_csi_write(ipu, csi, temp, CSI_CCIR_CODE_1);
 
+	if (!ipu->clk_enabled)
+		clk_disable(ipu->ipu_clk);
 }
 
 /*!
@@ -449,10 +519,15 @@ void _ipu_csi_ccir_err_detection_disable(struct ipu_soc *ipu, uint32_t csi)
 {
 	uint32_t temp;
 
+	if (!ipu->clk_enabled)
+		clk_enable(ipu->ipu_clk);
+
 	temp = ipu_csi_read(ipu, csi, CSI_CCIR_CODE_1);
 	temp &= ~CSI_CCIR_ERR_DET_EN;
 	ipu_csi_write(ipu, csi, temp, CSI_CCIR_CODE_1);
 
+	if (!ipu->clk_enabled)
+		clk_disable(ipu->ipu_clk);
 }
 
 /*!
@@ -469,11 +544,17 @@ int _ipu_csi_set_mipi_di(struct ipu_soc *ipu, uint32_t num, uint32_t di_val, uin
 {
 	uint32_t temp;
 	int retval = 0;
+	unsigned long lock_flags;
 
 	if (di_val > 0xFFL) {
 		retval = -EINVAL;
 		goto err;
 	}
+
+	if (!ipu->clk_enabled)
+		clk_enable(ipu->ipu_clk);
+
+	spin_lock_irqsave(&ipu->ipu_lock, lock_flags);
 
 	temp = ipu_csi_read(ipu, csi, CSI_MIPI_DI);
 
@@ -502,6 +583,9 @@ int _ipu_csi_set_mipi_di(struct ipu_soc *ipu, uint32_t num, uint32_t di_val, uin
 		retval = -EINVAL;
 	}
 
+	spin_unlock_irqrestore(&ipu->ipu_lock, lock_flags);
+	if (!ipu->clk_enabled)
+		clk_disable(ipu->ipu_clk);
 err:
 	return retval;
 }
@@ -522,11 +606,17 @@ int _ipu_csi_set_skip_isp(struct ipu_soc *ipu, uint32_t skip, uint32_t max_ratio
 {
 	uint32_t temp;
 	int retval = 0;
+	unsigned long lock_flags;
 
 	if (max_ratio > 5) {
 		retval = -EINVAL;
 		goto err;
 	}
+
+	if (!ipu->clk_enabled)
+		clk_enable(ipu->ipu_clk);
+
+	spin_lock_irqsave(&ipu->ipu_lock, lock_flags);
 
 	temp = ipu_csi_read(ipu, csi, CSI_SKIP);
 	temp &= ~(CSI_MAX_RATIO_SKIP_ISP_MASK | CSI_SKIP_ISP_MASK);
@@ -534,6 +624,9 @@ int _ipu_csi_set_skip_isp(struct ipu_soc *ipu, uint32_t skip, uint32_t max_ratio
 		(skip << CSI_SKIP_ISP_SHIFT);
 	ipu_csi_write(ipu, csi, temp, CSI_SKIP);
 
+	spin_unlock_irqrestore(&ipu->ipu_lock, lock_flags);
+	if (!ipu->clk_enabled)
+		clk_disable(ipu->ipu_clk);
 err:
 	return retval;
 }
@@ -556,11 +649,17 @@ int _ipu_csi_set_skip_smfc(struct ipu_soc *ipu, uint32_t skip,
 {
 	uint32_t temp;
 	int retval = 0;
+	unsigned long lock_flags;
 
 	if (max_ratio > 5 || id > 3) {
 		retval = -EINVAL;
 		goto err;
 	}
+
+	if (!ipu->clk_enabled)
+		clk_enable(ipu->ipu_clk);
+
+	spin_lock_irqsave(&ipu->ipu_lock, lock_flags);
 
 	temp = ipu_csi_read(ipu, csi, CSI_SKIP);
 	temp &= ~(CSI_MAX_RATIO_SKIP_SMFC_MASK | CSI_ID_2_SKIP_MASK |
@@ -570,6 +669,10 @@ int _ipu_csi_set_skip_smfc(struct ipu_soc *ipu, uint32_t skip,
 			(skip << CSI_SKIP_SMFC_SHIFT);
 	ipu_csi_write(ipu, csi, temp, CSI_SKIP);
 
+	spin_unlock_irqrestore(&ipu->ipu_lock, lock_flags);
+
+	if (!ipu->clk_enabled)
+		clk_disable(ipu->ipu_clk);
 err:
 	return retval;
 }
@@ -627,6 +730,12 @@ void _ipu_smfc_init(struct ipu_soc *ipu, ipu_channel_t channel, uint32_t mipi_id
 void _ipu_smfc_set_wmc(struct ipu_soc *ipu, ipu_channel_t channel, bool set, uint32_t level)
 {
 	uint32_t temp;
+	unsigned long lock_flags;
+
+	if (!ipu->clk_enabled)
+		clk_enable(ipu->ipu_clk);
+
+	spin_lock_irqsave(&ipu->ipu_lock, lock_flags);
 
 	temp = ipu_smfc_read(ipu, SMFC_WMC);
 
@@ -672,6 +781,10 @@ void _ipu_smfc_set_wmc(struct ipu_soc *ipu, ipu_channel_t channel, bool set, uin
 	}
 
 	ipu_smfc_write(ipu, temp, SMFC_WMC);
+
+	spin_unlock_irqrestore(&ipu->ipu_lock, lock_flags);
+	if (!ipu->clk_enabled)
+		clk_disable(ipu->ipu_clk);
 }
 
 /*!
@@ -685,6 +798,9 @@ void _ipu_smfc_set_wmc(struct ipu_soc *ipu, ipu_channel_t channel, bool set, uin
 void _ipu_smfc_set_burst_size(struct ipu_soc *ipu, ipu_channel_t channel, uint32_t bs)
 {
 	uint32_t temp;
+	unsigned long lock_flags;
+
+	spin_lock_irqsave(&ipu->ipu_lock, lock_flags);
 
 	temp = ipu_smfc_read(ipu, SMFC_BS);
 
@@ -710,6 +826,8 @@ void _ipu_smfc_set_burst_size(struct ipu_soc *ipu, ipu_channel_t channel, uint32
 	}
 
 	ipu_smfc_write(ipu, temp, SMFC_BS);
+
+	spin_unlock_irqrestore(&ipu->ipu_lock, lock_flags);
 }
 
 /*!
