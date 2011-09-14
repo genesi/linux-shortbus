@@ -192,6 +192,8 @@ extern unsigned int __mxc_cpu_type;
 # define cpu_is_mx53()		(0)
 #endif
 
+#define cpu_is_mx6q()		(0)
+
 #ifndef __ASSEMBLY__
 
 struct cpu_op {
