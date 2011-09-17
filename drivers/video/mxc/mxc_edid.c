@@ -72,6 +72,7 @@ void mxc_edid_parse_ext_blk(unsigned char *edid,
 		struct mxc_edid_cfg *cfg,
 		struct fb_monspecs *specs)
 {
+	char detail_timming_desc_offset;
 	unsigned char index = 0x0;
 
 	if (edid[index++] != 0x2) /* only support cea ext block now */
@@ -79,10 +80,49 @@ void mxc_edid_parse_ext_blk(unsigned char *edid,
 	if (edid[index++] != 0x3) /* only support version 3*/
 		return;
 
+	detail_timming_desc_offset = edid[index++];
+
 	cfg->cea_underscan = (edid[index] >> 7) & 0x1;
 	cfg->cea_basicaudio = (edid[index] >> 6) & 0x1;
 	cfg->cea_ycbcr444 = (edid[index] >> 5) & 0x1;
 	cfg->cea_ycbcr422 = (edid[index] >> 4) & 0x1;
+
+	index++;
+	while (index < detail_timming_desc_offset) {
+		unsigned char tagcode, blklen;
+
+		tagcode = (edid[index] >> 5) & 0x7;
+		blklen = (edid[index]) & 0x1f;
+
+		DPRINTK("Tagcode %x Len %d\n", tagcode, blklen);
+
+		switch (tagcode) {
+		case 0x3: /*Vendor specific data*/
+		{
+			unsigned char IEEE_reg_iden[3];
+			IEEE_reg_iden[0] = edid[index+1];
+			IEEE_reg_iden[1] = edid[index+2];
+			IEEE_reg_iden[2] = edid[index+3];
+
+			if ((IEEE_reg_iden[0] == 0x03) &&
+				(IEEE_reg_iden[1] == 0x0c) &&
+				(IEEE_reg_iden[2] == 0x00))
+				cfg->hdmi_cap = 1;
+			index += blklen;
+			break;
+		}
+		case 0x1: /*Audio data block*/
+		case 0x2: /*Video data block*/
+		case 0x4: /*Speaker allocation block*/
+		case 0x7: /*User extended block*/
+		default:
+			/* skip */
+			index += blklen;
+			break;
+		}
+
+		index++;
+	}
 
 	return fb_edid_add_monspecs(edid, specs);
 }
