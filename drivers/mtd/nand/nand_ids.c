@@ -159,6 +159,8 @@ struct nand_flash_dev nand_flash_ids[] = {
 	 NAND_IS_AND | NAND_NO_AUTOINCR |NAND_NO_READRDY | NAND_4PAGE_ARRAY |
 	 BBT_AUTO_REFRESH
 	},
+	
+	{"NAND 4GiB 3,3V 8-bit", 0x68, 0, 4096, 0, LP_OPTIONS},
 
 	{NULL,}
 };

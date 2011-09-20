@@ -3040,7 +3040,10 @@ static struct nand_flash_dev *nand_get_flash_type(struct mtd_info *mtd,
 			mtd->erasesize = (64 * 1024) << (extid & 0x03);
 			extid >>= 2;
 			/* Get buswidth information */
-			busw = (extid & 0x01) ? NAND_BUSWIDTH_16 : 0;
+			if(id_data[0] == NAND_MFR_MICRON) /* Micron is only 8-bit but reports 16-bit */
+				busw = 0;
+			else
+				busw = (extid & 0x01) ? NAND_BUSWIDTH_16 : 0;
 		}
 	} else {
 		/*
