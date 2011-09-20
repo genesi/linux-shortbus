@@ -32,9 +32,11 @@
  */
 #include <mach/hardware.h>
 
+#define AUDMUX_BASE_ADDR MX53_AUDMUX_BASE_ADDR
+
 #define ModifyRegister32(a, b, c)	(c = (((c)&(~(a))) | (b)))
 
-#define DAM_VIRT_BASE_ADDR	IO_ADDRESS(AUDMUX_BASE_ADDR)
+#define DAM_VIRT_BASE_ADDR	MX53_IO_ADDRESS(AUDMUX_BASE_ADDR)
 
 #ifndef _reg_DAM_PTCR1
 #define    _reg_DAM_PTCR1   (*((volatile unsigned long *) \
