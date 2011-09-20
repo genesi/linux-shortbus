@@ -131,6 +131,14 @@ struct fb_videomode mxcfb_ldb_modedb[] = {
 	 0,
 	 FB_VMODE_NONINTERLACED,
 	 FB_MODE_IS_DETAILED,},
+	{
+	 "WSVGA", 60, 1024, 600, 22800,
+	 80, 40,
+	 20, 21,
+	 4, 4,
+	 0,
+	 FB_VMODE_NONINTERLACED,
+	 FB_MODE_IS_DETAILED,},
 };
 int mxcfb_ldb_modedb_sz = ARRAY_SIZE(mxcfb_ldb_modedb);
 
@@ -475,6 +483,18 @@ static int ldb_fb_pre_setup(struct fb_info *fbi)
 				ldb.chan_bit_map[0] = LDB_BIT_MAP_SPWG;
 				ldb.chan_bit_map[1] = LDB_BIT_MAP_SPWG;
 			} else if (fb_mode_is_equal(fbi->mode, &mxcfb_ldb_modedb[1])) {
+				if (ipu_di == 0) {
+					ldb.chan_mode_opt = LDB_SIN_DI0;
+					ldb.chan_bit_map[0] = LDB_BIT_MAP_SPWG;
+					dev_warn(g_ldb_dev,
+						 "default di0 single mode\n");
+				} else {
+					ldb.chan_mode_opt = LDB_SIN_DI1;
+					ldb.chan_bit_map[1] = LDB_BIT_MAP_SPWG;
+					dev_warn(g_ldb_dev,
+						 "default di1 single mode\n");
+				}
+			} else if (fb_mode_is_equal(fbi->mode, &mxcfb_ldb_modedb[2])) {
 				if (ipu_di == 0) {
 					ldb.chan_mode_opt = LDB_SIN_DI0;
 					ldb.chan_bit_map[0] = LDB_BIT_MAP_SPWG;
