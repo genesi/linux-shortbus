@@ -49,6 +49,15 @@ config SND_SOC_IMX_SGTL5000
 	  Say Y if you want to add support for SoC audio on an i.MX board with
 	  a sgtl5000 codec.
 
+config SND_SOC_IMX_CS42L52
+	tristate "SoC Audio support for i.MX efikasb with cs42l52"
+	depends on MACH_MX53_EFIKASB
+	select SND_SOC_CS42L52
+	select SND_MXC_SOC_MX2
+	help
+	  Say Y if you want to add support for SoC audio on an efikasb board with
+	  a cs42l52 codec
+
 config SND_SOC_EUKREA_TLV320
 	tristate "Eukrea TLV320"
 	depends on MACH_EUKREA_MBIMX27_BASEBOARD \
