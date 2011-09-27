@@ -292,63 +292,6 @@ static const struct fb_videomode modedb[] = {
 };
 
 #ifdef CONFIG_FB_MODE_HELPERS
-const struct fb_videomode cea_modes[64] = {
-	/* #1: 640x480p@59.94/60Hz */
-	[1] = {
-		NULL, 60, 640, 480, 39722, 48, 16, 33, 10, 96, 2, 0,
-		FB_VMODE_NONINTERLACED, 0,
-	},
-	/* #3: 720x480p@59.94/60Hz */
-	[3] = {
-		NULL, 60, 720, 480, 37037, 60, 16, 30, 9, 62, 6, 0,
-		FB_VMODE_NONINTERLACED, 0,
-	},
-	/* #5: 1920x1080i@59.94/60Hz */
-	[5] = {
-		NULL, 60, 1920, 1080, 13763, 148, 88, 15, 2, 44, 5,
-		FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,
-		FB_VMODE_INTERLACED, 0,
-	},
-	/* #7: 720(1440)x480iH@59.94/60Hz */
-	[7] = {
-		NULL, 60, 1440, 480, 18554/*37108*/, 114, 38, 15, 4, 124, 3, 0,
-		FB_VMODE_INTERLACED, 0,
-	},
-	/* #9: 720(1440)x240pH@59.94/60Hz */
-	[9] = {
-		NULL, 60, 1440, 240, 18554, 114, 38, 16, 4, 124, 3, 0,
-		FB_VMODE_NONINTERLACED, 0,
-	},
-	/* #18: 720x576pH@50Hz */
-	[18] = {
-		NULL, 50, 720, 576, 37037, 68, 12, 39, 5, 64, 5, 0,
-		FB_VMODE_NONINTERLACED, 0,
-	},
-	/* #19: 1280x720p@50Hz */
-	[19] = {
-		NULL, 50, 1280, 720, 13468, 220, 440, 20, 5, 40, 5,
-		FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,
-		FB_VMODE_NONINTERLACED, 0,
-	},
-	/* #20: 1920x1080i@50Hz */
-	[20] = {
-		NULL, 50, 1920, 1080, 13480, 148, 528, 15, 5, 528, 5,
-		FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,
-		FB_VMODE_INTERLACED, 0,
-	},
-	/* #32: 1920x1080p@23.98/24Hz */
-	[32] = {
-		NULL, 24, 1920, 1080, 13468, 148, 638, 36, 4, 44, 5,
-		FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,
-		FB_VMODE_NONINTERLACED, 0,
-	},
-	/* #35: (2880)x480p4x@59.94/60Hz */
-	[35] = {
-		NULL, 60, 2880, 480, 9250, 240, 64, 30, 9, 248, 6, 0,
-		FB_VMODE_NONINTERLACED, 0,
-	},
-};
-
 const struct fb_videomode vesa_modes[] = {
 	/* 0 640x350-85 VESA */
 	{ NULL, 85, 640, 350, 31746,  96, 32, 60, 32, 64, 3,
@@ -830,6 +773,22 @@ void fb_videomode_to_var(struct fb_var_screeninfo *var,
 }
 
 /**
+ * fb_res_is_equal - compare 2 videomodes
+ * @mode1: first videomode
+ * @mode2: second videomode
+ *
+ * RETURNS:
+ * 1 if resolution is equal, 0 if not
+ */
+int fb_res_is_equal(const struct fb_videomode *mode1,
+		    const struct fb_videomode *mode2)
+{
+	return (mode1->xres    == mode2->xres &&
+		mode1->yres    == mode2->yres &&
+		mode1->refresh == mode2->refresh);
+}
+
+/**
  * fb_mode_is_equal - compare 2 videomodes
  * @mode1: first videomode
  * @mode2: second videomode
@@ -963,6 +922,60 @@ const struct fb_videomode *fb_match_mode(const struct fb_var_screeninfo *var,
 			return m;
 	}
 	return NULL;
+}
+
+/**
+ * fb_find_best_mode_at_most - find closest videomode a different way
+ *
+ * @mode: pointer to struct fb_videomode
+ * @head: pointer to modelist
+ *
+ * Finds best matching videomode, smaller or equal in dimension, with the
+ * highest refresh rate (specifically designed to service LCD panels with
+ * a maximum screen size == native panel size, and all other modes being
+ * smaller, or at least the same but with a lower refresh for pixelclock
+ * limited devices. e.g. 1080p24 instead of 1080p60, or 1440x900@60 instead
+ * of 1680x1050@72 - proper selection of mode is dependent on a properly
+ * sanitized modelist with any invalid/undisplayable modes removed.)
+ *
+ * This is a kind of works-best amalgam of find_best_mode (which operates on
+ * fb_var_screeninfo which is silly, but is concerned about the highest and
+ * therefore least flickery refresh rate) and find_nearest_mode (which is
+ * also looking for a mode bigger than the passed one, and seems not to pick
+ * the greatest mode in the vast majority of cases)
+ *
+ */
+const struct fb_videomode *fb_find_best_mode_at_most(const struct fb_videomode *max,
+						     struct list_head *modes)
+{
+	struct fb_videomode *best = NULL;
+	struct list_head *entry;
+	u32 difference = -1;
+
+	list_for_each(entry, modes) {
+		const struct fb_modelist * const modelist =
+			list_entry(entry, struct fb_modelist, list);
+		struct fb_videomode * mode = (struct fb_videomode *) &modelist->mode;
+
+		if (mode->xres <= max->xres && mode->yres <= max->yres) {
+			const u32 delta = (max->xres - mode->xres)
+					+ (max->yres - mode->yres);
+
+			if (delta == difference) {
+				if (best && mode->refresh > best->refresh)
+					best = mode;
+				continue;
+			}
+
+			if (delta < difference) {
+				difference = delta;
+				best = mode;
+				continue;
+			}
+		}
+	}
+
+	return best;
 }
 
 /**

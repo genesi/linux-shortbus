@@ -1082,6 +1082,7 @@ extern void fb_bl_default_curve(struct fb_info *fb_info, u8 off, u8 min, u8 max)
 #define FB_MODE_IS_CALCULATED	8
 #define FB_MODE_IS_FIRST	16
 #define FB_MODE_IS_FROM_VAR     32
+#define FB_MODE_IS_CEA		64
 
 extern int fbmon_dpms(const struct fb_info *fb_info);
 extern int fb_get_mode(int flags, u32 val, struct fb_var_screeninfo *var,
@@ -1092,8 +1093,10 @@ extern int fb_parse_edid(unsigned char *edid, struct fb_var_screeninfo *var);
 extern const unsigned char *fb_firmware_edid(struct device *device);
 extern void fb_edid_to_monspecs(unsigned char *edid,
 				struct fb_monspecs *specs);
+#if 0
 extern void fb_edid_add_monspecs(unsigned char *edid,
 				 struct fb_monspecs *specs);
+#endif
 extern void fb_destroy_modedb(struct fb_videomode *modedb);
 extern int fb_find_mode_cvt(struct fb_videomode *mode, int margins, int rb);
 extern unsigned char *fb_ddc_read(struct i2c_adapter *adapter);
@@ -1104,6 +1107,8 @@ extern void fb_var_to_videomode(struct fb_videomode *mode,
 				const struct fb_var_screeninfo *var);
 extern void fb_videomode_to_var(struct fb_var_screeninfo *var,
 				const struct fb_videomode *mode);
+extern int fb_res_is_equal(const struct fb_videomode *mode1,
+			   const struct fb_videomode *mode2);
 extern int fb_mode_is_equal(const struct fb_videomode *mode1,
 			    const struct fb_videomode *mode2);
 extern int fb_add_videomode(const struct fb_videomode *mode,
@@ -1114,6 +1119,8 @@ extern const struct fb_videomode *fb_match_mode(const struct fb_var_screeninfo *
 						struct list_head *head);
 extern const struct fb_videomode *fb_find_best_mode(const struct fb_var_screeninfo *var,
 						    struct list_head *head);
+extern const struct fb_videomode *fb_find_best_mode_at_most(const struct fb_videomode *mode,
+						       struct list_head *head);
 extern const struct fb_videomode *fb_find_nearest_mode(const struct fb_videomode *mode,
 						       struct list_head *head);
 extern void fb_destroy_modelist(struct list_head *head);
@@ -1152,7 +1159,7 @@ struct fb_videomode {
 
 extern const char *fb_mode_option;
 extern const struct fb_videomode vesa_modes[];
-extern const struct fb_videomode cea_modes[64];
+extern const struct fb_videomode cea_modes[65];
 
 struct fb_modelist {
 	struct list_head list;
