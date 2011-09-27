@@ -33,6 +33,7 @@
 #include <linux/fs.h>
 #include <linux/poll.h>
 #include <linux/signal.h>
+#include <linux/semaphore.h>
 #include <linux/slab.h>
 #include <linux/pmic_external.h>
 
@@ -45,7 +46,7 @@ static int pmic_major;
 static struct class *pmic_class;
 static struct fasync_struct *pmic_dev_queue;
 
-static DECLARE_MUTEX(event_mutex);
+static DEFINE_SEMAPHORE(event_mutex);
 static struct circ_buf pmic_events;
 
 static void callbackfn(void *event)
@@ -77,7 +78,7 @@ static void user_notify_callback(void *event)
  * @param        arg         the parameter
  * @return       This function returns 0 if successful.
  */
-static int pmic_dev_ioctl(struct inode *inode, struct file *file,
+static long pmic_dev_ioctl(struct file *file,
 			  unsigned int cmd, unsigned long arg)
 {
 	register_info reg_info;
@@ -214,7 +215,7 @@ static struct file_operations pmic_fops = {
 	/*!
 	 * the ioctl operation
 	 */
-	.ioctl = pmic_dev_ioctl,
+	.unlocked_ioctl = pmic_dev_ioctl,
 	/*!
 	 * the open operation
 	 */
