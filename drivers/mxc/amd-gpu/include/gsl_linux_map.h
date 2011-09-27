@@ -26,21 +26,21 @@
  *
  */
 
-/*
- * Copyright (C) 2010-2011 Freescale Semiconductor, Inc. All Rights Reserved.
- */
+#ifndef __GSL_LINUX_MAP_H__
+#define __GSL_LINUX_MAP_H__
 
-#ifndef __GSL_HALCONFIG_H
-#define __GSL_HALCONFIG_H
+#include "gsl_halconfig.h"
 
-#define GSL_HAL_GPUBASE_REG_YDX         0x30000000
-#define GSL_HAL_SIZE_REG_YDX            SZ_128K            /* 128KB */
+#define GSL_LINUX_MAP_RANGE_START (1024*1024)
+#define GSL_LINUX_MAP_RANGE_END (GSL_LINUX_MAP_RANGE_START+GSL_HAL_SHMEM_SIZE_EMEM_MMU)
 
-#define GSL_HAL_SIZE_REG_G12            SZ_4K            /* 4KB */
+int gsl_linux_map_init(void);
+void *gsl_linux_map_alloc(unsigned int gpu_addr, unsigned int size);
+void gsl_linux_map_free(unsigned int gpu_addr);
+void *gsl_linux_map_find(unsigned int gpu_addr);
+void *gsl_linux_map_read(void *dst, unsigned int gpuoffset, unsigned int sizebytes, unsigned int touserspace);
+void *gsl_linux_map_write(void *src, unsigned int gpuoffset, unsigned int sizebytes, unsigned int fromuserspace);
+void *gsl_linux_map_set(unsigned int gpuoffset, unsigned int value, unsigned int sizebytes);
+int gsl_linux_map_destroy(void);
 
-#define GSL_HAL_SHMEM_SIZE_EMEM_MMU    SZ_128M
-
-#define GSL_HAL_SHMEM_SIZE_EMEM_NOMMU  (10*SZ_1M)
-#define GSL_HAL_SHMEM_SIZE_PHYS_NOMMU   SZ_1M
-
-#endif  /* __GSL_HALCONFIG_H */
+#endif
