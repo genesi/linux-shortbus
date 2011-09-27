@@ -18,6 +18,7 @@
 
 #include <linux/delay.h>
 #include <linux/sched.h>
+#include <linux/slab.h>
 
 #include "gsl.h"
 #include "gsl_hal.h"

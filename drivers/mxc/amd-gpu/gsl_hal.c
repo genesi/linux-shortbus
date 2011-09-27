@@ -34,6 +34,8 @@
 #include <asm/tlbflush.h>
 #include <asm/cacheflush.h>
 
+#include <linux/slab.h>
+
 #define GSL_HAL_MEM1                        0
 #define GSL_HAL_MEM2                        1
 //#define GSL_HAL_MEM3                        2

@@ -27,7 +27,7 @@
 #include <linux/semaphore.h>
 
 typedef struct _gsl_autogate_t {
-    struct timer_list timer;	
+    struct timer_list timer;
     spinlock_t lock;
     int active;
     /* pending indicate the timer has been fired but clock not yet disabled. */
@@ -38,7 +38,7 @@ typedef struct _gsl_autogate_t {
 } gsl_autogate_t;
 
 static gsl_autogate_t *g_autogate[2];
-static DECLARE_MUTEX(sem_dev);
+static DEFINE_SEMAPHORE(sem_dev);
 
 #define KGSL_DEVICE_IDLE_TIMEOUT 5000	/* unit ms */
 
