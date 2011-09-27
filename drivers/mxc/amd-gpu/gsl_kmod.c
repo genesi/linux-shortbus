@@ -40,6 +40,7 @@
 #include <linux/vmalloc.h>
 
 #include <linux/fsl_devices.h>
+#include <mach/mxc_gpu.h>
 
 int gpu_2d_irq, gpu_3d_irq;
 
@@ -55,7 +56,7 @@ int enable_mmu;
 
 static ssize_t gsl_kmod_read(struct file *fd, char __user *buf, size_t len, loff_t *ptr);
 static ssize_t gsl_kmod_write(struct file *fd, const char __user *buf, size_t len, loff_t *ptr);
-static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd, unsigned long arg);
+static long gsl_kmod_ioctl(struct file *fd, unsigned int cmd, unsigned long arg);
 static int gsl_kmod_mmap(struct file *fd, struct vm_area_struct *vma);
 static int gsl_kmod_fault(struct vm_area_struct *vma, struct vm_fault *vmf);
 static int gsl_kmod_open(struct inode *inode, struct file *fd);
@@ -72,7 +73,7 @@ static const struct file_operations gsl_kmod_fops =
     .owner = THIS_MODULE,
     .read = gsl_kmod_read,
     .write = gsl_kmod_write,
-    .ioctl = gsl_kmod_ioctl,
+    .unlocked_ioctl = gsl_kmod_ioctl,
     .mmap = gsl_kmod_mmap,
     .open = gsl_kmod_open,
     .release = gsl_kmod_release
@@ -93,9 +94,9 @@ static ssize_t gsl_kmod_write(struct file *fd, const char __user *buf, size_t le
     return 0;
 }
 
-static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd, unsigned long arg)
+static long gsl_kmod_ioctl(struct file *fd, unsigned int cmd, unsigned long arg)
 {
-    int kgslStatus = GSL_FAILURE;
+    long kgslStatus = GSL_FAILURE;
 
     switch (cmd) {
     case IOCTL_KGSL_DEVICE_START:
@@ -768,7 +769,7 @@ static int gpu_probe(struct platform_device *pdev)
     int i;
     struct resource *res;
     struct device *dev;
-    struct mxc_gpu_platform_data *gpu_data = NULL;
+    struct mxc_gpu_platform_data *gpu_data;
 
     gpu_data = (struct mxc_gpu_platform_data *)pdev->dev.platform_data;
 
