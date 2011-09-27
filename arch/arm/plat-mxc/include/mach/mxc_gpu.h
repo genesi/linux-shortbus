@@ -17,6 +17,7 @@
 
 struct mxc_gpu_platform_data {
 	int z160_revision;
+	int enable_mmu;
 	resource_size_t reserved_mem_base;
 	resource_size_t reserved_mem_size;
 };
