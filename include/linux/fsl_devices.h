@@ -205,6 +205,13 @@ struct fsl_mxc_lcd_platform_data {
 	char *analog_reg;
 	void (*reset) (void);
 	int boot_enable;
+
+	/* Efika MX Additions */
+	void (*lcd_power) (int);
+	void (*lvds_power) (int);
+	void (*lvds_enable) (int);
+
+	int hotplug_irq;
 };
 
 struct fsl_mxc_ddc_platform_data {
