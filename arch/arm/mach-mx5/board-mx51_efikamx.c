@@ -291,8 +291,7 @@ static const char *mx51_efikamx_dt_match[] __initdata = {
 	NULL
 };
 
-MACHINE_START(MX51_EFIKAMX, "Genesi EfikaMX nettop")
-	/* Maintainer: Amit Kucheria <amit.kucheria@linaro.org> */
+MACHINE_START(MX51_EFIKAMX, "Genesi Efika MX (Smarttop)")
 	.boot_params = MX51_PHYS_OFFSET + 0x100,
 	.map_io = mx51_map_io,
 	.init_early = imx51_init_early,
