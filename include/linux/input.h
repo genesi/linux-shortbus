@@ -803,6 +803,9 @@ struct input_keymap_entry {
 #define SW_KEYPAD_SLIDE		0x0a  /* set = keypad slide out */
 #define SW_FRONT_PROXIMITY	0x0b  /* set = front proximity sensor active */
 #define SW_ROTATE_LOCK		0x0c  /* set = rotate locked/disabled */
+#define SW_BATTERY_INSERT	0x0d
+#define SW_BATTERY_LOW		0x0e
+#define SW_AC_INSERT		SW_DOCK
 #define SW_MAX			0x0f
 #define SW_CNT			(SW_MAX+1)
 
