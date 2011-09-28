@@ -212,4 +212,11 @@ config BATTERY_DA9052
 	  Say Y here to enable support for batteries charger integrated into
 	  DA9052 PMIC.
 
+config BATTERY_SBS
+	tristate "Smart Battery System"
+	depends on I2C
+	help
+	  This driver supports the Smart Battery System, another type of
+	  access to battery information.
+
 endif # POWER_SUPPLY
