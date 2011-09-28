@@ -73,8 +73,6 @@
 #define GPIO_SDA                IMX_GPIO_NR(5, 27) /* GPIO_5_27 */
 #define GPIO_SCL                IMX_GPIO_NR(5, 26) /* GPIO_5_26 */
 
-extern void __iomem *imx_otg_base;
-
 static iomux_v3_cfg_t mx53_efikasb_pads[] = {
 	/* USB */
 	MX53_PAD_KEY_COL4__GPIO4_14,    /* overcurrent */
