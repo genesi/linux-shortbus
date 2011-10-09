@@ -3985,32 +3985,6 @@ static int _clk_vpu_set_parent(struct clk *clk, struct clk *parent)
 	return 0;
 }
 
-static int _clk_vpu_enable(struct clk *clk)
-{
-	/* Set VPU's parent to be axi_a or ahb when its enabled. */
-	if (cpu_is_mx51() && (mx51_revision() < IMX_CHIP_REVISION_2_0)) {
-		clk_set_parent(&vpu_clk[0], &ahb_clk);
-		clk_set_parent(&vpu_clk[1], &ahb_clk);
-	} else if (cpu_is_mx51()) {
-		clk_set_parent(&vpu_clk[0], &axi_a_clk);
-		clk_set_parent(&vpu_clk[1], &axi_a_clk);
-	}
-
-	return _clk_enable(clk);
-
-}
-
-static void _clk_vpu_disable(struct clk *clk)
-{
-	_clk_disable(clk);
-
-	/* Set VPU's parent to be axi_b when its disabled. */
-	if (cpu_is_mx51()) {
-		clk_set_parent(&vpu_clk[0], &axi_b_clk);
-		clk_set_parent(&vpu_clk[1], &axi_b_clk);
-	}
-}
-
 static struct clk vpu_clk[] = {
 	{
 	__INIT_CLK_DEBUG(vpu_clk_0)
@@ -4025,18 +3999,15 @@ static struct clk vpu_clk[] = {
 	{
 	__INIT_CLK_DEBUG(vpu_clk_1)
 	 .set_parent = _clk_vpu_set_parent,
-	 .enable = _clk_vpu_enable,
+	 .enable = _clk_enable,
 	 .enable_reg = MXC_CCM_CCGR5,
 	 .enable_shift = MXC_CCM_CCGRx_CG3_OFFSET,
-	 .disable = _clk_vpu_disable,
+	 .disable = _clk_disable,
 	 .secondary = &vpu_clk[2],
 	 },
 	{
 	__INIT_CLK_DEBUG(vpu_clk_2)
 	 .parent = &emi_fast_clk,
-#ifdef CONFIG_MXC_VPU_IRAM
-	 .secondary = &emi_intr_clk[0],
-#endif
 	 }
 };
 
@@ -4499,7 +4470,7 @@ static struct clk_lookup lookups[] = {
 	_REGISTER_CLOCK(NULL, "emi_intr_clk.0", emi_intr_clk[0]),
 	_REGISTER_CLOCK(NULL, "emi_intr_clk.1", emi_intr_clk[1]),
 	_REGISTER_CLOCK(NULL, "spdif_xtal_clk", spdif_xtal_clk),
-	_REGISTER_CLOCK("mxc_alsa_spdif.0", NULL, spdif0_clk[0]),
+	_REGISTER_CLOCK("mxc_spdif.0", NULL, spdif0_clk[0]),
 	_REGISTER_CLOCK("mxc_vpu.0", NULL, vpu_clk[0]),
 	_REGISTER_CLOCK(NULL, "lpsr_clk", lpsr_clk),
 	_REGISTER_CLOCK("mxc_rtc.0", NULL, rtc_clk),
@@ -4519,7 +4490,7 @@ static struct clk_lookup lookups[] = {
 static struct clk_lookup mx51_lookups[] = {
 	_REGISTER_CLOCK("mxc_i2c_hs.3", NULL, hsi2c_serial_clk),
 	_REGISTER_CLOCK("mxc_sim.0", NULL, sim_clk[0]),
-	_REGISTER_CLOCK("mxc_alsa_spdif.0", NULL, spdif1_clk[0]),
+	_REGISTER_CLOCK("mxc_spdif.0", NULL, spdif1_clk[0]),
 	_REGISTER_CLOCK(NULL, "mipi_hsp_clk", mipi_hsp_clk),
 	_REGISTER_CLOCK(NULL, "ddr_hf_clk", ddr_hf_clk),
 	_REGISTER_CLOCK("imx51-ecspi.0", NULL, cspi1_clk[0]),
@@ -4744,8 +4715,8 @@ int __init mx51_clocks_init(unsigned long ckil, unsigned long osc, unsigned long
 	/* Initialise the parents to be axi_b, parents are set to
 	 * axi_a when the clocks are enabled.
 	 */
-	clk_set_parent(&vpu_clk[0], &axi_b_clk);
-	clk_set_parent(&vpu_clk[1], &axi_b_clk);
+	clk_set_parent(&vpu_clk[0], &axi_a_clk);
+	clk_set_parent(&vpu_clk[1], &axi_a_clk);
 	clk_set_parent(&gpu3d_clk, &axi_a_clk);
 	clk_set_parent(&gpu2d_clk, &axi_a_clk);
 
@@ -4984,6 +4955,8 @@ int __init mx53_clocks_init(unsigned long ckil, unsigned long osc, unsigned long
 
 	esdhc3_clk[0].get_rate = _clk_esdhc3_get_rate;
 	esdhc3_clk[0].set_rate = _clk_sdhc3_set_rate;
+
+	vpu_clk[2].secondary = &emi_intr_clk[0];
 
 #if defined(CONFIG_USB_STATIC_IRAM) \
     || defined(CONFIG_USB_STATIC_IRAM_PPH)

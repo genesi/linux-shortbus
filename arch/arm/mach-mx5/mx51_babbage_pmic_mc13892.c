@@ -51,19 +51,14 @@ static struct regulator_consumer_supply sw1_consumers[] = {
 };
 
 static struct regulator_consumer_supply vdig_consumers[] = {
-	{
-		/* sgtl5000 */
-		.supply = "VDDA",
-		.dev_name = "1-000a",
-	},
+	/* sgtl5000 */
+	REGULATOR_SUPPLY("VDDA", "1-000a"),
+	REGULATOR_SUPPLY("VDDD", "1-000a"),
 };
 
 static struct regulator_consumer_supply vvideo_consumers[] = {
-	{
-		/* sgtl5000 */
-		.supply = "VDDIO",
-		.dev_name = "1-000a",
-	},
+	/* sgtl5000 */
+	REGULATOR_SUPPLY("VDDIO", "1-000a"),
 };
 
 struct mc13892;

@@ -22,12 +22,15 @@
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/gpio.h>
+#include <linux/mxcfb.h>
+#include <linux/ipu.h>
 #include <linux/smsc911x.h>
 
 #include <mach/common.h>
 #include <mach/hardware.h>
 #include <mach/imx-uart.h>
 #include <mach/iomux-mx53.h>
+#include <mach/ipu-v3.h>
 
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
@@ -123,6 +126,9 @@ static iomux_v3_cfg_t mx53_ard_pads[] = {
 
 	/* TOUCH_INT_B */
 	MX53_PAD_GPIO_17__GPIO7_12,
+
+	/* MAINBRD_SPDIF_IN */
+	MX53_PAD_KEY_COL3__SPDIF_IN1,
 };
 
 /* Config CS1 settings for ethernet controller */
@@ -211,12 +217,70 @@ static struct i2c_board_info mxc_i2c2_board_info[] __initdata = {
 	},
 };
 
+static struct mxc_spdif_platform_data mxc_spdif_data = {
+	.spdif_tx = 0,
+	.spdif_rx = 1,
+	.spdif_clk_44100 = 0,	/* Souce from CKIH1 for 44.1K */
+	.spdif_clk_48000 = 7,	/* Source from CKIH2 for 48k and 32k */
+	.spdif_clkid = 0,
+	.spdif_clk = NULL,	/* spdif bus clk */
+};
+
 static inline void mx53_ard_init_uart(void)
 {
 	imx53_add_imx_uart(0, NULL);
 	imx53_add_imx_uart(1, &mx53_ard_uart_data);
 	imx53_add_imx_uart(2, &mx53_ard_uart_data);
 }
+
+static struct fb_videomode video_modes[] = {
+	{
+	/* 800x480 @ 57 Hz , pixel clk @ 27MHz */
+	"CLAA-WVGA", 57, 800, 480, 37037, 40, 60, 10, 10, 20, 10,
+	FB_SYNC_CLK_LAT_FALL,
+	FB_VMODE_NONINTERLACED,
+	0,},
+	{
+	/* 800x480 @ 60 Hz , pixel clk @ 32MHz */
+	"SEIKO-WVGA", 60, 800, 480, 29850, 89, 164, 23, 10, 10, 10,
+	FB_SYNC_CLK_LAT_FALL,
+	FB_VMODE_NONINTERLACED,
+	0,},
+	{
+	/* 1600x1200 @ 60 Hz 162M pixel clk*/
+	"UXGA", 60, 1600, 1200, 6172,
+	304, 64,
+	1, 46,
+	192, 3,
+	FB_SYNC_HOR_HIGH_ACT|FB_SYNC_VERT_HIGH_ACT,
+	FB_VMODE_NONINTERLACED,
+	0,},
+};
+
+static struct ipuv3_fb_platform_data ard_fb_di0_data = {
+	.interface_pix_fmt = IPU_PIX_FMT_RGB565,
+	.mode_str = "CLAA-WVGA",
+	.modes = video_modes,
+	.num_modes = ARRAY_SIZE(video_modes),
+};
+
+static struct ipuv3_fb_platform_data ard_fb_di1_data = {
+	.interface_pix_fmt = IPU_PIX_FMT_GBR24,
+	.mode_str = "VGA-XGA",
+	.modes = video_modes,
+	.num_modes = ARRAY_SIZE(video_modes),
+};
+
+static struct imx_ipuv3_platform_data ipu_data = {
+	.rev = 3,
+	.fb_head0_platform_data = &ard_fb_di0_data,
+	.fb_head1_platform_data = &ard_fb_di1_data,
+	.primary_di = MXC_PRI_DI1,
+};
+
+static struct fsl_mxc_tve_platform_data tve_data = {
+	.dac_reg = "LDO4",
+};
 
 static void __init mx53_ard_io_init(void)
 {
@@ -227,9 +291,27 @@ static void __init mx53_ard_io_init(void)
 }
 static void __init mx53_ard_board_init(void)
 {
+	iomux_v3_cfg_t vga;
+
 	mxc_iomux_v3_setup_multiple_pads(mx53_ard_pads,
 					ARRAY_SIZE(mx53_ard_pads));
+
+	/* setup VGA PINs */
+	printk(KERN_INFO "Enable MX53 ARD VGA\n");
+	vga = MX53_PAD_EIM_OE__IPU_DI1_PIN7;
+	mxc_iomux_v3_setup_pad(vga);
+	vga = MX53_PAD_EIM_RW__IPU_DI1_PIN8;
+	mxc_iomux_v3_setup_pad(vga);
+
+	mxc_spdif_data.spdif_core_clk = clk_get(NULL, "spdif_xtal_clk");
+	clk_put(mxc_spdif_data.spdif_core_clk);
 	mx53_ard_init_uart();
+
+	imx53_add_ipuv3(&ipu_data);
+	imx53_add_vpu();
+	imx53_add_tve(&tve_data);
+	imx53_add_v4l2_output(0);
+
 	imx53_add_srtc();
 	imx53_add_imx2_wdt(0, NULL);
 	imx53_add_sdhci_esdhc_imx(0, &mx53_ard_sd1_data);
@@ -240,6 +322,10 @@ static void __init mx53_ard_board_init(void)
 	mxc_register_device(&ard_smsc_lan9220_device, &ard_smsc911x_config);
 	imx53_add_imx_i2c(1, &mx53_ard_i2c1_data);
 	imx53_add_imx_i2c(2, &mx53_ard_i2c2_data);
+
+	imx53_add_spdif(&mxc_spdif_data);
+	imx53_add_spdif_dai();
+	imx53_add_spdif_audio_device();
 
 	i2c_register_board_info(1, mxc_i2c1_board_info,
 				ARRAY_SIZE(mxc_i2c1_board_info));
