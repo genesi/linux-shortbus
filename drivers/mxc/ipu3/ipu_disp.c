@@ -187,6 +187,44 @@ void _ipu_dmfc_set_wait4eot(int dma_chan, int width)
 	__raw_writel(dmfc_gen1, DMFC_GENERAL1);
 }
 
+void _ipu_dmfc_set_burst_size(int dma_chan, int burst_size)
+{
+	u32 dmfc_wr_chan = __raw_readl(DMFC_WR_CHAN);
+	u32 dmfc_dp_chan = __raw_readl(DMFC_DP_CHAN);
+	int dmfc_bs = 0;
+
+	switch (burst_size) {
+	case 64:
+		dmfc_bs = 0x40;
+		break;
+	case 32:
+	case 20:
+		dmfc_bs = 0x80;
+		break;
+	case 16:
+		dmfc_bs = 0xc0;
+		break;
+	default:
+		dev_err(g_ipu_dev, "Unsupported burst size %d\n",
+			burst_size);
+		return;
+	}
+
+	if (dma_chan == 23) { /*5B*/
+		dmfc_dp_chan &= ~(0xc0);
+		dmfc_dp_chan |= dmfc_bs;
+	} else if (dma_chan == 27) { /*5F*/
+		dmfc_dp_chan &= ~(0xc000);
+		dmfc_dp_chan |= (dmfc_bs << 8);
+	} else if (dma_chan == 28) { /*1*/
+		dmfc_wr_chan &= ~(0xc0);
+		dmfc_wr_chan |= dmfc_bs;
+	}
+
+	__raw_writel(dmfc_wr_chan, DMFC_WR_CHAN);
+	__raw_writel(dmfc_dp_chan, DMFC_DP_CHAN);
+}
+
 static void _ipu_di_data_wave_config(int di,
 				     int wave_gen,
 				     int access_size, int component_size)
@@ -1058,8 +1096,8 @@ int32_t ipu_init_sync_panel(int disp, uint32_t pixel_clk,
 		 * so if the clk rate is not fit, try ext clk.
 		 */
 		if (!sig.int_clk &&
-			((rounded_pixel_clk >= pixel_clk + pixel_clk/16) ||
-			(rounded_pixel_clk <= pixel_clk - pixel_clk/16))) {
+			((rounded_pixel_clk >= pixel_clk + pixel_clk/100) ||
+			(rounded_pixel_clk <= pixel_clk - pixel_clk/100))) {
 			dev_dbg(g_ipu_dev, "try ipu ext di clk\n");
 			rounded_pixel_clk = pixel_clk * 2;
 			while (rounded_pixel_clk < 150000000)
@@ -1475,6 +1513,28 @@ int32_t ipu_init_sync_panel(int disp, uint32_t pixel_clk,
 }
 EXPORT_SYMBOL(ipu_init_sync_panel);
 
+void ipu_uninit_sync_panel(int disp)
+{
+	unsigned long lock_flags;
+	uint32_t reg;
+	uint32_t di_gen;
+
+    if (disp < 0 || disp > 1)
+           return;
+
+	spin_lock_irqsave(&ipu_lock, lock_flags);
+
+	di_gen = __raw_readl(DI_GENERAL(disp));
+	di_gen |= 0x3ff | DI_GEN_POLARITY_DISP_CLK;
+	__raw_writel(di_gen, DI_GENERAL(disp));
+
+	reg = __raw_readl(DI_POL(disp));
+	reg |= 0x3ffffff;
+	__raw_writel(reg, DI_POL(disp));
+
+	spin_unlock_irqrestore(&ipu_lock, lock_flags);
+}
+EXPORT_SYMBOL(ipu_uninit_sync_panel);
 
 int ipu_init_async_panel(int disp, int type, uint32_t cycle_time,
 			 uint32_t pixel_fmt, ipu_adc_sig_cfg_t sig)

@@ -887,6 +887,7 @@ int32_t ipu_init_channel_buffer(ipu_channel_t channel, ipu_buffer_t type,
 				uint32_t stride,
 				ipu_rotate_mode_t rot_mode,
 				dma_addr_t phyaddr_0, dma_addr_t phyaddr_1,
+				dma_addr_t phyaddr_2,
 				uint32_t u_offset, uint32_t v_offset);
 
 int32_t ipu_update_channel_buffer(ipu_channel_t channel, ipu_buffer_t type,
@@ -955,6 +956,8 @@ int32_t ipu_init_sync_panel(int disp,
 			    uint16_t h_end_width, uint16_t v_start_width,
 			    uint16_t v_sync_width, uint16_t v_end_width,
 			    uint32_t v_to_h_sync, ipu_di_signal_cfg_t sig);
+
+void ipu_uninit_sync_panel(int disp);
 
 int32_t ipu_disp_set_window_pos(ipu_channel_t channel, int16_t x_pos,
 				int16_t y_pos);
@@ -1079,6 +1082,7 @@ typedef struct _ipu_channel_buf_parm {
 	ipu_rotate_mode_t rot_mode;
 	dma_addr_t phyaddr_0;
 	dma_addr_t phyaddr_1;
+	dma_addr_t phyaddr_2;
 	uint32_t u_offset;
 	uint32_t v_offset;
 	uint32_t bufNum;

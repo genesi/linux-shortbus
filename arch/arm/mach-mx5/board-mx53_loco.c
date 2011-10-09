@@ -222,7 +222,7 @@ static iomux_v3_cfg_t mx53_loco_pads[] = {
 	.wakeup		= wake,					\
 }
 
-static const struct gpio_keys_button loco_buttons[] __initconst = {
+static const struct gpio_keys_button loco_buttons[] = {
 	GPIO_BUTTON(MX53_LOCO_POWER, KEY_POWER, 1, "power", 1),
 	GPIO_BUTTON(MX53_LOCO_UI1, KEY_VOLUMEUP, 1, "volume-up", 0),
 	GPIO_BUTTON(MX53_LOCO_UI2, KEY_VOLUMEDOWN, 1, "volume-down", 0),
@@ -240,7 +240,7 @@ static inline void mx53_loco_fec_reset(void)
 	/* reset FEC PHY */
 	ret = gpio_request(LOCO_FEC_PHY_RST, "fec-phy-reset");
 	if (ret) {
-		printk(KERN_ERR"failed to get GPIO_FEC_PHY_RESET: %d\n", ret);
+		pr_err("failed to get GPIO_FEC_PHY_RESET: %d\n", ret);
 		return;
 	}
 	gpio_direction_output(LOCO_FEC_PHY_RST, 0);
@@ -424,14 +424,14 @@ static void __init mx53_loco_io_init(void)
 	/* Sii902x HDMI controller */
 	ret = gpio_request(LOCO_DISP0_RESET, "disp0-reset");
 	if (ret) {
-		printk(KERN_ERR"failed to get GPIO_LOCO_DISP0_RESET: %d\n", ret);
+		pr_err("failed to get GPIO_LOCO_DISP0_RESET: %d\n", ret);
 		return;
 	}
 	gpio_direction_output(LOCO_DISP0_RESET, 0);
 
 	ret = gpio_request(LOCO_DISP0_DET_INT, "disp0-detect");
 	if (ret) {
-		printk(KERN_ERR"failed to get GPIO_LOCO_DISP0_DET_INT: %d\n", ret);
+		pr_err("failed to get GPIO_LOCO_DISP0_DET_INT: %d\n", ret);
 		return;
 	}
 	gpio_direction_input(LOCO_DISP0_DET_INT);
@@ -439,7 +439,7 @@ static void __init mx53_loco_io_init(void)
 	/* enable disp0 power */
 	ret = gpio_request(LOCO_DISP0_PWR, "disp0-power-en");
 	if (ret) {
-		printk(KERN_ERR"failed to get GPIO_LOCO_DISP0_PWR: %d\n", ret);
+		pr_err("failed to get GPIO_LOCO_DISP0_PWR: %d\n", ret);
 		return;
 	}
 	gpio_direction_output(LOCO_DISP0_PWR, 1);
@@ -447,7 +447,7 @@ static void __init mx53_loco_io_init(void)
 	/* usb host1 vbus */
 	ret = gpio_request(LOCO_USBH1_VBUS, "usbh1-vbus");
 	if (ret) {
-		printk(KERN_ERR"failed to get GPIO LOCO_USBH1_VBUS: %d\n", ret);
+		pr_err("failed to get GPIO LOCO_USBH1_VBUS: %d\n", ret);
 		return;
 	}
 	gpio_direction_output(LOCO_USBH1_VBUS, 0);
@@ -461,15 +461,30 @@ static int sata_init(struct device *dev, void __iomem *addr)
 	int ret = 0;
 	u32 tmpdata;
 
+	/* configure the sata source clk from internal usb_phy1 clk */
+	clk = clk_get(NULL, "iim_clk");
+	if (IS_ERR(clk)) {
+		pr_err("AHCI can't get IIM clock.\n");
+		return PTR_ERR(clk);
+	}
+	clk_enable(clk);
+
+	/* Fuse bank4 row3 bit2 */
+	mmio = ioremap(MX53_IIM_BASE_ADDR, SZ_8K);
+	writel((readl(mmio + 0x180C) & (~0x7)) | 0x4, mmio + 0x180C);
+	iounmap(mmio);
+	clk_disable(clk);
+	clk_put(clk);
+
 	clk = clk_get(dev, "imx_sata_clk");
 	ret = IS_ERR(clk);
 	if (ret) {
-		printk(KERN_ERR "AHCI can't get clock.\n");
+		pr_err("AHCI can't get clock.\n");
 		return ret;
 	}
 	ret = clk_enable(clk);
 	if (ret) {
-		printk(KERN_ERR "AHCI can't enable clock.\n");
+		pr_err("AHCI can't enable clock.\n");
 		clk_put(clk);
 		return ret;
 	}
@@ -478,13 +493,13 @@ static int sata_init(struct device *dev, void __iomem *addr)
 	clk = clk_get(NULL, "ahb_clk");
 	ret = IS_ERR(clk);
 	if (ret) {
-		printk(KERN_ERR "AHCI can't get AHB clock.\n");
+		pr_err("AHCI can't get AHB clock.\n");
 		goto no_ahb_clk;
 	}
 
 	mmio = ioremap(MX53_SATA_BASE_ADDR, SZ_2K);
 	if (mmio == NULL) {
-		printk(KERN_ERR "Failed to map SATA REGS\n");
+		pr_err("Failed to map SATA REGS\n");
 		goto no_ahb_clk;
 	}
 
@@ -504,15 +519,17 @@ static int sata_init(struct device *dev, void __iomem *addr)
 	clk = clk_get(dev, "usb_phy1_clk");
 	ret = IS_ERR(clk);
 	if (ret) {
-		printk(KERN_ERR "AHCI can't get USB PHY1 CLK.\n");
+		pr_err("AHCI can't get USB PHY1 CLK.\n");
 		goto no_ahb_clk;
 	}
 	ret = clk_enable(clk);
 	if (ret) {
-		printk(KERN_ERR "AHCI Can't enable USB PHY1 clock.\n");
+		pr_err("AHCI Can't enable USB PHY1 clock.\n");
 		clk_put(clk);
 		goto no_ahb_clk;
 	}
+
+	msleep(15);
 
 	/* Release resources when there is no device on the port */
 	if ((readl(mmio + PORT_SATA_SR) & 0xF) == 0) {
@@ -526,11 +543,11 @@ static int sata_init(struct device *dev, void __iomem *addr)
 	return ret;
 
 no_device:
-	printk(KERN_INFO "NO SATA device is found, relase resource!\n");
+	pr_info("NO SATA device is found, relase resource!\n");
 	clk = clk_get(dev, "usb_phy1_clk");
 	if (IS_ERR(clk)) {
 		clk = NULL;
-		printk(KERN_ERR "AHCI can't get USB PHY1 CLK.\n");
+		pr_err("AHCI can't get USB PHY1 CLK.\n");
 	} else {
 		clk_disable(clk);
 		clk_put(clk);
@@ -540,7 +557,7 @@ no_ahb_clk:
 	clk = clk_get(dev, "imx_sata_clk");
 	if (IS_ERR(clk)) {
 		clk = NULL;
-		printk(KERN_ERR "IMX SATA can't get clock.\n");
+		pr_err("IMX SATA can't get clock.\n");
 	} else {
 		clk_disable(clk);
 		clk_put(clk);
@@ -556,7 +573,7 @@ static void sata_exit(struct device *dev)
 	clk = clk_get(dev, "usb_phy1_clk");
 	if (IS_ERR(clk)) {
 		clk = NULL;
-		printk(KERN_ERR "AHCI can't get USB PHY1 CLK.\n");
+		pr_err("AHCI can't get USB PHY1 CLK.\n");
 	} else {
 		clk_disable(clk);
 		clk_put(clk);
@@ -565,7 +582,7 @@ static void sata_exit(struct device *dev)
 	clk = clk_get(dev, "imx_sata_clk");
 	if (IS_ERR(clk)) {
 		clk = NULL;
-		printk(KERN_ERR "IMX SATA can't get clock.\n");
+		pr_err("IMX SATA can't get clock.\n");
 	} else {
 		clk_disable(clk);
 		clk_put(clk);
@@ -590,7 +607,7 @@ static int loco_sgtl5000_init(void)
 	}
 	rate = clk_round_rate(ssi_ext1, 24000000);
 	if (rate < 8000000 || rate > 27000000) {
-			printk(KERN_ERR "Error: SGTL5000 mclk freq %d out of range!\n",
+			pr_err("Error: SGTL5000 mclk freq %d out of range!\n",
 				   rate);
 			clk_put(ssi_ext1);
 			return -1;
@@ -604,7 +621,7 @@ static int loco_sgtl5000_init(void)
 }
 
 static struct imx_ssi_platform_data loco_ssi_pdata = {
-	.flags = IMX_SSI_DMA,
+	.flags = IMX_SSI_DMA | IMX_SSI_SYN,
 };
 
 static struct mxc_audio_platform_data loco_audio_data = {
@@ -718,6 +735,18 @@ static void __init fixup_mxc_board(struct machine_desc *desc, struct tag *tags,
 	}
 }
 
+static struct mxc_spdif_platform_data mxc_spdif_data = {
+	.spdif_tx = 1,
+	.spdif_rx = 0,
+	.spdif_clk_44100 = -1,	/* No source for 44.1K */
+	/* Source from CCM spdif_clk (24M) for 48k and 32k
+	 * It's not accurate: for 48Khz it is actually 46875Hz (2.3% off)
+	 */
+	.spdif_clk_48000 = 1,
+	.spdif_clkid = 0,
+	.spdif_clk = NULL,	/* spdif bus clk */
+};
+
 static void __init mx53_loco_board_init(void)
 {
 	mx53_loco_io_init();
@@ -725,6 +754,9 @@ static void __init mx53_loco_board_init(void)
 	imx53_add_imx_uart(0, NULL);
 	mx53_loco_fec_reset();
 	imx53_add_fec(&mx53_loco_fec_data);
+
+	mxc_spdif_data.spdif_core_clk = clk_get(NULL, "spdif_xtal_clk");
+	clk_put(mxc_spdif_data.spdif_core_clk);
 
 	mxc_register_device(&mxc_pm_device, &loco_pm_data);
 
@@ -762,6 +794,10 @@ static void __init mx53_loco_board_init(void)
 
 	mxc_register_device(&loco_audio_device, &loco_audio_data);
 	imx53_add_imx_ssi(1, &loco_ssi_pdata);
+
+	imx53_add_spdif(&mxc_spdif_data);
+	imx53_add_spdif_dai();
+	imx53_add_spdif_audio_device();
 
 	/*GPU*/
 	if (mx53_revision() >= IMX_CHIP_REVISION_2_0)
