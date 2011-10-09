@@ -386,9 +386,12 @@ static void mx53_efikasb_periph_power(bool on)
 
 static void mx53_efikasb_do_periph_reset(void)
 {
-	gpio_set_value(PERIPH_RESET, 0);
-	mdelay(10);	/* Should be fine... */
 	gpio_set_value(PERIPH_RESET, 1);
+	msleep(50);
+	gpio_set_value(PERIPH_RESET, 0);
+	msleep(1);
+	gpio_set_value(PERIPH_RESET, 1);
+	msleep(30);
 }
 
 static struct imx_ssi_platform_data efikasb_ssi_pdata = {
