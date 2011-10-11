@@ -30,9 +30,6 @@
 #include <linux/i2c.h>
 #include <linux/i2c/mpr.h>
 #include <linux/fsl_devices.h>
-#include <linux/mtd/nand.h>
-#include <linux/mtd/partitions.h>
-#include <linux/gpio.h>
 #include <linux/i2c-gpio.h>
 
 #include <mach/common.h>
@@ -45,6 +42,7 @@
 
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/map.h>
+#include <linux/mtd/nand.h>
 #include <linux/mtd/partitions.h>
 
 #include <asm/mach-types.h>
