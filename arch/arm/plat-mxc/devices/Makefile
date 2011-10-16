@@ -33,3 +33,6 @@ obj-$(CONFIG_IMX_HAVE_PLATFORM_SDHCI_ESDHC_IMX) += platform-sdhci-esdhc-imx.o
 obj-$(CONFIG_IMX_HAVE_PLATFORM_SPI_IMX) +=  platform-spi_imx.o
 obj-$(CONFIG_IMX_HAVE_PLATFORM_IMX_IIM)	+= platform-imx-iim.o
 obj-$(CONFIG_IMX_HAVE_PLATFORM_AHCI) +=  platform-ahci-imx.o
+obj-$(CONFIG_IMX_HAVE_PLATFORM_IMX_SPDIF) += platform-imx-spdif.o
+obj-$(CONFIG_IMX_HAVE_PLATFORM_IMX_SPDIF) += platform-imx-spdif-dai.o
+obj-$(CONFIG_IMX_HAVE_PLATFORM_IMX_SPDIF) += platform-imx-spdif-audio.o

@@ -41,6 +41,14 @@ extern const struct imx_imx_ssi_data imx53_imx_ssi_data[];
 #define imx53_add_imx_ssi(id, pdata)	\
 	imx_add_imx_ssi(&imx53_imx_ssi_data[id], pdata)
 
+extern const struct imx_spdif_data imx53_imx_spdif_data __initconst;
+#define imx53_add_spdif(pdata)	imx_add_spdif(&imx53_imx_spdif_data, pdata)
+
+extern const struct imx_spdif_dai_data imx53_spdif_dai_data __initconst;
+#define imx53_add_spdif_dai()	imx_add_spdif_dai(&imx53_spdif_dai_data)
+
+#define imx53_add_spdif_audio_device(pdata)	imx_add_spdif_audio_device()
+
 extern const struct imx_imx_keypad_data imx53_imx_keypad_data;
 #define imx53_add_imx_keypad(pdata)	\
 	imx_add_imx_keypad(&imx53_imx_keypad_data, pdata)
