@@ -23,20 +23,20 @@
 #define SPPP_SYNC   0xff
 
 typedef struct {
-    uint8_t input[MAX_RECV_PKG_SIZE];
-    uint8_t id;
-    uint8_t crc;
-    uint8_t pos;
-    uint8_t num;
-    uint8_t carry;
-    uint8_t sync;
+	uint8_t input[MAX_RECV_PKG_SIZE];
+	uint8_t id;
+	uint8_t crc;
+	uint8_t pos;
+	uint8_t num;
+	uint8_t carry;
+	uint8_t sync;
 } sppp_rx_t;
 
 typedef struct {
-    uint8_t crc;
-    uint8_t pos;
-    uint8_t carry;
-    int comd;
+	uint8_t crc;
+	uint8_t pos;
+	uint8_t carry;
+	int comd;
 } sppp_tx_t;
 
 int sppp_recv(int comd, sppp_rx_t *sppp_rx);
