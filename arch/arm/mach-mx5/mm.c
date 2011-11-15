@@ -169,4 +169,6 @@ void __init imx53_soc_init(void)
 
 	/* i.mx53 has the i.mx35 type sdma */
 	imx_add_imx_sdma("imx35-sdma", MX53_SDMA_BASE_ADDR, MX53_INT_SDMA, &imx53_sdma_pdata);
+
+	imx_cpuidle_init(&mx5_cpuidle_data);
 }
