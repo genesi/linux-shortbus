@@ -27,6 +27,7 @@
 #include "sdhci-pltfm.h"
 #include "sdhci-esdhc.h"
 
+#define SDHCI_CTRL_D3CD		0x08
 /* VENDOR SPEC register */
 #define SDHCI_VENDOR_SPEC		0xC0
 #define  SDHCI_VENDOR_SPEC_SDIO_QUIRK	0x00000002
@@ -74,7 +75,7 @@ static u32 esdhc_readl_le(struct sdhci_host *host, int reg)
 		if (boarddata && gpio_is_valid(boarddata->cd_gpio)
 				&& gpio_get_value(boarddata->cd_gpio))
 			/* no card, if a valid gpio says so... */
-			val &= SDHCI_CARD_PRESENT;
+			val &= ~SDHCI_CARD_PRESENT;
 		else
 			/* ... in all other cases assume card is present */
 			val |= SDHCI_CARD_PRESENT;
@@ -87,14 +88,22 @@ static void esdhc_writel_le(struct sdhci_host *host, u32 val, int reg)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct pltfm_imx_data *imx_data = pltfm_host->priv;
+	u32 data;
 
-	if (unlikely((reg == SDHCI_INT_ENABLE || reg == SDHCI_SIGNAL_ENABLE)
-			&& (imx_data->flags & ESDHC_FLAG_GPIO_FOR_CD_WP)))
-		/*
-		 * these interrupts won't work with a custom card_detect gpio
-		 * (only applied to mx25/35)
-		 */
-		val &= ~(SDHCI_INT_CARD_REMOVE | SDHCI_INT_CARD_INSERT);
+	if (unlikely(reg == SDHCI_INT_ENABLE || reg == SDHCI_SIGNAL_ENABLE)) {
+			if (imx_data->flags & ESDHC_FLAG_GPIO_FOR_CD_WP)
+					/*
+		 			* these interrupts won't work with a custom card_detect gpio
+		 			* (only applied to mx25/35)
+		 			*/
+					val &= ~(SDHCI_INT_CARD_REMOVE | SDHCI_INT_CARD_INSERT);
+			
+			if (val & SDHCI_INT_CARD_INT) {
+					data = readl(host->ioaddr + SDHCI_HOST_CONTROL);
+					data |= SDHCI_CTRL_D3CD;
+					writel(data, host->ioaddr + SDHCI_HOST_CONTROL); 
+			}
+	}
 
 	if (unlikely((imx_data->flags & ESDHC_FLAG_MULTIBLK_NO_INT)
 				&& (reg == SDHCI_INT_STATUS)
@@ -164,8 +173,8 @@ static void esdhc_writeb_le(struct sdhci_host *host, u8 val, int reg)
 		 */
 		return;
 	case SDHCI_HOST_CONTROL:
-		/* FSL messed up here, so we can just keep those two */
-		new_val = val & (SDHCI_CTRL_LED | SDHCI_CTRL_4BITBUS);
+		/* FSL messed up here, so we can just keep those three */
+		 new_val = val & (SDHCI_CTRL_LED | SDHCI_CTRL_4BITBUS | SDHCI_CTRL_D3CD);
 		/* ensure the endianess */
 		new_val |= ESDHC_HOST_CONTROL_LE;
 		/* DMA mode bits are shifted */
@@ -175,6 +184,17 @@ static void esdhc_writeb_le(struct sdhci_host *host, u8 val, int reg)
 		return;
 	}
 	esdhc_clrset_le(host, 0xff, val, reg);
+
+	/*
+	 * The esdhc has a design violation to SDHC spec which tells
+	 * that software reset should not affect card detection circuit.
+	 * But esdhc clears its SYSCTL register bits [0..2] during the
+	 * software reset.  This will stop those clocks that card detection
+	 * circuit relies on.  To work around it, we turn the clocks on back
+	 * to keep card detection circuit functional.
+	 */
+	 if ((reg == SDHCI_SOFTWARE_RESET) && (val & 1))
+					 esdhc_clrset_le(host, 0x7, 0x7, ESDHC_SYSTEM_CONTROL);
 }
 
 static unsigned int esdhc_pltfm_get_max_clock(struct sdhci_host *host)
