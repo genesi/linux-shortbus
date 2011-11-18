@@ -343,6 +343,12 @@ static struct i2c_board_info mxc_i2c1_board_info[] __initdata = {
 	},
 };
 
+static struct fsl_mxc_lcd_platform_data lcdif_data = {
+	.ipu_id = 0,
+	.disp_id = 0,
+	.default_ifmt = IPU_PIX_FMT_RGB565,
+};
+
 static struct fsl_mxc_ldb_platform_data ldb_data = {
 	.ipu_id = 0,
 	.disp_id = 0,
@@ -525,6 +531,7 @@ static void __init mx53_loco_board_init(void)
 		imx53_add_ipuv3fb(i, &loco_fb_data[i]);
 
 	imx53_add_vpu();
+	imx53_add_lcdif(&lcdif_data);
 	imx53_add_ldb(&ldb_data);
 	imx53_add_tve(&tve_data);
 	imx53_add_v4l2_output(0);
