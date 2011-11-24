@@ -16,6 +16,7 @@
 
 #include <asm/sizes.h>
 #include <asm/mach/map.h>
+#include <asm/pmu.h>
 
 #include <mach/hardware.h>
 #include <mach/common.h>
@@ -166,6 +167,21 @@ void __init imx50_soc_init(void)
 	mxc_register_gpio("imx31-gpio", 5, MX50_GPIO6_BASE_ADDR, SZ_16K, MX50_INT_GPIO6_LOW, MX50_INT_GPIO6_HIGH);
 }
 
+static struct resource mx5_pmu_resources[] = {
+	{
+		/* MX51/53 share the same IRQ number */
+		.start	= MX51_INT_PMU,
+		.flags	= IORESOURCE_IRQ,
+	}
+};
+
+static struct platform_device mx5_pmu_device = {
+	.name		= "arm-pmu",
+	.id		= ARM_PMU_DEVICE_CPU,
+	.resource	= &mx5_pmu_resources,
+	.num_resources	= 1,
+};
+
 void __init imx51_soc_init(void)
 {
 	/* i.mx51 has the i.mx31 type gpio */
@@ -176,6 +192,8 @@ void __init imx51_soc_init(void)
 
 	/* i.mx51 has the i.mx35 type sdma */
 	imx_add_imx_sdma("imx35-sdma", MX51_SDMA_BASE_ADDR, MX51_INT_SDMA, &imx51_sdma_pdata);
+
+	platform_device_register(&mx5_pmu_device);
 }
 
 void __init imx53_soc_init(void)
@@ -191,4 +209,6 @@ void __init imx53_soc_init(void)
 
 	/* i.mx53 has the i.mx35 type sdma */
 	imx_add_imx_sdma("imx35-sdma", MX53_SDMA_BASE_ADDR, MX53_INT_SDMA, &imx53_sdma_pdata);
+
+	platform_device_register(&mx5_pmu_device);
 }
