@@ -94,6 +94,9 @@ void __init imx51_init_early(void)
 	mxc_iomux_v3_init(MX51_IO_ADDRESS(MX51_IOMUXC_BASE_ADDR));
 	mxc_arch_reset_init(MX51_IO_ADDRESS(MX51_WDOG1_BASE_ADDR));
 	pm_idle = imx5_idle;
+
+	if (!system_rev)
+		system_rev = 0x51000;
 }
 
 void __init imx53_init_early(void)
@@ -102,6 +105,9 @@ void __init imx53_init_early(void)
 	mxc_iomux_v3_init(MX53_IO_ADDRESS(MX53_IOMUXC_BASE_ADDR));
 	mxc_arch_reset_init(MX53_IO_ADDRESS(MX53_WDOG1_BASE_ADDR));
 	init_consistent_dma_size(SZ_128M);
+
+	if (!system_rev)
+		system_rev = 0x53000;
 }
 
 void __init mx50_init_irq(void)
