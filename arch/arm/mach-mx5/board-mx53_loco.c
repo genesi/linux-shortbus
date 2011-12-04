@@ -331,15 +331,14 @@ static struct i2c_board_info mxc_i2c0_board_info[] __initdata = {
 };
 
 static struct i2c_board_info mxc_i2c1_board_info[] __initdata = {
-	{
-	.type = "sgtl5000",
-	.addr = 0x0a,
+	[0] = {
+		.type	= "sgtl5000",
+		.addr	= 0x0a,
 	},
-	{
-	.type = "sii902x",
-	.addr = 0x39,
-	.irq = gpio_to_irq(LOCO_DISP0_DET_INT),
-	.platform_data = &sii902x_hdmi_data,
+	[1] = {
+		.type	= "sii902x",
+		.addr	= 0x39,
+		.platform_data = &sii902x_hdmi_data,
 	},
 };
 
@@ -551,8 +550,12 @@ static void __init mx53_loco_board_init(void)
 	imx53_add_imx_i2c(1, &mx53_loco_i2c_data);
 	i2c_register_board_info(0, mxc_i2c0_board_info,
 				ARRAY_SIZE(mxc_i2c0_board_info));
+
+	mxc_i2c1_board_info[1].irq = gpio_to_irq(LOCO_DISP0_DET_INT);
+
 	i2c_register_board_info(1, mxc_i2c1_board_info,
 				ARRAY_SIZE(mxc_i2c1_board_info));
+
 	imx53_add_sdhci_esdhc_imx(0, &mx53_loco_sd1_data);
 	imx53_add_sdhci_esdhc_imx(2, &mx53_loco_sd3_data);
 	mxc_register_device(&loco_audio_device, &loco_audio_data);

@@ -26,6 +26,7 @@
 #include <linux/platform_device.h>
 #include <linux/i2c.h>
 #include <linux/irq.h>
+#include <linux/gpio.h>
 #include <linux/interrupt.h>
 #include <linux/err.h>
 #include <linux/regulator/machine.h>
@@ -36,7 +37,6 @@
 #include <linux/mfd/da9052/tsi.h>
 #include <mach/irqs.h>
 #include <mach/iomux-mx53.h>
-#include <mach/gpio.h>
 
 #define DA9052_LDO(max, min, rname, suspend_mv) \
 {\
@@ -279,11 +279,11 @@ static struct da9052_platform_data __initdata da9052_plat = {
 
 static struct i2c_board_info __initdata da9052_i2c_device = {
 	I2C_BOARD_INFO(DA9052_SSC_I2C_DEVICE_NAME, DA9052_I2C_ADDR >> 1),
-	.irq = gpio_to_irq(MX53_LOCO_DA9052_IRQ),
 	.platform_data = &da9052_plat,
 };
 
 int __init mx53_loco_init_da9052(void)
 {
+	da9052_i2c_device.irq = gpio_to_irq(MX53_LOCO_DA9052_IRQ);
 	return i2c_register_board_info(0, &da9052_i2c_device, 1);
 }
