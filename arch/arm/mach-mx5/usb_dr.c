@@ -328,7 +328,8 @@ void __init mx5_usb_dr_init(void)
 	ret |= platform_device_register(&mx53_usbdr_udc_device);
 	dr_wakeup_config.usb_pdata[2] = mx53_usbdr_udc_device.dev.platform_data;
 #endif
-	ret |= mxc_register_device(&mx53_usbdr_wakeup_device, &dr_wakeup_config);
+	mx53_usbdr_wakeup_device.dev.platform_data = &dr_wakeup_config;
+	ret |= platform_device_register(&mx53_usbdr_wakeup_device);
 	if (ret)
 		printk(KERN_ERR "%s(%d): error occures while init usb dr \n", __func__, __LINE__);
 }

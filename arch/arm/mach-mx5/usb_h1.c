@@ -20,6 +20,7 @@
 #include <linux/gpio.h>
 
 #include <asm/delay.h>
+#include <mach/hardware.h>
 #include <mach/arc_otg.h>
 #include <mach/iomux-mx51.h>
 #include <mach/iomux-mx53.h>
@@ -287,9 +288,13 @@ void __init mx5_usbh1_init(void)
 		mx53_usbh1_device.resource[0].end	-= MX53_OFFSET;
 	}
 	if (cpu_is_mx53()) {
-		mxc_register_device(&mx53_usbh1_device, &usbh1_config);
 		usbh1_config.wakeup_pdata = &usbh1_wakeup_config;
-		mxc_register_device(&mx53_usbh1_wakeup_device, &usbh1_wakeup_config);
+
+		mx53_usbh1_device.dev.platform_data = &usbh1_config;
+		platform_device_register(&mx53_usbh1_device);
+
+		mx53_usbh1_wakeup_device.dev.platform_data = &usbh1_wakeup_config;
+		platform_device_register(&mx53_usbh1_wakeup_device);
 	}
 }
 

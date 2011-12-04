@@ -284,6 +284,9 @@ static struct mxc_audio_platform_data loco_audio_data = {
 
 static struct platform_device loco_audio_device = {
 	.name = "imx-sgtl5000",
+	.dev = {
+		.platform_data	= &loco_audio_data,
+	}
 };
 
 static inline void mx53_loco_fec_reset(void)
@@ -558,7 +561,7 @@ static void __init mx53_loco_board_init(void)
 
 	imx53_add_sdhci_esdhc_imx(0, &mx53_loco_sd1_data);
 	imx53_add_sdhci_esdhc_imx(2, &mx53_loco_sd3_data);
-	mxc_register_device(&loco_audio_device, &loco_audio_data);
+	platform_device_register(&loco_audio_device);
 	imx53_add_imx_ssi(1, &loco_ssi_pdata);
 	imx53_add_srtc();
 	imx_add_gpio_keys(&loco_button_data);
@@ -570,7 +573,8 @@ static void __init mx53_loco_board_init(void)
 	i2c_register_board_info(0, mxc_i2c0_board_info,
 				ARRAY_SIZE(mxc_i2c0_board_info));
 
-	mxc_register_device(&mxc_pm_device, &loco_pm_data);
+	mxc_pm_device.dev.platform_data = &loco_pm_data;
+	platform_device_register(&mxc_pm_device);
 	mx53_loco_init_da9052();
 	pm_power_off = da9053_power_off;
 
