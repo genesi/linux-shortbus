@@ -196,6 +196,8 @@ extern unsigned int __mxc_cpu_type;
 
 #ifndef __ASSEMBLY__
 
+#include <mach/common.h>
+
 struct cpu_op {
 	u32 pll_reg;
 	u32 pll_rate;

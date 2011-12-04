@@ -20,6 +20,7 @@
  *
  * @ingroup PM
  */
+#include <linux/module.h>
 #include <asm/io.h>
 #include <linux/proc_fs.h>
 #include <linux/clk.h>
@@ -198,4 +199,3 @@ module_exit(sdram_autogating_cleanup);
 MODULE_AUTHOR("Freescale Semiconductor, Inc.");
 MODULE_DESCRIPTION("sdram_autogating driver");
 MODULE_LICENSE("GPL");
-

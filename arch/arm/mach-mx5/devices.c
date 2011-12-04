@@ -40,8 +40,8 @@ static u64 usb_dma_mask = DMA_BIT_MASK(32);
 
 static struct resource usbotg_resources[] = {
 	{
-		.start = MX51_OTG_BASE_ADDR,
-		.end = MX51_OTG_BASE_ADDR + 0x1ff,
+		.start = MX51_USB_OTG_BASE_ADDR,
+		.end = MX51_USB_OTG_BASE_ADDR + 0x1ff,
 		.flags = IORESOURCE_MEM,
 	},
 	{
@@ -115,8 +115,8 @@ struct platform_device mx53_usbdr_wakeup_device = {
 
 static struct resource usbotg_xcvr_resources[] = {
 	{
-		.start = MX51_OTG_BASE_ADDR,
-		.end = MX51_OTG_BASE_ADDR + 0x1ff,
+		.start = MX51_USB_OTG_BASE_ADDR,
+		.end = MX51_USB_OTG_BASE_ADDR + 0x1ff,
 		.flags = IORESOURCE_MEM,
 	},
 	{
@@ -138,12 +138,12 @@ struct platform_device mx53_usbdr_otg_device = {
 
 static struct resource usbh1_resources[] = {
 	{
-		.start = MX51_OTG_BASE_ADDR + 0x200,
-		.end = MX51_OTG_BASE_ADDR + 0x200 + 0x1ff,
+		.start = MX51_USB_OTG_BASE_ADDR + 0x200,
+		.end = MX51_USB_OTG_BASE_ADDR + 0x200 + 0x1ff,
 		.flags = IORESOURCE_MEM,
 	},
 	{
-		.start = MX51_INT_USB_H1,
+		.start = MX51_INT_USB_HS1,
 		.flags = IORESOURCE_IRQ,
 	},
 };
@@ -172,12 +172,12 @@ struct platform_device mx53_usbh1_device = {
 
 static struct resource usbh2_resources[] = {
 	{
-		.start = MX51_OTG_BASE_ADDR + 0x400,
-		.end = MX51_OTG_BASE_ADDR + 0x400 + 0x1ff,
+		.start = MX51_USB_OTG_BASE_ADDR + 0x400,
+		.end = MX51_USB_OTG_BASE_ADDR + 0x400 + 0x1ff,
 		.flags = IORESOURCE_MEM,
 	},
 	{
-		.start = MX51_INT_USB_H2,
+		.start = MX51_INT_USB_HS2,
 		.flags = IORESOURCE_IRQ,
 	},
 };
@@ -200,11 +200,11 @@ struct platform_device mxc_pm_device = {
 
 static struct resource usbh1_wakeup_resources[] = {
         {
-                .start = MX51_INT_USB_H1, /*wakeup irq*/
+                .start = MX51_INT_USB_HS1, /*wakeup irq*/
                 .flags = IORESOURCE_IRQ,
         },
         {
-                .start = MX51_INT_USB_H1,
+                .start = MX51_INT_USB_HS1,
                 .flags = IORESOURCE_IRQ,/* usb core irq */
         },
 };

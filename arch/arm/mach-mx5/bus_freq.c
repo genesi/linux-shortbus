@@ -21,6 +21,7 @@
  *
  * @ingroup PM
  */
+#include <linux/module.h>
 #include <asm/io.h>
 #include <linux/sched.h>
 #include <linux/proc_fs.h>
