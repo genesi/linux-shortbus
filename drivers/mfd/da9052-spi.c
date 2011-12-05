@@ -9,6 +9,7 @@
  * da9052-spi.c: SPI SSC (Synchronous Serial Communication) driver for DA9052
  */
 
+#include <linux/module.h>
 #include <linux/device.h>
 #include <linux/mfd/core.h>
 #include <linux/spi/spi.h>

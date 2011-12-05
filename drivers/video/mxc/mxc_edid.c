@@ -26,6 +26,7 @@
 /*!
  * Include files
  */
+#include <linux/module.h>
 #include <linux/i2c.h>
 #include <linux/fb.h>
 #include "mxc_edid.h"

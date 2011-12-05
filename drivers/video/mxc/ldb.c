@@ -24,6 +24,7 @@
  * @brief This file contains the LDB driver device interface and fops
  * functions.
  */
+#include <linux/module.h>
 #include <linux/types.h>
 #include <linux/init.h>
 #include <linux/platform_device.h>
