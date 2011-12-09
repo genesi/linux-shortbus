@@ -6702,8 +6702,9 @@ static int btrfs_truncate(struct inode *inode)
 		if (!trans) {
 			trans = btrfs_start_transaction(root, 3);
 			if (IS_ERR(trans)) {
-				err = PTR_ERR(trans);
-				goto out;
+				ret = err = PTR_ERR(trans);
+				trans = NULL;
+				break;
 			}
 
 			ret = btrfs_truncate_reserve_metadata(trans, root,
