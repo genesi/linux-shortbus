@@ -109,10 +109,8 @@ static iomux_v3_cfg_t mx53_efikasb_pads[] = {
 	MX53_PAD_LVDS0_TX1_P__LDB_LVDS0_TX1,
 	MX53_PAD_LVDS0_TX0_P__LDB_LVDS0_TX0,
 	/* I2C1 */
-//	MX53_PAD_CSI0_DAT8__I2C1_SDA, 
-//	MX53_PAD_CSI0_DAT9__I2C1_SCL, 
-	MX53_PAD_CSI0_DAT8__GPIO5_26,
-	MX53_PAD_CSI0_DAT9__GPIO5_27,
+	MX53_PAD_CSI0_DAT8__I2C1_SDA, 
+	MX53_PAD_CSI0_DAT9__I2C1_SCL, 
 	/* UART */
 	MX53_PAD_PATA_DIOW__UART1_TXD_MUX,
 	MX53_PAD_PATA_DMACK__UART1_RXD_MUX,
@@ -257,17 +255,6 @@ static struct i2c_board_info mxc_i2c0_board_info[] __initdata = {
 	.addr = 0x42,
 	.platform_data = (void *)&camera_data,
 	},
-};
-
-/* Temporary GPIO I2C solution */
-static struct i2c_gpio_platform_data i2c_gpio_data = {
-	.sda_pin	= GPIO_SDA,
-	.scl_pin	= GPIO_SCL,
-};
-
-static struct platform_device i2c_gpio_device = {
-	.name		= "i2c-gpio",
-	.id			= 0,
 };
 
 static int nand_init(void)
@@ -556,9 +543,7 @@ static void __init mx53_efikasb_board_init(void)
 	imx53_add_dvfs_core(&efikasb_dvfs_core_data);
 
 	/* I2C */
-	//imx53_add_imx_i2c(0, &mx53_efikasb_i2c_data);
-	mxc_register_device(&i2c_gpio_device, &i2c_gpio_data);
-
+	imx53_add_imx_i2c(0, &mx53_efikasb_i2c_data);
 	i2c_register_board_info(0, mxc_i2c0_board_info,
 				ARRAY_SIZE(mxc_i2c0_board_info));
 
