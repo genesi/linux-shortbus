@@ -58,18 +58,7 @@ static int imx_efikasb_cs42l52_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	int ret;
 
-	/* TODO: The SSI driver should figure this out for us */
 	unsigned int channels = params_channels(params);
-	switch (channels) {
-	case 2:
-		snd_soc_dai_set_tdm_slot(cpu_dai, 0xfffffffc, 0xfffffffc, 2, 0);
-		break;
-	case 1:
-		snd_soc_dai_set_tdm_slot(cpu_dai, 0xfffffffe, 0xfffffffe, 1, 0);
-		break;
-	default:
-		return -EINVAL;
-	}
 
 	/* Set codec DAI configuration */
 	ret = snd_soc_dai_set_fmt(codec_dai,
@@ -82,6 +71,27 @@ static int imx_efikasb_cs42l52_hw_params(struct snd_pcm_substream *substream,
 		return ret;
 	}
 
+	/* Set the codec system clock */
+	ret = snd_soc_dai_set_sysclk(codec_dai, CS42L52_SYSCLK,
+							card_priv.sysclk,
+							SND_SOC_CLOCK_IN);
+	if (ret < 0) {
+		printk(KERN_ERR "can't set codec system clock\n");
+		return ret;
+	}
+
+	/* TODO: The SSI driver should figure this out for us */
+	switch (channels) {
+	case 2:
+		snd_soc_dai_set_tdm_slot(cpu_dai, 0xfffffffc, 0xfffffffc, 2, 0);
+		break;
+	case 1:
+		snd_soc_dai_set_tdm_slot(cpu_dai, 0xfffffffe, 0xfffffffe, 1, 0);
+		break;
+	default:
+		return -EINVAL;
+	}
+
 	/* Set cpu DAI configuration */
 	ret = snd_soc_dai_set_fmt(cpu_dai,
 							SND_SOC_DAIFMT_I2S |
@@ -92,15 +102,6 @@ static int imx_efikasb_cs42l52_hw_params(struct snd_pcm_substream *substream,
 		return ret;
 	}
 
-	/* Set the codec system clock */
-	ret = snd_soc_dai_set_sysclk(codec_dai, CS42L52_SYSCLK,
-							card_priv.sysclk,
-							SND_SOC_CLOCK_IN);
-	if (ret < 0) {
-		printk(KERN_ERR "can't set codec system clock\n");
-		return ret;
-	}
-	
 	return ret;
 }
 
