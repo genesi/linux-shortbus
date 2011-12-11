@@ -109,8 +109,8 @@ static iomux_v3_cfg_t mx53_efikasb_pads[] = {
 	MX53_PAD_LVDS0_TX1_P__LDB_LVDS0_TX1,
 	MX53_PAD_LVDS0_TX0_P__LDB_LVDS0_TX0,
 	/* I2C1 */
-/*	MX53_PAD_CSI0_DAT8__I2C1_SDA, */
-/*	MX53_PAD_CSI0_DAT9__I2C1_SCL, */
+//	MX53_PAD_CSI0_DAT8__I2C1_SDA, 
+//	MX53_PAD_CSI0_DAT9__I2C1_SCL, 
 	MX53_PAD_CSI0_DAT8__GPIO5_26,
 	MX53_PAD_CSI0_DAT9__GPIO5_27,
 	/* UART */
@@ -172,12 +172,14 @@ static struct ipuv3_fb_platform_data efikasb_fb0_data = {
 	.num_modes = ARRAY_SIZE(video_modes),
 };
 
+
 static struct ipuv3_fb_platform_data efikasb_fb1_data = {
 	.interface_pix_fmt = IPU_PIX_FMT_BGR24,
 	.mode_str = "WSVGA",
 	.modes = video_modes,
 	.num_modes = ARRAY_SIZE(video_modes),
 };
+
 
 static struct imx_ipuv3_platform_data ipu_data = {
 	.rev = 3,
@@ -551,11 +553,10 @@ static void __init mx53_efikasb_board_init(void)
 	imx53_add_v4l2_output(0);
 
 	imx53_add_imx2_wdt(0, NULL);
-	imx53_add_srtc();
 	imx53_add_dvfs_core(&efikasb_dvfs_core_data);
 
 	/* I2C */
-	/* imx53_add_imx_i2c(0, &mx53_efikasb_i2c_data); */
+	//imx53_add_imx_i2c(0, &mx53_efikasb_i2c_data);
 	mxc_register_device(&i2c_gpio_device, &i2c_gpio_data);
 
 	i2c_register_board_info(0, mxc_i2c0_board_info,
