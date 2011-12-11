@@ -1000,7 +1000,7 @@ config RTC_DRV_DA9052
 	  Dialog Semiconductor DA9052 PMIC.
 
 config RTC_SPPP
-        bool "SPPP RTC driver"
+        tristate "SPPP RTC driver"
         depends on MACH_MX53_EFIKASB 
         help
           Say Y here if you have a Genesi MX53 EfikaSB based

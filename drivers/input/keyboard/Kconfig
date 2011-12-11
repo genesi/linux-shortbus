@@ -534,7 +534,7 @@ config KEYBOARD_MXS
 	  This is the Keypad driver for the Freescale mxs soc
 
 config KEYBOARD_SPPP
-        bool "SPPP keyboard driver"
+        tristate "SPPP keyboard driver"
         depends on MACH_MX53_EFIKASB 
         help
           Say Y here if you have a Genesi MX53 EfikaSB based

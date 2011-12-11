@@ -137,7 +137,7 @@ config MOUSE_PS2_OLPC
 	  If unsure, say N.
 
 config MOUSE_SPPP
-	bool "SPPP trackpad driver"
+	tristate "SPPP trackpad driver"
 	depends on MACH_MX53_EFIKASB 
 	help
 	  Say Y here if you have a Genesi MX53 EfikaSB based
