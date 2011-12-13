@@ -91,7 +91,7 @@ static inline int cs42l52_get_revison(struct snd_soc_codec *codec)
         u8 addr;
 	int ret;
 
-	struct cs42l52_private *info = snd_soc_codec_get_drvdata(codec);
+	//struct cs42l52_private *info = snd_soc_codec_get_drvdata(codec);
 
 		
 	if(codec->hw_write(codec->control_data, &addr, 1) == 1)
@@ -382,13 +382,13 @@ SOC_SINGLE_S8_C_TLV("HP Analog Playback Volume",
 		     PB_CTL1, 5, 7, 0, hpaloa_tlv),
 		     
 SOC_SINGLE_S8_C_TLV("HP Digital Playback Switch", 
-		     PB_CTL2, 6, 7, 1, 1),
+		     PB_CTL2, 6, 7, 1, NULL),
 
 /* Speaker */
 SOC_DOUBLE_R_S8_C_TLV("Speaker Playback Volume", SPKA_VOL,
 		       SPKB_VOL, 0xff, 0x1, hl_tlv),
 SOC_SINGLE_S8_C_TLV("Speaker Playback Switch", 
-		     PB_CTL2, 4, 5, 1, 1),		       
+		     PB_CTL2, 4, 5, 1, NULL),		       
 
 /* Passthrough */		       
 SOC_DOUBLE_R_S8_C_TLV("Passthru Playback Volume", PASSTHRUA_VOL, 
@@ -915,7 +915,7 @@ static int cs42l52_suspend(struct snd_soc_codec *codec, pm_message_t state)
 static int cs42l52_resume(struct snd_soc_codec *codec)
 {
 	
-	int i, reg;
+	int i;//, reg;
 	u8 *cache = codec->reg_cache;
 
 	/* Sync reg_cache with the hardware */
@@ -947,7 +947,7 @@ static int cs42l52_probe(struct snd_soc_codec *codec)
 {
 	
 	struct cs42l52_private *info = snd_soc_codec_get_drvdata(codec);
-	int i, ret = 0;
+	//int i, ret = 0;
 	
 	info->sysclk = CS42L52_DEFAULT_CLK;
 	info->config.format = CS42L52_DEFAULT_FORMAT;
