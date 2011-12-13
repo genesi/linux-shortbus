@@ -2749,6 +2749,8 @@ out_free:
 	btrfs_release_path(path);
 out:
 	spin_lock(&block_group->lock);
+	if (!ret && dcs == BTRFS_DC_SETUP)
+		block_group->cache_generation = trans->transid;
 	block_group->disk_cache_state = dcs;
 	spin_unlock(&block_group->lock);
 
