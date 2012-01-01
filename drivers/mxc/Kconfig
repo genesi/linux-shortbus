@@ -1,0 +1,10 @@
+# drivers/video/mxc/Kconfig
+
+if ARCH_MXC
+
+menu "MXC support drivers"
+source "drivers/mxc/vpu/Kconfig"
+source "drivers/mxc/amd-gpu/Kconfig"
+endmenu
+
+endif

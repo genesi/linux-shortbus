@@ -603,6 +603,11 @@ static const struct spi_imx_master mx51_efika_spi_pdata __initconst = {
 	.num_chipselect = ARRAY_SIZE(mx51_efika_spi_cs),
 };
 
+
+static const struct imxi2c_platform_data efika_i2c_data __initconst = {
+	.bitrate = 100000,
+};
+
 void __init efika_board_common_init(void)
 {
 	mxc_iomux_v3_setup_multiple_pads(mx51efika_pads,
@@ -627,6 +632,10 @@ void __init efika_board_common_init(void)
 		ARRAY_SIZE(mx51_efika_spi_board_info));
 	imx51_add_ecspi(0, &mx51_efika_spi_pdata);
 
+	imx51_add_imx_i2c(0, &efika_i2c_data);
+	imx51_add_imx_i2c(1, &efika_i2c_data);
+
+	mxc_register_device(&gpu_device, &gpu_data);
 #if defined(CONFIG_CPU_FREQ_IMX)
 	get_cpu_op = mx51_get_cpu_op;
 #endif

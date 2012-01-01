@@ -13,6 +13,7 @@
 #include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
 #include <linux/gpio.h>
+#include <linux/fsl_devices.h>
 #include <mach/hardware.h>
 #include <mach/imx-uart.h>
 #include <mach/irqs.h>
@@ -181,4 +182,69 @@ int __init imx53_register_gpios(void)
 {
 	return mxc_gpio_init(mxc_gpio_ports, ARRAY_SIZE(mxc_gpio_ports));
 }
+
+static struct resource mxc_gpu_resources[] = {
+	{
+		.start = MX51_MXC_INT_GPU2_IRQ,
+		.end = MX51_MXC_INT_GPU2_IRQ,
+		.name = "gpu_2d_irq",
+		.flags = IORESOURCE_IRQ,
+	},
+	{
+		.start = MX51_MXC_INT_GPU,
+		.end = MX51_MXC_INT_GPU,
+		.name = "gpu_3d_irq",
+		.flags = IORESOURCE_IRQ,
+	},
+	{
+		.start = MX51_GPU2D_BASE_ADDR,
+		.end = MX51_GPU2D_BASE_ADDR + SZ_4K - 1,
+		.name = "gpu_2d_registers",
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = MX51_GPU_BASE_ADDR,
+		.end = MX51_GPU_BASE_ADDR + SZ_128K - 1,
+		.name = "gpu_3d_registers",
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = MX51_GPU_BASE_ADDR,
+		.end = MX51_GPU_BASE_ADDR + SZ_128K - 1,
+		.name = "gpu_graphics_mem",
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = 0,
+		.end = 0,
+		.name = "gpu_reserved_mem",
+		.flags = IORESOURCE_MEM,
+	},
+};
+
+struct platform_device gpu_device = {
+	.name = "mxc_gpu",
+	.id = 0,
+	.num_resources = ARRAY_SIZE(mxc_gpu_resources),
+	.resource = mxc_gpu_resources,
+};
+
+struct mxc_gpu_platform_data gpu_data = {
+	.z160_revision = 0,
+	.enable_mmu = 1,
+};
+
+static struct resource mxc_gpu2d_resources[] = {
+	{
+		.start = MX51_GPU2D_BASE_ADDR,
+		.end = MX51_GPU2D_BASE_ADDR + SZ_4K - 1,
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.flags = IORESOURCE_MEM,
+	},
+};
 

@@ -27,6 +27,7 @@
 #include <drm/imx-ipu-v3.h>
 #include <asm/fb.h>
 #include <drm/drm_encon.h>
+#include <asm/mach-types.h>
 
 #define DRIVER_NAME		"i.MX"
 #define DRIVER_DESC		"i.MX IPUv3 Graphics"
@@ -699,6 +700,12 @@ static int ipu_fbdev_init(struct drm_device *drm)
 
 	drm->mode_config.max_width = 4096;
 	drm->mode_config.max_height = 4096;
+	
+	if(machine_is_mx51_efikamx())
+	{
+		drm->mode_config.max_width = 1280;
+		drm->mode_config.max_height = 720;
+	}
 
 	drm->mode_config.fb_base = 0xdeadbeef;
 

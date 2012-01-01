@@ -36,7 +36,7 @@
 #ifndef _DRM_H_
 #define _DRM_H_
 
-#if defined(__linux__)
+#if 1 //defined(__linux__) || defined(__android__)
 
 #include <linux/types.h>
 #include <asm/ioctl.h>

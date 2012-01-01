@@ -19,6 +19,11 @@
 
 #include <linux/types.h>
 
+struct mxc_gpu_platform_data {
+	int z160_revision;
+	int enable_mmu;
+};
+
 /*
  * Some conventions on how we handle peripherals on Freescale chips
  *

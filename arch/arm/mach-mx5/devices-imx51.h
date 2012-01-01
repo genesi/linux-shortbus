@@ -56,3 +56,6 @@ extern const struct imx_imx_keypad_data imx51_imx_keypad_data;
 extern const struct imx_ipuv3_data imx51_ipuv3_data __initconst;
 #define imx51_add_ipuv3(pdata)	\
 	imx_add_ipuv3(&imx51_ipuv3_data, pdata)
+
+extern struct platform_device gpu_device;
+extern struct mxc_gpu_platform_data gpu_data;
