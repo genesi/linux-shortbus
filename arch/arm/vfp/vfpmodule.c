@@ -54,13 +54,10 @@ static void vfp_thread_flush(struct thread_info *thread)
 
 	vfp->hard.fpexc = FPEXC_EN;
 	vfp->hard.fpscr = FPSCR_ROUND_NEAREST;
-#ifdef CONFIG_SMP
-	vfp->hard.cpu = NR_CPUS;
-#endif
 
 	/*
 	 * Disable VFP to ensure we initialize it first.  We must ensure
-	 * that the modification of vfp_current_hw_state[] and hardware disable
+	 * that the modification of last_VFP_context[] and hardware disable
 	 * are done for the same CPU and without preemption.
 	 */
 	cpu = get_cpu();
