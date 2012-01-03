@@ -252,9 +252,8 @@ static void sii902x_hdmi_reset(void)
 {
 	gpio_request(EFIKAMX_DISPLAY_RESET, "hdmi:reset");
 	gpio_direction_output(EFIKAMX_DISPLAY_RESET, 1);
-	msleep(10);
-	gpio_set_value(EFIKAMX_DISPLAY_RESET, 0);
 	msleep(600);
+	gpio_set_value(EFIKAMX_DISPLAY_RESET, 0);
 }
 
 static struct fsl_mxc_lcd_platform_data sii902x_hdmi_data = {
@@ -376,12 +375,13 @@ static void __init mx51_efikamx_init(void)
 	msleep(10);
 	gpio_set_value(EFIKA_WLAN_RESET, 1);
 
+	gpio_request(EFIKAMX_HDMI_EN, "hdmi:enable#");
+	gpio_direction_output(EFIKAMX_HDMI_EN, 0);
+
 	gpio_request(EFIKAMX_HDMI_IRQ, "hdmi:irq");
 	gpio_direction_input(EFIKAMX_HDMI_IRQ);
 	gpio_free(EFIKAMX_HDMI_IRQ);
 
-	gpio_request(EFIKAMX_HDMI_EN, "hdmi:enable#");
-	gpio_direction_output(EFIKAMX_HDMI_EN, 0);
 
 	/* display stuff */
 	imx51_add_imx_i2c(1, &mx51_efika_imxi2c_data);
