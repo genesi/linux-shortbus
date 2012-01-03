@@ -756,8 +756,10 @@ static int ipu_mmap(struct file *filp, struct vm_area_struct * vma)
 	unsigned long off;
 	unsigned long start;
 	u32 len;
+	
+	struct ipu_drm_private *drm_priv = drm->dev_private;
 
-	obj = drm_mode_object_find(drm, vma->vm_pgoff, DRM_MODE_OBJECT_FB);
+	obj = drm_mode_object_find(drm, drm_priv->ifb.base.base.id, DRM_MODE_OBJECT_FB);
 	if (!obj) {
 		dev_err(drm->dev, "could not find object %ld\n", vma->vm_pgoff);
 		return -ENOENT;

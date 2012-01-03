@@ -248,3 +248,12 @@ static struct resource mxc_gpu2d_resources[] = {
 	},
 };
 
+struct platform_device mxc_android_pmem_device = {
+	.name = "android_pmem",
+	.id = 0,
+};
+
+struct platform_device mxc_android_pmem_gpu_device = {
+	.name = "android_pmem",
+	.id = 1,
+};

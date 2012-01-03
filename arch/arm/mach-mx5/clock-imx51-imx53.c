@@ -296,6 +296,30 @@ static struct clk *vpu_group[] = {
 };
 static DEFINE_CLK_GROUP(vpu, vpu_group);
 
+static struct clk *gpu_sel_clks[] = {
+	&axi_a.clk,
+	&axi_b.clk,
+	&emi_slow_gate.clk,
+	&ahb_root.clk,
+};
+
+static DEFINE_CLK_MUX(gpu3d_sel, MXC_CCM_CBCMR, 4, 3, gpu_sel_clks);
+static DEFINE_CLK_MUX(gpu2d_sel, MXC_CCM_CBCMR, 16, 3, gpu_sel_clks);
+
+static DEFINE_CLK_GATE(gpu3d_gate, &gpu3d_sel.clk, MXC_CCM_CCGR5, 1);
+static DEFINE_CLK_GATE(gpu2d_gate, &gpu2d_sel.clk, MXC_CCM_CCGR6, 7);
+static DEFINE_CLK_GATE(garb_gate, &axi_a.clk, MXC_CCM_CCGR5, 2);
+static DEFINE_CLK_GATE(emi_garb_gate, &ahb_root.clk, MXC_CCM_CCGR6, 4);
+
+#if 0
+static struct clk *gpu_group[] = {
+	&gpu3d_gate.clk,
+	&gpu2d_gate.clk
+};
+
+static DEFINE_CLK_GROUP(gpu, gpu_group);
+#endif
+
 static struct clk *uart1_group[] = {
 	&uart1_per_gate.clk,
 	&uart1_ipg_gate.clk
@@ -429,6 +453,10 @@ static struct clk_lookup mx51_lookups[] = {
 	_REGISTER_CLOCK("imx-i2c.2", NULL, &hsi2c_gate.clk)
 	_REGISTER_CLOCK(NULL, "mipi_hsp", &mx51_mipi.clk)
 	_REGISTER_CLOCK("imx51-vpu.0", NULL, &vpu.clk)
+	_REGISTER_CLOCK(NULL, "gpu2d_clk", &gpu2d_gate.clk)
+	_REGISTER_CLOCK(NULL, "gpu3d_clk", &gpu3d_gate.clk)
+	_REGISTER_CLOCK(NULL, "garb_clk", &garb_gate.clk)
+	_REGISTER_CLOCK(NULL, "emi_garb_clk", &emi_garb_gate.clk)
 };
 
 static struct clk_lookup mx53_lookups[] = {

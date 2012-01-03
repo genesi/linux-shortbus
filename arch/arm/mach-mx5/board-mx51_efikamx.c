@@ -27,6 +27,7 @@
 #include <linux/mfd/mc13892.h>
 #include <linux/regulator/machine.h>
 #include <linux/regulator/consumer.h>
+#include <linux/android_pmem.h>
 #include <drm/imx-ipu-v3.h>
 #include <drm/drmP.h>
 #include "drm/drm_encon.h"
@@ -273,6 +274,18 @@ static int __init mx51_efikamx_power_init(void)
 }
 late_initcall(mx51_efikamx_power_init);
 
+/* android */
+static struct android_pmem_platform_data android_pmem_data = {
+	.name = "pmem_adsp",
+	.size = SZ_16M,
+};
+
+static struct android_pmem_platform_data android_pmem_gpu_data = {
+	.name = "pmem_gpu",
+	.size = SZ_32M,
+	.cached = 1,
+};
+
 static void __init mx51_efikamx_init(void)
 {
 	mxc_iomux_v3_setup_multiple_pads(mx51efikamx_pads,
@@ -323,6 +336,10 @@ static void __init mx51_efikamx_init(void)
 	gpio_request(EFIKAMX_HDMI_IRQ, "hdmi:irq");
 	gpio_direction_input(EFIKAMX_HDMI_IRQ);
         i2c_register_board_info(1, mx51_efikamx_i2c_display, ARRAY_SIZE(mx51_efikamx_i2c_display));
+
+	// android
+	mxc_register_device(&mxc_android_pmem_device, &android_pmem_data);
+	mxc_register_device(&mxc_android_pmem_gpu_device, &android_pmem_gpu_data);
 }
 
 static void __init mx51_efikamx_timer_init(void)

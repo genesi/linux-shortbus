@@ -635,7 +635,7 @@ void __init efika_board_common_init(void)
 	imx51_add_imx_i2c(0, &efika_i2c_data);
 	imx51_add_imx_i2c(1, &efika_i2c_data);
 
-	mxc_register_device(&gpu_device, &gpu_data);
+	//mxc_register_device(&gpu_device, &gpu_data);
 #if defined(CONFIG_CPU_FREQ_IMX)
 	get_cpu_op = mx51_get_cpu_op;
 #endif
