@@ -4,7 +4,6 @@ config FB_MXC
 	select FB_CFB_FILLRECT
 	select FB_CFB_COPYAREA
 	select FB_CFB_IMAGEBLIT
-	select FB_MODE_HELPERS
 	default y
 	help
 	  This is a framebuffer device for the MXC LCD Controller.
@@ -26,7 +25,16 @@ config FB_MXC_TVOUT_TVE
 
 config FB_MXC_SII902X
 	depends on FB_MXC_SYNC_PANEL
+	select FB_MODE_HELPERS
 	tristate "Si Image SII9022 DVI/HDMI Interface Chip"
+
+config FB_MXC_SIIHDMI
+	depends on FB_MXC_SYNC_PANEL && MACH_MX51_EFIKAMX
+	tristate "SII9xxx HDMI Interface Chips (Advanced)"
+
+config FB_MXC_SIIHDMI_HOTPLUG
+	depends on FB_MXC_SIIHDMI
+	bool "Hotplugging HDMI connector support (EXPERIMETNAL)"
 
 config FB_MXC_LDB
 	tristate "MXC LDB"

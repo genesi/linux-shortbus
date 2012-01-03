@@ -836,6 +836,22 @@ void fb_videomode_to_var(struct fb_var_screeninfo *var,
 }
 
 /**
+ * fb_res_is_equal - compare 2 videomodes
+ * @mode1: first videomode
+ * @mode2: second videomode
+ *
+ * RETURNS:
+ * 1 if resolution is equal, 0 if not
+ */
+int fb_res_is_equal(const struct fb_videomode *mode1,
+		    const struct fb_videomode *mode2)
+{
+	return (mode1->xres    == mode2->xres &&
+		mode1->yres    == mode2->yres &&
+		mode1->refresh == mode2->refresh);
+}
+
+/**
  * fb_mode_is_equal - compare 2 videomodes
  * @mode1: first videomode
  * @mode2: second videomode
@@ -901,6 +917,39 @@ const struct fb_videomode *fb_find_best_mode(const struct fb_var_screeninfo *var
 				best = mode;
 		}
 	}
+	return best;
+}
+
+const struct fb_videomode *fb_find_best_mode_at_most(const struct fb_videomode *max,
+						    struct list_head *modes)
+{
+	struct fb_videomode *best = NULL;
+	struct list_head *entry;
+	u32 difference = -1;
+
+	list_for_each(entry, modes) {
+		const struct fb_modelist * const modelist =
+			list_entry(entry, struct fb_modelist, list);
+		const struct fb_videomode * const mode = &modelist->mode;
+
+		if (mode->xres <= max->xres && mode->yres <= max->yres) {
+			const u32 delta = (max->xres - mode->xres)
+					+ (max->yres - mode->yres);
+
+			if (delta == difference) {
+				if (best && mode->refresh > best->refresh)
+					best = mode;
+				continue;
+			}
+
+			if (delta < difference) {
+				difference = delta;
+				best = mode;
+				continue;
+			}
+		}
+	}
+
 	return best;
 }
 
