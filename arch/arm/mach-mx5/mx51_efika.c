@@ -25,10 +25,13 @@
 #include <linux/mfd/mc13892.h>
 #include <linux/regulator/machine.h>
 #include <linux/regulator/consumer.h>
+#include <linux/clk.h>
 
 #include <mach/common.h>
 #include <mach/hardware.h>
 #include <mach/iomux-mx51.h>
+#include <mach/audmux.h>
+#include <mach/ssi.h>
 
 #include <linux/usb/otg.h>
 #include <linux/usb/ulpi.h>
@@ -56,6 +59,12 @@
 #define EFIKAMX_SPI_CS1		IMX_GPIO_NR(4, 25)
 
 #define EFIKAMX_PMIC		IMX_GPIO_NR(1, 6)
+
+#define EFIKAMX_AMP		IMX_GPIO_NR(2, 17)
+#define EFIKAMX_HP_DET		IMX_GPIO_NR(3, 8)
+#define EFIKAMX_AUDIO_CLK_B	IMX_GPIO_NR(4, 26)
+
+#define MX51_PAD_HP_DET	IOMUX_PAD(0x6c8, 0x2c8, 4, 0x994, 1, PAD_CTL_PUS_100K_UP)
 
 static iomux_v3_cfg_t mx51efika_pads[] = {
 	/* UART1 */
@@ -91,7 +100,6 @@ static iomux_v3_cfg_t mx51efika_pads[] = {
 	MX51_PAD_CSPI1_MISO__ECSPI1_MISO,
 	MX51_PAD_CSPI1_SS0__GPIO4_24,
 	MX51_PAD_CSPI1_SS1__GPIO4_25,
-	MX51_PAD_CSPI1_RDY__ECSPI1_RDY,
 	MX51_PAD_CSPI1_SCLK__ECSPI1_SCLK,
 	MX51_PAD_GPIO1_6__GPIO1_6,
 
@@ -117,6 +125,23 @@ static iomux_v3_cfg_t mx51efika_pads[] = {
 
 	/* USB PHY RESET */
 	MX51_PAD_EIM_D27__GPIO2_9,
+
+	/* I2C */
+	MX51_PAD_GPIO1_2__GPIO1_2,
+	MX51_PAD_GPIO1_3__GPIO1_3,
+	MX51_PAD_KEY_COL4__I2C2_SCL,
+	MX51_PAD_KEY_COL5__I2C2_SDA,
+
+	/* SSI */
+	MX51_PAD_AUD3_BB_TXD__AUD3_TXD,
+	MX51_PAD_AUD3_BB_RXD__AUD3_RXD,
+	MX51_PAD_AUD3_BB_CK__AUD3_TXC,
+	MX51_PAD_AUD3_BB_FS__AUD3_TXFS,
+
+	/* audio */
+	MX51_PAD_HP_DET,
+	MX51_PAD_CSPI1_RDY__GPIO4_26,
+	MX51_PAD_EIM_A23__GPIO2_17,
 };
 
 /* Serial ports */
@@ -406,6 +431,7 @@ static struct regulator_init_data vvideo_init = {
 		.valid_ops_mask =
 			REGULATOR_CHANGE_VOLTAGE | REGULATOR_CHANGE_STATUS,
 		.boot_on = 1,
+		.always_on = 1,
 		.apply_uV = 1,
 	},
 	.num_consumer_supplies = ARRAY_SIZE(vvideo_consumers),
@@ -603,12 +629,93 @@ static const struct spi_imx_master mx51_efika_spi_pdata __initconst = {
 	.num_chipselect = ARRAY_SIZE(mx51_efika_spi_cs),
 };
 
+static struct i2c_board_info mx51_efika_i2c0_board_info[] __initdata = {
+	{
+		.type = "sgtl5000-i2c",
+		.addr = 0x0a,
+	},
+};
+
+static const struct imxi2c_platform_data mx51_efika_imxi2c_data __initconst = {
+	.bitrate = 100000,
+};
+
+static void __init mx51_efika_i2c(void)
+{
+	imx51_add_imx_i2c(0, &mx51_efika_imxi2c_data);
+	i2c_register_board_info(0, mx51_efika_i2c0_board_info,
+		    ARRAY_SIZE(mx51_efika_i2c0_board_info));
+}
+
+static struct imx_ssi_platform_data mx51_efika_ssi_pdata = {
+	.flags = IMX_SSI_DMA,
+};
+
+static struct mxc_audio_platform_data efika_audio_data;
+
+static int efika_sgtl5000_init(void)
+{
+	struct clk *ssi_ext1;
+	int rate;
+
+	ssi_ext1 = clk_get(NULL, "ssi_ext1_clk");
+	if (IS_ERR(ssi_ext1))
+		return -1;
+
+	rate = clk_round_rate(ssi_ext1, 24000000);
+	if (rate < 8000000 || rate > 27000000) {
+		    pr_err("Error: SGTL5000 mclk freq %d out of range!\n",
+				    rate);
+		    clk_put(ssi_ext1);
+		    return -1;
+	}
+
+	efika_audio_data.sysclk = rate;
+	clk_set_rate(ssi_ext1, rate);
+	clk_enable(ssi_ext1);
+
+	return 0;
+}
+
+static int mx51_efikamx_audio_amp_enable(int enable)
+{
+	gpio_set_value(EFIKAMX_AMP, enable ? 1 : 0);
+	return 0;
+}
+
+static struct mxc_audio_platform_data efika_audio_data = {
+	.ssi_num = 2,
+	.src_port = 2,
+	.ext_port = 3,
+	.init = efika_sgtl5000_init,
+	.amp_enable = mx51_efikamx_audio_amp_enable,
+	.hp_gpio = EFIKAMX_HP_DET,
+	.hp_active_low = 1,
+};
+
+static struct platform_device efika_audio_device = {
+	.name = "imx-3stack-sgtl5000",
+};
+
 void __init efika_board_common_init(void)
 {
+	mxc_audmux_v2_configure_port(0,
+			MXC_AUDMUX_V2_PTCR_SYN | /* 4wire mode */
+			MXC_AUDMUX_V2_PTCR_TFSEL(2) |
+			MXC_AUDMUX_V2_PTCR_TCSEL(2) |
+			MXC_AUDMUX_V2_PTCR_TFSDIR |
+			MXC_AUDMUX_V2_PTCR_TCLKDIR,
+			MXC_AUDMUX_V2_PDCR_RXDSEL(2));
+
+	mxc_audmux_v2_configure_port(2,
+			MXC_AUDMUX_V2_PTCR_SYN | /* 4wire mode */
+			MXC_AUDMUX_V2_PTCR_TCSEL(0),
+			MXC_AUDMUX_V2_PDCR_RXDSEL(0));
 	mxc_iomux_v3_setup_multiple_pads(mx51efika_pads,
 					ARRAY_SIZE(mx51efika_pads));
 	imx51_add_imx_uart(0, &uart_pdata);
 	mx51_efika_usb();
+	mx51_efika_i2c();
 	imx51_add_sdhci_esdhc_imx(0, NULL);
 
 	/* FIXME: comes from original code. check this. */
@@ -627,8 +734,13 @@ void __init efika_board_common_init(void)
 		ARRAY_SIZE(mx51_efika_spi_board_info));
 	imx51_add_ecspi(0, &mx51_efika_spi_pdata);
 
+	gpio_request(EFIKAMX_AUDIO_CLK_B, "audio_clk_en_b");
+	gpio_direction_output(EFIKAMX_AUDIO_CLK_B, 0);
+	imx51_add_imx_ssi(0, &mx51_efika_ssi_pdata);
+
 #if defined(CONFIG_CPU_FREQ_IMX)
 	get_cpu_op = mx51_get_cpu_op;
 #endif
+	mxc_register_device(&efika_audio_device, &efika_audio_data);
 }
 
