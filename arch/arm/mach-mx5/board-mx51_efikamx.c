@@ -16,6 +16,7 @@
 
 #include <linux/init.h>
 #include <linux/platform_device.h>
+#include <linux/clk.h>
 #include <linux/i2c.h>
 #include <linux/gpio.h>
 #include <linux/leds.h>
@@ -27,10 +28,12 @@
 #include <linux/mfd/mc13892.h>
 #include <linux/regulator/machine.h>
 #include <linux/regulator/consumer.h>
+#include <linux/memblock.h>
 
 #include <mach/common.h>
 #include <mach/hardware.h>
 #include <mach/iomux-mx51.h>
+#include <mach/ipu-v3.h>
 
 #include <asm/setup.h>
 #include <asm/mach-types.h>
@@ -39,6 +42,12 @@
 
 #include "devices-imx51.h"
 #include "efika.h"
+
+
+/* ugly but required for siihdmi... */
+#if defined(CONFIG_FB_MXC_SIIHDMI)
+#include "../../../drivers/video/mxc/siihdmi.h"
+#endif
 
 #define EFIKAMX_PCBID0		IMX_GPIO_NR(3, 16)
 #define EFIKAMX_PCBID1		IMX_GPIO_NR(3, 17)
@@ -49,6 +58,12 @@
 #define EFIKAMX_RED_LED		IMX_GPIO_NR(3, 15)
 
 #define EFIKAMX_POWER_KEY	IMX_GPIO_NR(2, 31)
+
+/* hdmi */
+#define EFIKAMX_DISPLAY_RESET	IMX_GPIO_NR(3, 5)
+#define EFIKAMX_HDMI_EN		IMX_GPIO_NR(3, 4)	/* active low */
+#define EFIKAMX_VGA_EN		IMX_GPIO_NR(3, 7)	/* active low */
+#define EFIKAMX_HDMI_IRQ	IMX_GPIO_NR(3, 6)
 
 /* board 1.1 doesn't have same reset gpio */
 #define EFIKAMX_RESET1_1	IMX_GPIO_NR(3, 2)
@@ -84,6 +99,12 @@ static iomux_v3_cfg_t mx51efikamx_pads[] = {
 
 	/* power off */
 	MX51_PAD_CSI2_VSYNC__GPIO4_13,
+
+	/* hdmi */
+	MX51_PAD_DI1_D1_CS__GPIO3_4,
+	MX51_PAD_DISPB2_SER_DIN__GPIO3_5,
+	MX51_PAD_DISPB2_SER_DIO__GPIO3_6,
+	MX51_PAD_DISPB2_SER_CLK__GPIO3_7,
 };
 
 /*   PCBID2  PCBID1 PCBID0  STATE
@@ -230,8 +251,96 @@ static int __init mx51_efikamx_power_init(void)
 }
 late_initcall(mx51_efikamx_power_init);
 
+static void sii902x_hdmi_reset(void)
+{
+	gpio_request(EFIKAMX_DISPLAY_RESET, "hdmi:reset");
+	gpio_direction_output(EFIKAMX_DISPLAY_RESET, 1);
+	msleep(10);
+	gpio_set_value(EFIKAMX_DISPLAY_RESET, 0);
+	msleep(600);
+}
+
+static struct fsl_mxc_lcd_platform_data sii902x_hdmi_data = {
+	.ipu_id = 0,
+	.disp_id = 0,
+	.reset = sii902x_hdmi_reset,
+};
+
+static struct ipuv3_fb_platform_data efikamx_fb_data[] = {
+	{
+	.disp_dev = "hdmi",
+	.interface_pix_fmt = IPU_PIX_FMT_RGB24,
+	.mode_str = "1280x720M@60",
+	.default_bpp = 16,
+	.int_clk = false,
+	},
+};
+
+#if defined(CONFIG_FB_MXC_SIIHDMI)
+static void mx51_efikamx_display_reset(void)
+{
+	gpio_set_value(EFIKAMX_DISPLAY_RESET, 1);
+	udelay(10);
+	gpio_set_value(EFIKAMX_DISPLAY_RESET, 0);
+	msleep(600);
+}
+
+static struct siihdmi_platform_data mx51_efikamx_siihdmi_data = {
+	.reset		= mx51_efikamx_display_reset,
+	.vendor		= "Genesi",
+        .disp_dev = "hdmi",
+	.description	= "Efika MX",
+	.framebuffer	= "DISP3 BG",
+	.hotplug	= {
+		.start	= gpio_to_irq(EFIKAMX_HDMI_IRQ),
+		.end	= gpio_to_irq(EFIKAMX_HDMI_IRQ),
+		.name	= "video-hotplug",
+		.flags	= IORESOURCE_IRQ | IORESOURCE_IRQ_LOWEDGE,
+	},
+	.pixclock	= KHZ2PICOS(133000L),
+};
+#endif
+
+static struct i2c_board_info mxc_i2c1_board_info[] __initdata = {
+	{
+	.type = "sii902x",
+	.addr = 0x39,
+	.irq = gpio_to_irq(EFIKAMX_HDMI_IRQ),
+#if defined(CONFIG_FB_MXC_SII902X)
+	.platform_data = &sii902x_hdmi_data,
+#else
+	.platform_data = &mx51_efikamx_siihdmi_data,
+#endif
+	},
+};
+
+static struct imx_ipuv3_platform_data ipu_data = {
+	.rev = 3,
+};
+
+static struct mxc_gpu_platform_data gpu_data __initdata = {
+	.reserved_mem_size	= SZ_32M,
+};
+
+static struct mxc_spdif_platform_data mxc_spdif_data = {
+	.spdif_tx = 1,
+	.spdif_rx = 0,
+	.spdif_clk_44100 = 0,	/* No source for 44.1K */
+	/* Source from CCM spdif_clk (24M) for 48k and 32k
+	 * It's not accurate: for 48Khz it is actuall 46875Hz (2.3% off)
+	 */
+	.spdif_clk_48000 = 7,
+	.spdif_clkid = 0,
+	.spdif_clk = NULL,	/* spdif bus clk */
+};
+
+static const struct imxi2c_platform_data mx51_efika_imxi2c_data __initconst = {
+	.bitrate = 100000,
+};
+
 static void __init mx51_efikamx_init(void)
 {
+	int i;
 	imx51_soc_init();
 
 	mxc_iomux_v3_setup_multiple_pads(mx51efikamx_pads,
@@ -258,7 +367,6 @@ static void __init mx51_efikamx_init(void)
 		gpio_request(EFIKAMX_RESET, "reset");
 		gpio_direction_output(EFIKAMX_RESET, 1);
 	}
-
 	/*
 	 * enable wifi by default only on mx
 	 * sb and mx have same wlan pin but the value to enable it are
@@ -272,6 +380,35 @@ static void __init mx51_efikamx_init(void)
 	gpio_direction_output(EFIKA_WLAN_RESET, 0);
 	msleep(10);
 	gpio_set_value(EFIKA_WLAN_RESET, 1);
+
+	gpio_request(EFIKAMX_HDMI_IRQ, "hdmi:irq");
+	gpio_direction_input(EFIKAMX_HDMI_IRQ);
+	gpio_free(EFIKAMX_HDMI_IRQ);
+
+	gpio_request(EFIKAMX_HDMI_EN, "hdmi:enable#");
+	gpio_direction_output(EFIKAMX_HDMI_EN, 0);
+
+	/* display stuff */
+	imx51_add_imx_i2c(1, &mx51_efika_imxi2c_data);
+	i2c_register_board_info(1, mxc_i2c1_board_info,
+				ARRAY_SIZE(mxc_i2c1_board_info));
+
+	imx51_add_ipuv3(0, &ipu_data);
+	for (i = 0; i < ARRAY_SIZE(efikamx_fb_data); i++)
+		imx51_add_ipuv3fb(i, &efikamx_fb_data[i]);
+	imx51_add_vpu();
+	imx51_add_v4l2_output(0);
+
+	/* spdif */
+	mxc_spdif_data.spdif_core_clk = clk_get(NULL, "spdif_xtal_clk");
+	clk_put(mxc_spdif_data.spdif_core_clk);
+
+	imx51_add_spdif(&mxc_spdif_data);
+	imx51_add_spdif_dai();
+	imx51_add_spdif_audio_device();
+
+	gpu_data.z160_revision = 1;
+	imx51_add_mxc_gpu(&gpu_data);
 }
 
 static void __init mx51_efikamx_timer_init(void)
