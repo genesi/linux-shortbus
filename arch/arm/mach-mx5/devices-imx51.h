@@ -89,3 +89,10 @@ extern const struct imx_spdif_dai_data imx51_spdif_dai_data __initconst;
 #define imx51_add_spdif_dai()	imx_add_spdif_dai(&imx51_spdif_dai_data)
 
 #define imx51_add_spdif_audio_device(pdata)	imx_add_spdif_audio_device()
+
+extern const struct imx_vpu_data imx51_vpu_data __initconst;
+#define imx51_add_vpu()	imx_add_vpu(&imx51_vpu_data)
+
+extern const struct imx_mxc_gpu_data imx51_gpu_data __initconst;
+#define imx51_add_mxc_gpu(pdata) \
+	imx_add_mxc_gpu(&imx51_gpu_data, pdata)
