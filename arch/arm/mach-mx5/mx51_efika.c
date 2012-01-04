@@ -26,6 +26,7 @@
 #include <linux/regulator/machine.h>
 #include <linux/regulator/consumer.h>
 #include <linux/clk.h>
+#include <linux/android_pmem.h>
 
 #include <mach/common.h>
 #include <mach/hardware.h>
@@ -695,6 +696,18 @@ static struct platform_device efika_audio_device = {
 	.name = "imx-3stack-sgtl5000",
 };
 
+/* android */
+static struct android_pmem_platform_data android_pmem_data = {
+	.name = "pmem_adsp",
+	.size = SZ_16M,
+};
+
+static struct android_pmem_platform_data android_pmem_gpu_data = {
+	.name = "pmem_gpu",
+	.size = SZ_32M,
+	.cached = 1,
+};
+
 void __init efika_board_common_init(void)
 {
 	mxc_audmux_v2_configure_port(0,
@@ -741,4 +754,8 @@ void __init efika_board_common_init(void)
 	get_cpu_op = mx51_get_cpu_op;
 #endif
 	mxc_register_device(&efika_audio_device, &efika_audio_data);
+
+	// android
+	mxc_register_device(&mxc_android_pmem_device, &android_pmem_data);
+	mxc_register_device(&mxc_android_pmem_gpu_device, &android_pmem_gpu_data);
 }

@@ -10,3 +10,5 @@ extern struct platform_device mxc_pm_device;
 extern struct platform_device mx53_usbdr_wakeup_device;
 extern struct platform_device mx53_usbh1_wakeup_device;
 extern struct platform_device mx53_usbdr_otg_device;
+extern struct platform_device mxc_android_pmem_device;
+extern struct platform_device mxc_android_pmem_gpu_device;
