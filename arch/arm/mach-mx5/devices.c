@@ -215,3 +215,13 @@ struct platform_device mx53_usbh1_wakeup_device = {
         .num_resources = ARRAY_SIZE(usbh1_wakeup_resources),
         .resource = usbh1_wakeup_resources,
 };
+
+struct platform_device mxc_android_pmem_device = {
+	.name = "android_pmem",
+	.id = 0,
+};
+
+struct platform_device mxc_android_pmem_gpu_device = {
+	.name = "android_pmem",
+	.id = 1,
+};
