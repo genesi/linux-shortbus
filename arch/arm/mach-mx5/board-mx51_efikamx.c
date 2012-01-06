@@ -272,22 +272,27 @@ static struct ipuv3_fb_platform_data efikamx_fb_data[] = {
 	.mode_str = "1280x720M@60",
 	.default_bpp = 16,
 	.int_clk = false,
+	}, {
+	.disp_dev = "vga",
+	.interface_pix_fmt = IPU_PIX_FMT_GBR24,
+	.mode_str = "VGA-XGA",
+	.default_bpp = 16,
+	.int_clk = false,
 	},
 };
 
 #if defined(CONFIG_FB_MXC_SIIHDMI)
 static void mx51_efikamx_display_reset(void)
 {
+	gpio_request(EFIKAMX_DISPLAY_RESET, "hdmi:reset");
 	gpio_set_value(EFIKAMX_DISPLAY_RESET, 1);
-	udelay(10);
-	gpio_set_value(EFIKAMX_DISPLAY_RESET, 0);
 	msleep(600);
+	gpio_set_value(EFIKAMX_DISPLAY_RESET, 0);
 }
 
 static struct siihdmi_platform_data mx51_efikamx_siihdmi_data = {
 	.reset		= mx51_efikamx_display_reset,
 	.vendor		= "Genesi",
-        .disp_dev = "hdmi",
 	.description	= "Efika MX",
 	.framebuffer	= "DISP3 BG",
 	.hotplug	= {
@@ -297,12 +302,14 @@ static struct siihdmi_platform_data mx51_efikamx_siihdmi_data = {
 		.flags	= IORESOURCE_IRQ | IORESOURCE_IRQ_LOWEDGE,
 	},
 	.pixclock	= KHZ2PICOS(133000L),
+	.ipu_id = 0,
+	.disp_id = 0,
 };
 #endif
 
 static struct i2c_board_info mxc_i2c1_board_info[] __initdata = {
 	{
-	.type = "sii902x",
+	.type = "siihdmi",
 	.addr = 0x39,
 	.irq = gpio_to_irq(EFIKAMX_HDMI_IRQ),
 #if defined(CONFIG_FB_MXC_SII902X)
@@ -314,7 +321,7 @@ static struct i2c_board_info mxc_i2c1_board_info[] __initdata = {
 };
 
 static struct imx_ipuv3_platform_data ipu_data = {
-	.rev = 3,
+	.rev = 2,
 };
 
 static struct mxc_gpu_platform_data gpu_data __initdata = {
@@ -337,11 +344,8 @@ static const struct imxi2c_platform_data mx51_efika_imxi2c_data __initconst = {
 	.bitrate = 100000,
 };
 
-static void __init mx51_efikamx_init(void)
+static void __init mx51_efikamx_io_init(void)
 {
-	int i;
-	imx51_soc_init();
-
 	mxc_iomux_v3_setup_multiple_pads(mx51efikamx_pads,
 					ARRAY_SIZE(mx51efikamx_pads));
 	efika_board_common_init();
@@ -385,17 +389,22 @@ static void __init mx51_efikamx_init(void)
 
 	gpio_request(EFIKAMX_HDMI_IRQ, "hdmi:irq");
 	gpio_direction_input(EFIKAMX_HDMI_IRQ);
-	gpio_free(EFIKAMX_HDMI_IRQ);
+}
 
+static void __init mx51_efikamx_init(void)
+{
+	struct platform_device *p;
+	struct resource *r;
+	int i;
+	imx51_soc_init();
+
+	mx51_efikamx_io_init();
 
 	/* display stuff */
 	imx51_add_imx_i2c(1, &mx51_efika_imxi2c_data);
 	i2c_register_board_info(1, mxc_i2c1_board_info,
 				ARRAY_SIZE(mxc_i2c1_board_info));
 
-	imx51_add_ipuv3(0, &ipu_data);
-	for (i = 0; i < ARRAY_SIZE(efikamx_fb_data); i++)
-		imx51_add_ipuv3fb(i, &efikamx_fb_data[i]);
 	imx51_add_vpu();
 	imx51_add_v4l2_output(0);
 
@@ -409,6 +418,10 @@ static void __init mx51_efikamx_init(void)
 
 	gpu_data.z160_revision = 1;
 	imx51_add_mxc_gpu(&gpu_data);
+
+	imx51_add_ipuv3(0, &ipu_data);
+	for (i = 0; i < ARRAY_SIZE(efikamx_fb_data); i++)
+		imx51_add_ipuv3fb(i, &efikamx_fb_data[i]);
 }
 
 static void __init mx51_efikamx_timer_init(void)

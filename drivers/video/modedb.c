@@ -291,7 +291,8 @@ static const struct fb_videomode modedb[] = {
 		0, FB_VMODE_NONINTERLACED },
 };
 
-#ifdef CONFIG_FB_MODE_HELPERS
+#if defined(CONFIG_FB_MODE_HELPERS)
+#if !defined(CONFIG_FB_MXC_SIIHDMI)
 const struct fb_videomode cea_modes[64] = {
 	/* #1: 640x480p@59.94/60Hz */
 	[1] = {
@@ -348,7 +349,7 @@ const struct fb_videomode cea_modes[64] = {
 		FB_VMODE_NONINTERLACED, 0,
 	},
 };
-
+#endif //!defined(CONFIG_FB_MXC_SIIHDMI)
 const struct fb_videomode vesa_modes[] = {
 	/* 0 640x350-85 VESA */
 	{ NULL, 85, 640, 350, 31746,  96, 32, 60, 32, 64, 3,
@@ -928,9 +929,9 @@ const struct fb_videomode *fb_find_best_mode_at_most(const struct fb_videomode *
 	u32 difference = -1;
 
 	list_for_each(entry, modes) {
-		const struct fb_modelist * const modelist =
+		struct fb_modelist * modelist =
 			list_entry(entry, struct fb_modelist, list);
-		const struct fb_videomode * const mode = &modelist->mode;
+		struct fb_videomode * mode = &modelist->mode;
 
 		if (mode->xres <= max->xres && mode->yres <= max->yres) {
 			const u32 delta = (max->xres - mode->xres)

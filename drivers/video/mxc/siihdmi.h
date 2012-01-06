@@ -34,6 +34,7 @@
 
 #include <linux/cea861.h>
 #include <linux/ioport.h>
+#include <linux/version.h>
 
 /* TPI registers */
 #define SIIHDMI_TPI_REG_VIDEO_MODE_DATA_BASE		(0x00)
@@ -368,11 +369,45 @@ struct siihdmi_platform_data {
 
 	/* maximum pixel clock rate */
 	int pixclock;
+
+	int ipu_id;
+	int disp_id;
 };
+
+#if defined(CONFIG_SYSFS)
+ssize_t siihdmi_sysfs_read_edid(struct file *filp, struct kobject *kobj,
+					struct bin_attribute *bin_attr,
+					char *buf, loff_t offset, size_t count);
+
+ssize_t siihdmi_sysfs_read_audio(struct file *filp, struct kobject *kobj,
+					struct bin_attribute *bin_attr,
+					char *buf, loff_t off, size_t count);
+
+static struct bin_attribute edid_attributes = {
+	.attr.name = "edid",
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,38)
+	.attr.owner = THIS_MODULE,
+#endif
+	.attr.mode = 0444,
+	.size = SZ_32K,
+	.read = siihdmi_sysfs_read_edid,
+	};
+
+static struct bin_attribute audio_attributes = {
+	.attr.name = "audio",
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,38)
+	.attr.owner = THIS_MODULE,
+#endif
+	.attr.mode = 0444,
+	.size = 5,
+	.read = siihdmi_sysfs_read_audio,
+	};
+#endif
 
 struct siihdmi_tx {
 	struct i2c_client *client;
 	struct siihdmi_platform_data *platform;
+	struct mxc_dispdrv_entry *disp_hdmi;
 
 	struct fb_info *info;
 	struct notifier_block nb;
@@ -385,16 +420,12 @@ struct siihdmi_tx {
 	struct {
 		u8 *data;
 		u32 length;
-#if defined(CONFIG_SYSFS)
 		struct bin_attribute attributes;
-#endif
 	} edid;
 
 	struct {
 		bool available;
-#if defined(CONFIG_SYSFS)
 		struct bin_attribute attributes;
-#endif
 	} audio;
 
 	struct {

@@ -30,6 +30,7 @@ config FB_MXC_SII902X
 
 config FB_MXC_SIIHDMI
 	depends on FB_MXC_SYNC_PANEL && MACH_MX51_EFIKAMX
+	select FB_MODE_HELPERS
 	tristate "SII9xxx HDMI Interface Chips (Advanced)"
 
 config FB_MXC_SIIHDMI_HOTPLUG
