@@ -39,13 +39,13 @@
 #include <linux/workqueue.h>
 #include <linux/interrupt.h>
 #include <linux/version.h>
-
+#include <linux/ipu.h>
 #include <linux/edid.h>
 #include <linux/cea861.h>
 #include <linux/cea861_modes.h>
 
+#include "mxc_dispdrv.h"
 #include "siihdmi.h"
-
 
 /* logging helpers */
 #define CONTINUE(fmt, ...)	printk(KERN_CONT    fmt, ## __VA_ARGS__)
@@ -965,9 +965,8 @@ static const struct fb_videomode *siihdmi_select_video_mode(const struct siihdmi
 static int siihdmi_setup_display(struct siihdmi_tx *tx)
 {
 	const struct fb_videomode *mode;
-	struct fb_var_screeninfo var = {0};
 	struct edid_block0 block0;
-	int i, ret;
+	int ret;
 	u8 isr;
 
 	BUILD_BUG_ON(sizeof(struct edid_block0) != EDID_BLOCK_SIZE);
@@ -986,35 +985,25 @@ static int siihdmi_setup_display(struct siihdmi_tx *tx)
 	if (~isr & (SIIHDMI_ISR_DISPLAY_ATTACHED | SIIHDMI_ISR_RECEIVER_SENSE))
 		return siihdmi_power_down(tx);
 
-	if (tx->info)
-		sysfs_remove_link(&tx->info->dev->kobj, "device");
-
-	for (i = 0, tx->info = NULL; i < num_registered_fb; i++) {
-		struct fb_info * const info = registered_fb[i];
-		if (!strcmp(info->fix.id, tx->platform->framebuffer)) {
-			tx->info = info;
-
-			if (sysfs_create_link(&tx->info->dev->kobj,
-					      &tx->client->dev.kobj,
-					      "phys-link") < 0)
-				ERROR("failed to create device symlink");
-
-			break;
-		}
+	if (!strcmp(tx->info->fix.id, tx->platform->framebuffer)) {
+		if (sysfs_create_link(&tx->info->dev->kobj,
+				      &tx->client->dev.kobj,
+				      "phys-link") < 0)
+			ERROR("failed to create device symlink");
 	}
 
 	if (tx->info == NULL) {
 		ERROR("unable to find video framebuffer\n");
 		return -1;
 	}
-
+	
 	/* use EDID to detect sink characteristics */
 	if ((ret = siihdmi_read_edid(tx, (u8 *) &block0, sizeof(block0))) < 0)
 		return ret;
 
 	if (!edid_verify_checksum((u8 *) &block0))
 		WARNING("EDID block 0 CRC mismatch\n");
-
+	
 	/* need to allocate space for block 0 as well as the extensions */
 	tx->edid.length = (block0.extensions + 1) * EDID_BLOCK_SIZE;
 
@@ -1044,15 +1033,14 @@ static int siihdmi_setup_display(struct siihdmi_tx *tx)
 		return ret;
 
 	/* activate the framebuffer */
-	fb_videomode_to_var(&var, mode);
-	var.activate = FB_ACTIVATE_ALL;
-
+	fb_videomode_to_var(&tx->info->var, mode);
+	
 	console_lock();
 	tx->info->flags |= FBINFO_MISC_USEREVENT;
-	fb_set_var(tx->info, &var);
+	fb_set_var(tx->info, &tx->info->var);
 	tx->info->flags &= ~FBINFO_MISC_USEREVENT;
 	console_unlock();
-
+	
 	return 0;
 }
 
@@ -1178,7 +1166,7 @@ complete:
 }
 
 #if defined(CONFIG_SYSFS)
-static ssize_t siihdmi_sysfs_read_edid(struct file *filp, struct kobject *kobj,
+ssize_t siihdmi_sysfs_read_edid(struct file *filp, struct kobject *kobj,
 				       struct bin_attribute *bin_attr,
 				       char *buf, loff_t offset, size_t count)
 {
@@ -1189,7 +1177,7 @@ static ssize_t siihdmi_sysfs_read_edid(struct file *filp, struct kobject *kobj,
 				       tx->edid.data, tx->edid.length);
 }
 
-static ssize_t siihdmi_sysfs_read_audio(struct file *filp, struct kobject *kobj,
+ssize_t siihdmi_sysfs_read_audio(struct file *filp, struct kobject *kobj,
 					struct bin_attribute *bin_attr,
 					char *buf, loff_t off, size_t count)
 {
@@ -1203,20 +1191,24 @@ static ssize_t siihdmi_sysfs_read_audio(struct file *filp, struct kobject *kobj,
 }
 #endif
 
-static int __devinit siihdmi_probe(struct i2c_client *client,
-				   const struct i2c_device_id *id)
+static int siihdmi_disp_init(struct mxc_dispdrv_entry *disp)
 {
-	struct siihdmi_tx *tx;
 	int ret;
+	struct siihdmi_tx *tx = mxc_dispdrv_getdata(disp);
+	struct mxc_dispdrv_setting *setting = mxc_dispdrv_getsetting(disp);
+	struct siihdmi_platform_data *plat = tx->client->dev.platform_data;
+	static bool inited;
 
-	tx = kzalloc(sizeof(struct siihdmi_tx), GFP_KERNEL);
-	if (!tx)
-		return -ENOMEM;
+	if (inited)
+		return -EBUSY;
 
-	tx->client = client;
-	tx->platform = client->dev.platform_data;
+	inited = true;
 
-	i2c_set_clientdata(client, tx);
+	setting->dev_id = plat->ipu_id;
+	setting->disp_id = plat->disp_id;
+	setting->if_fmt = IPU_PIX_FMT_RGB24;
+
+	tx->info = setting->fbi;
 
 	INIT_DELAYED_WORK(&tx->hotplug.handler, siihdmi_hotplug_event);
 
@@ -1233,9 +1225,8 @@ static int __devinit siihdmi_probe(struct i2c_client *client,
 	/* initialise the device */
 	if ((ret = siihdmi_initialise(tx)) < 0)
 		goto error;
-
 	ret = siihdmi_setup_display(tx);
-
+#if 0
 #if defined(CONFIG_SYSFS)
 	/* /sys/<>/edid */
 	tx->edid.attributes.attr.name  = "edid";
@@ -1265,6 +1256,16 @@ static int __devinit siihdmi_probe(struct i2c_client *client,
 	if (sysfs_create_bin_file(&tx->client->dev.kobj, &tx->audio.attributes) < 0)
 		WARNING("unable to construct attribute for sysfs exported audio\n");
 #endif
+#endif
+
+#if defined(CONFIG_SYSFS)
+	tx->edid.attributes = edid_attributes;
+	tx->audio.attributes = audio_attributes;
+	if (sysfs_create_bin_file(&tx->client->dev.kobj, &edid_attributes) < 0)
+		WARNING("unable to construct attribute for sysfs exported EDID\n");
+	if (sysfs_create_bin_file(&tx->client->dev.kobj, &audio_attributes) < 0)
+		WARNING("unable to construct attribute for sysfs exported audio\n");
+#endif
 
 	/* register a notifier for future fb events */
 	tx->nb.notifier_call = siihdmi_fb_event_handler;
@@ -1273,16 +1274,15 @@ static int __devinit siihdmi_probe(struct i2c_client *client,
 	return 0;
 
 error:
-	i2c_set_clientdata(client, NULL);
+	i2c_set_clientdata(tx->client, NULL);
 	kfree(tx);
 	return ret;
 }
 
-static int __devexit siihdmi_remove(struct i2c_client *client)
+static void siihdmi_disp_deinit(struct mxc_dispdrv_entry *disp)
 {
-	struct siihdmi_tx *tx;
+	struct siihdmi_tx *tx = mxc_dispdrv_getdata(disp);
 
-	tx = i2c_get_clientdata(client);
 	if (tx) {
 		if (tx->platform->hotplug.start)
 			free_irq(tx->platform->hotplug.start, NULL);
@@ -1297,10 +1297,49 @@ static int __devexit siihdmi_remove(struct i2c_client *client)
 
 		fb_unregister_client(&tx->nb);
 		siihdmi_power_down(tx);
-		i2c_set_clientdata(client, NULL);
+		i2c_set_clientdata(tx->client, NULL);
 		kfree(tx);
 	}
+}
 
+#define DISPDRV_SII	"hdmi"
+
+static struct mxc_dispdrv_driver siihdmi_drv = {
+	.name 	= DISPDRV_SII,
+	.init 	= siihdmi_disp_init,
+	.deinit	= siihdmi_disp_deinit,
+};
+
+static int __devinit siihdmi_probe(struct i2c_client *client,
+				   const struct i2c_device_id *id)
+{
+	struct siihdmi_tx *tx;
+
+	if (!i2c_check_functionality(client->adapter,
+			I2C_FUNC_SMBUS_BYTE | I2C_FUNC_I2C))
+		return -ENODEV;
+
+	tx = kzalloc(sizeof(struct siihdmi_tx), GFP_KERNEL);
+	if (!tx)
+		return -ENOMEM;
+
+	tx->client = client;
+	tx->platform = client->dev.platform_data;
+
+	tx->disp_hdmi = mxc_dispdrv_register(&siihdmi_drv);
+	mxc_dispdrv_setdata(tx->disp_hdmi, tx);
+
+	i2c_set_clientdata(client, tx);
+	return 0;
+}
+
+
+static int __devexit siihdmi_remove(struct i2c_client *client)
+{
+	struct siihdmi_tx *tx;
+	tx = i2c_get_clientdata(client);
+	mxc_dispdrv_unregister(tx->disp_hdmi);
+	kfree(tx);
 	return 0;
 }
 
@@ -1308,6 +1347,7 @@ static const struct i2c_device_id siihdmi_device_table[] = {
 	{ "siihdmi", 0 },
 	{ },
 };
+MODULE_DEVICE_TABLE(i2c, siihdmi_device_table);
 
 static struct i2c_driver siihdmi_driver = {
 	.driver   = { .name = "siihdmi" },
@@ -1361,7 +1401,6 @@ __setup("siihdmi", siihdmi_setup);
 MODULE_AUTHOR("Saleem Abdulrasool <compnerd@compnerd.org>");
 MODULE_LICENSE("BSD-3");
 MODULE_DESCRIPTION("Silicon Image SiI9xxx TMDS Driver");
-MODULE_DEVICE_TABLE(i2c, siihdmi_device_table);
 
 module_init(siihdmi_init);
 module_exit(siihdmi_exit);

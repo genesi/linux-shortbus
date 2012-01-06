@@ -246,12 +246,6 @@ enum {
 	IPU_CHECK_ERR_SPLIT_WITH_ROT,
 };
 
-
-/* New added for IPU-lib functionality*/
-int ipu_open(void);
-int ipu_register_generic_isr(int irq, void *dev);
-void ipu_close(void);
-
 /* IOCTL commands */
 #define IPU_CHECK_TASK		_IOWR('I', 0x1, struct ipu_task)
 #define IPU_QUEUE_TASK		_IOW('I', 0x2, struct ipu_task)
