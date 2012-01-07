@@ -166,7 +166,7 @@ static int ehci_mxc_drv_probe(struct platform_device *pdev)
 	}
 
 	/* enable clocks */
-	priv->usbclk = clk_get(dev, "usb");
+	priv->usbclk = clk_get(dev, "usboh3_clk");
 	if (IS_ERR(priv->usbclk)) {
 		ret = PTR_ERR(priv->usbclk);
 		goto err_clk;
@@ -174,7 +174,7 @@ static int ehci_mxc_drv_probe(struct platform_device *pdev)
 	clk_enable(priv->usbclk);
 
 	if (!cpu_is_mx35() && !cpu_is_mx25()) {
-		priv->ahbclk = clk_get(dev, "usb_ahb");
+		priv->ahbclk = clk_get(dev, "usb_ahb_clk");
 		if (IS_ERR(priv->ahbclk)) {
 			ret = PTR_ERR(priv->ahbclk);
 			goto err_clk_ahb;
@@ -184,7 +184,7 @@ static int ehci_mxc_drv_probe(struct platform_device *pdev)
 
 	/* "dr" device has its own clock on i.MX51 */
 	if (cpu_is_mx51() && (pdev->id == 0)) {
-		priv->phy1clk = clk_get(dev, "usb_phy1");
+		priv->phy1clk = clk_get(dev, "usb_phy1_clk");
 		if (IS_ERR(priv->phy1clk)) {
 			ret = PTR_ERR(priv->phy1clk);
 			goto err_clk_phy;

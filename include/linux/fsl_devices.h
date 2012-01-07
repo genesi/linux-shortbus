@@ -18,6 +18,8 @@
 #define _FSL_DEVICE_H_
 
 #include <linux/types.h>
+#include <linux/mutex.h>
+#include <linux/completion.h>
 
 /*
  * Some conventions on how we handle peripherals on Freescale chips
