@@ -251,18 +251,18 @@ static int __init mx51_efikamx_power_init(void)
 }
 late_initcall(mx51_efikamx_power_init);
 
-static void sii902x_hdmi_reset(void)
+static void mx51_efikamx_display_reset(void)
 {
-	gpio_request(EFIKAMX_DISPLAY_RESET, "hdmi:reset");
-	gpio_direction_output(EFIKAMX_DISPLAY_RESET, 1);
-	msleep(600);
+	gpio_set_value(EFIKAMX_DISPLAY_RESET, 1);
+	udelay(10);
 	gpio_set_value(EFIKAMX_DISPLAY_RESET, 0);
+	msleep(600);
 }
 
 static struct fsl_mxc_lcd_platform_data sii902x_hdmi_data = {
 	.ipu_id = 0,
 	.disp_id = 0,
-	.reset = sii902x_hdmi_reset,
+	.reset = mx51_efikamx_display_reset,
 };
 
 static struct ipuv3_fb_platform_data efikamx_fb_data[] = {
@@ -282,14 +282,6 @@ static struct ipuv3_fb_platform_data efikamx_fb_data[] = {
 };
 
 #if defined(CONFIG_FB_MXC_SIIHDMI)
-static void mx51_efikamx_display_reset(void)
-{
-	gpio_request(EFIKAMX_DISPLAY_RESET, "hdmi:reset");
-	gpio_set_value(EFIKAMX_DISPLAY_RESET, 1);
-	msleep(600);
-	gpio_set_value(EFIKAMX_DISPLAY_RESET, 0);
-}
-
 static struct siihdmi_platform_data mx51_efikamx_siihdmi_data = {
 	.reset		= mx51_efikamx_display_reset,
 	.vendor		= "Genesi",
@@ -389,6 +381,9 @@ static void __init mx51_efikamx_io_init(void)
 
 	gpio_request(EFIKAMX_HDMI_IRQ, "hdmi:irq");
 	gpio_direction_input(EFIKAMX_HDMI_IRQ);
+
+	gpio_request(EFIKAMX_DISPLAY_RESET, "hdmi:reset");
+	gpio_direction_output(EFIKAMMX_DISPLAY_RESET, 0);
 }
 
 static void __init mx51_efikamx_init(void)
