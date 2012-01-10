@@ -369,7 +369,7 @@ static void __init mx51_efikamx_io_init(void)
 	gpio_direction_input(EFIKAMX_HDMI_IRQ);
 
 	gpio_request(EFIKAMX_DISPLAY_RESET, "hdmi:reset");
-	gpio_direction_output(EFIKAMMX_DISPLAY_RESET, 0);
+	gpio_direction_output(EFIKAMX_DISPLAY_RESET, 0);
 }
 
 static void __init mx51_efikamx_init(void)
