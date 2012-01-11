@@ -408,6 +408,7 @@ struct siihdmi_tx {
 	struct i2c_client *client;
 	struct siihdmi_platform_data *platform;
 	struct mxc_dispdrv_entry *disp_hdmi;
+	struct mxc_dispdrv_setting *setting;
 
 	struct fb_info *info;
 	struct notifier_block nb;

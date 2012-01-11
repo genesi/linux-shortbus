@@ -43,6 +43,7 @@
 #include <linux/edid.h>
 #include <linux/cea861.h>
 #include <linux/cea861_modes.h>
+#include <linux/module.h>
 
 #include "mxc_dispdrv.h"
 #include "siihdmi.h"
@@ -1028,6 +1029,8 @@ static int siihdmi_setup_display(struct siihdmi_tx *tx)
 	siihdmi_sanitize_modelist(tx);
 	siihdmi_dump_modelines(tx);
 
+	fb_find_mode(&tx->info->var, tx->info, tx->setting->dft_mode_str, NULL, 0, NULL, tx->setting->default_bpp);
+
 	mode = siihdmi_select_video_mode(tx);
 	if ((ret = siihdmi_set_resolution(tx, mode)) < 0)
 		return ret;
@@ -1209,6 +1212,7 @@ static int siihdmi_disp_init(struct mxc_dispdrv_entry *disp)
 	setting->if_fmt = IPU_PIX_FMT_RGB24;
 
 	tx->info = setting->fbi;
+	tx->setting = setting;
 
 	INIT_DELAYED_WORK(&tx->hotplug.handler, siihdmi_hotplug_event);
 
