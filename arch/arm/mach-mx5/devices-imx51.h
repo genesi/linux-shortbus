@@ -9,6 +9,8 @@
 #include <mach/mx51.h>
 #include <mach/devices-common.h>
 
+#include "devices.h"
+
 extern const struct imx_fec_data imx51_fec_data;
 #define imx51_add_fec(pdata)	\
 	imx_add_fec(&imx51_fec_data, pdata)
