@@ -42,6 +42,7 @@
 #include <mach/clock.h>
 #include <mach/hardware.h>
 #include <mach/iram.h>
+#include <linux/module.h>
 
 #include <mach/mxc_vpu.h>
 

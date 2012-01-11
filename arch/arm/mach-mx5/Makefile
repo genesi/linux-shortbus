@@ -28,6 +28,3 @@ obj-$(CONFIG_MACH_MX50_RDP) += board-mx50_rdp.o
 
 obj-$(CONFIG_MACH_IMX51_DT) += imx51-dt.o
 obj-$(CONFIG_MACH_IMX53_DT) += imx53-dt.o
-ifdef CONFIG_MACH_MX53_LOCO
-obj-$(CONFIG_USB_SUPPORT)	+= usb_h1.o usb_dr.o
-endif
