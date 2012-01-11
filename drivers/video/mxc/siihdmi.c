@@ -1094,8 +1094,21 @@ static int siihdmi_fb_event_handler(struct notifier_block *nb,
 			case FB_BLANK_HSYNC_SUSPEND:
 			case FB_BLANK_NORMAL:
 				return siihdmi_blank(tx);
-			case FB_BLANK_UNBLANK:
-				return siihdmi_unblank(tx);
+			case FB_BLANK_UNBLANK: {
+				int retval;
+				int ret;
+				struct fb_videomode *mode;
+
+				ret = siihdmi_unblank(tx);
+				if (ret < 0)
+					return retval;
+
+				siihdmi_power_up(tx);
+				mode = siihdmi_select_video_mode(tx);
+				siihdmi_set_resolution(tx, mode);
+
+				return retval;
+			}
 		}
 		break;
 	default:
