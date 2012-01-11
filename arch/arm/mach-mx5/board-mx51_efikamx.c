@@ -29,6 +29,7 @@
 #include <linux/regulator/machine.h>
 #include <linux/regulator/consumer.h>
 #include <linux/memblock.h>
+#include <linux/android_pmem.h>
 
 #include <mach/common.h>
 #include <mach/hardware.h>
@@ -272,13 +273,13 @@ static struct ipuv3_fb_platform_data efikamx_fb_data[] = {
 	.mode_str = "1280x720M@60",
 	.default_bpp = 16,
 	.int_clk = false,
-	}, {
+	}/*, {
 	.disp_dev = "vga",
 	.interface_pix_fmt = IPU_PIX_FMT_GBR24,
 	.mode_str = "VGA-XGA",
 	.default_bpp = 16,
 	.int_clk = false,
-	},
+	},*/
 };
 
 #if defined(CONFIG_FB_MXC_SIIHDMI)
@@ -288,8 +289,8 @@ static struct siihdmi_platform_data mx51_efikamx_siihdmi_data = {
 	.description	= "Efika MX",
 	.framebuffer	= "DISP3 BG",
 	.hotplug	= {
-		.start	= gpio_to_irq(EFIKAMX_HDMI_IRQ),
-		.end	= gpio_to_irq(EFIKAMX_HDMI_IRQ),
+		.start	= IMX_GPIO_TO_IRQ(EFIKAMX_HDMI_IRQ),
+		.end	= IMX_GPIO_TO_IRQ(EFIKAMX_HDMI_IRQ),
 		.name	= "video-hotplug",
 		.flags	= IORESOURCE_IRQ | IORESOURCE_IRQ_LOWEDGE,
 	},
@@ -303,7 +304,7 @@ static struct i2c_board_info mxc_i2c1_board_info[] __initdata = {
 	{
 	.type = "siihdmi",
 	.addr = 0x39,
-	.irq = gpio_to_irq(EFIKAMX_HDMI_IRQ),
+	.irq = IMX_GPIO_TO_IRQ(EFIKAMX_HDMI_IRQ),
 #if defined(CONFIG_FB_MXC_SII902X)
 	.platform_data = &sii902x_hdmi_data,
 #else
@@ -386,6 +387,19 @@ static void __init mx51_efikamx_io_init(void)
 	gpio_direction_output(EFIKAMX_DISPLAY_RESET, 0);
 }
 
+
+/* android */
+static struct android_pmem_platform_data android_pmem_data = {
+	.name = "pmem_adsp",
+	.size = SZ_16M,
+};
+
+static struct android_pmem_platform_data android_pmem_gpu_data = {
+	.name = "pmem_gpu",
+	.size = SZ_64M,
+	.cached = 1,
+};
+
 static void __init mx51_efikamx_init(void)
 {
 	struct platform_device *p;
@@ -411,12 +425,18 @@ static void __init mx51_efikamx_init(void)
 	imx51_add_spdif_dai();
 	imx51_add_spdif_audio_device();
 
-	gpu_data.z160_revision = 1;
+	gpu_data.z160_revision = 0;
 	imx51_add_mxc_gpu(&gpu_data);
 
 	imx51_add_ipuv3(0, &ipu_data);
 	for (i = 0; i < ARRAY_SIZE(efikamx_fb_data); i++)
 		imx51_add_ipuv3fb(i, &efikamx_fb_data[i]);
+
+	// android
+	mxc_android_pmem_device.dev.platform_data = &android_pmem_data;
+	platform_device_register(&mxc_android_pmem_device);
+	mxc_android_pmem_gpu_device.dev.platform_data = &android_pmem_gpu_data;
+	platform_device_register(&mxc_android_pmem_gpu_device);
 }
 
 static void __init mx51_efikamx_timer_init(void)
@@ -428,6 +448,32 @@ static struct sys_timer mx51_efikamx_timer = {
 	.init = mx51_efikamx_timer_init,
 };
 
+static void __init mx51_efikamx_reserve(void)
+{
+	phys_addr_t phys;
+
+	if (gpu_data.reserved_mem_size) {
+		phys = memblock_alloc(gpu_data.reserved_mem_size, SZ_4K);
+		memblock_free(phys, gpu_data.reserved_mem_size);
+		memblock_remove(phys, gpu_data.reserved_mem_size);
+		gpu_data.reserved_mem_base = phys;
+	}
+#ifdef CONFIG_ANDROID_PMEM
+	if (android_pmem_data.size) {
+		phys = memblock_alloc(android_pmem_data.size, SZ_4K);
+		memblock_free(phys, android_pmem_data.size);
+		memblock_remove(phys, android_pmem_data.size);
+		android_pmem_data.start = phys;
+	}
+	if (android_pmem_data.size) {
+		phys = memblock_alloc(android_pmem_gpu_data.size, SZ_4K);
+		memblock_free(phys, android_pmem_gpu_data.size);
+		memblock_remove(phys, android_pmem_gpu_data.size);
+		android_pmem_gpu_data.start = phys;
+	}
+#endif
+}
+
 MACHINE_START(MX51_EFIKAMX, "Genesi EfikaMX nettop")
 	/* Maintainer: Amit Kucheria <amit.kucheria@linaro.org> */
 	.atag_offset = 0x100,
@@ -437,4 +483,5 @@ MACHINE_START(MX51_EFIKAMX, "Genesi EfikaMX nettop")
 	.handle_irq = imx51_handle_irq,
 	.timer = &mx51_efikamx_timer,
 	.init_machine = mx51_efikamx_init,
+	.reserve = mx51_efikamx_reserve,
 MACHINE_END
