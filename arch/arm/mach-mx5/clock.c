@@ -4475,7 +4475,7 @@ static struct clk_lookup lookups[] = {
 	_REGISTER_CLOCK("mxc_vpu.0", NULL, vpu_clk[0]),
 	_REGISTER_CLOCK(NULL, "lpsr_clk", lpsr_clk),
 	_REGISTER_CLOCK("mxc_rtc.0", NULL, rtc_clk),
-	_REGISTER_CLOCK("pata_fsl", NULL, ata_clk),
+	_REGISTER_CLOCK("pata_imx", NULL, ata_clk),
 	_REGISTER_CLOCK("mxc_w1.0", NULL, owire_clk),
 	_REGISTER_CLOCK(NULL, "sahara_clk", sahara_clk[0]),
 	_REGISTER_CLOCK(NULL, "gpu3d_clk", gpu3d_clk),
