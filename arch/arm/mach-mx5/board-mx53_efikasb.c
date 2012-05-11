@@ -38,7 +38,6 @@
 #include <mach/iomux-mx53.h>
 #include <mach/ipu-v3.h>
 #include <mach/mxc_dvfs.h>
-#include <asm/mach/flash.h>
 
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/map.h>
@@ -48,6 +47,7 @@
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/mach/time.h>
+#include <asm/mach/flash.h>
 #include <asm/setup.h>
 
 #include "crm_regs.h"
@@ -56,7 +56,7 @@
 #include "usb.h"
 
 /* MX53 Efika SB GPIO PIN configurations */
-#define USBDR_OC	            IMX_GPIO_NR(4, 14) /* GPIO_4_14 */
+#define USBDR_OC                IMX_GPIO_NR(4, 14) /* GPIO_4_14 */
 #define USBDR_PWREN             IMX_GPIO_NR(4, 15) /* GPIO_4_15 */
 #define USBH1_OC                IMX_GPIO_NR(3, 30) /* GPIO_3_30 */
 #define USBH1_PWREN             IMX_GPIO_NR(3, 31) /* GPIO_3_31 */
@@ -109,8 +109,8 @@ static iomux_v3_cfg_t mx53_efikasb_pads[] = {
 	MX53_PAD_LVDS0_TX1_P__LDB_LVDS0_TX1,
 	MX53_PAD_LVDS0_TX0_P__LDB_LVDS0_TX0,
 	/* I2C1 */
-	MX53_PAD_CSI0_DAT8__I2C1_SDA, 
-	MX53_PAD_CSI0_DAT9__I2C1_SCL, 
+	MX53_PAD_CSI0_DAT8__I2C1_SDA,
+	MX53_PAD_CSI0_DAT9__I2C1_SCL,
 	/* UART */
 	MX53_PAD_PATA_DIOW__UART1_TXD_MUX,
 	MX53_PAD_PATA_DMACK__UART1_RXD_MUX,
@@ -170,14 +170,12 @@ static struct ipuv3_fb_platform_data efikasb_fb0_data = {
 	.num_modes = ARRAY_SIZE(video_modes),
 };
 
-
 static struct ipuv3_fb_platform_data efikasb_fb1_data = {
 	.interface_pix_fmt = IPU_PIX_FMT_BGR24,
 	.mode_str = "WSVGA",
 	.modes = video_modes,
 	.num_modes = ARRAY_SIZE(video_modes),
 };
-
 
 static struct imx_ipuv3_platform_data ipu_data = {
 	.rev = 3,
@@ -214,7 +212,6 @@ static struct mxc_dvfs_platform_data efikasb_dvfs_core_data = {
 	.delay_time = 30,
 };
 
-
 static const struct esdhc_platform_data mx53_efikasb_sd1_data __initconst = {
 	.always_present = true,
 	.wp_gpio = SD1_WP,
@@ -240,7 +237,6 @@ static struct platform_device cs42l52_device = {
 	.name = "imx-cs42l52",
 };
 
-
 static const struct imxi2c_platform_data mx53_efikasb_i2c_data __initconst = {
 	.bitrate = 100000,
 };
@@ -264,14 +260,14 @@ static int nand_init(void)
 
 #define M4IF_GENP_WEIM_MM_MASK          0x00000001
 #define WEIM_GCR2_MUX16_BYP_GRANT_MASK  0x00001000
-	
+
 	base = ioremap(MX53_M4IF_BASE_ADDR, SZ_4K);
 	reg = __raw_readl(base + 0xc);
 	reg &= ~M4IF_GENP_WEIM_MM_MASK;
 	__raw_writel(reg, base + 0xc);
-	
+
 	iounmap(base);
-	
+
 	base = ioremap(MX53_WEIM_BASE_ADDR, SZ_4K);
 	for (i = 0x4; i < 0x94; i += 0x18) {
 		reg = __raw_readl((u32)base + i);
@@ -279,10 +275,9 @@ static int nand_init(void)
 		__raw_writel(reg, (u32)base + i);
 	}
 	iounmap(base);
-	
+
 	return 0;
 }
-
 
 /* NAND Flash Partitions */
 #ifdef CONFIG_MTD_PARTITIONS

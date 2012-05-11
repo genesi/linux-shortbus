@@ -30,7 +30,7 @@
 #define SPPP_PKT_STOP    0xC0
 #define IsBitSet(val, bit) ((val) & (1 << (bit)))
 
-#define SPPP_IDENTIFICATION_ID  0 
+#define SPPP_IDENTIFICATION_ID  0
 #define SPPP_KEY_ID     1
 #define SPPP_PS2_ID     2
 #define SPPP_RTC_ID     3
@@ -50,22 +50,20 @@
 #define FLASH_FW_START_PAGE   8
 
 typedef struct {
-  uint8_t input[MAX_RECV_PKG_SIZE];
-  uint8_t id;
-  uint8_t crc;
-  uint8_t pos;
-  uint8_t num;  
-  uint8_t carry;
-  uint8_t sync;
-
+	uint8_t input[MAX_RECV_PKG_SIZE];
+	uint8_t id;
+	uint8_t crc;
+	uint8_t pos;
+	uint8_t num;
+	uint8_t carry;
+	uint8_t sync;
 } sppp_rx_t;
 
 typedef struct {
-  uint8_t crc;
-  uint8_t pos;
-  uint8_t carry;
-  int comd;
-
+	uint8_t crc;
+	uint8_t pos;
+	uint8_t carry;
+	int comd;
 } sppp_tx_t;
 
 /* Possible SPPP clients */
@@ -77,9 +75,9 @@ enum clients {
 };
 
 /* Each SPPP client has these */
-struct sppp_client { 
+struct sppp_client {
 	unsigned int id;
-	void (* decode)(sppp_rx_t *);
+	void (*decode)(sppp_rx_t *);
 };
 
 int sppp_recv(int comd, sppp_rx_t *sppp_rx);
