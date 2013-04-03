@@ -598,7 +598,7 @@ int32_t ipu_init_channel(ipu_channel_t channel, ipu_channel_params_t *params)
 	spin_lock_irqsave(&ipu_lock, lock_flags);
 
 	if (g_channel_init_mask & (1L << IPU_CHAN_ID(channel))) {
-		dev_err(g_ipu_dev, "Warning: channel already initialized %d\n",
+		dev_info(g_ipu_dev, "Warning: channel already initialized %d\n",
 			IPU_CHAN_ID(channel));
 	}
 
@@ -866,7 +866,7 @@ void ipu_uninit_channel(ipu_channel_t channel)
 	uint32_t ipu_conf;
 
 	if ((g_channel_init_mask & (1L << IPU_CHAN_ID(channel))) == 0) {
-		dev_err(g_ipu_dev, "Channel already uninitialized %d\n",
+		dev_info(g_ipu_dev, "Channel already uninitialized %d\n",
 			IPU_CHAN_ID(channel));
 		return;
 	}
@@ -1823,7 +1823,7 @@ int32_t ipu_enable_channel(ipu_channel_t channel)
 	spin_lock_irqsave(&ipu_lock, lock_flags);
 
 	if (g_channel_enable_mask & (1L << IPU_CHAN_ID(channel))) {
-		dev_err(g_ipu_dev, "Warning: channel already enabled %d\n",
+		dev_info(g_ipu_dev, "Warning: channel already enabled %d\n",
 			IPU_CHAN_ID(channel));
 		spin_unlock_irqrestore(&ipu_lock, lock_flags);
 		return -EACCES;
@@ -2021,7 +2021,7 @@ int32_t ipu_disable_channel(ipu_channel_t channel, bool wait_for_stop)
 	spin_lock_irqsave(&ipu_lock, lock_flags);
 
 	if ((g_channel_enable_mask & (1L << IPU_CHAN_ID(channel))) == 0) {
-		dev_err(g_ipu_dev, "Channel already disabled %d\n",
+		dev_info(g_ipu_dev, "Channel already disabled %d\n",
 			IPU_CHAN_ID(channel));
 		spin_unlock_irqrestore(&ipu_lock, lock_flags);
 		return -EACCES;
