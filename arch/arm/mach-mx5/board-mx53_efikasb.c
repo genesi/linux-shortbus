@@ -32,6 +32,8 @@
 #include <linux/fsl_devices.h>
 #include <linux/i2c-gpio.h>
 
+#include <media/soc_camera.h>
+
 #include <mach/common.h>
 #include <mach/hardware.h>
 #include <mach/imx-uart.h>
@@ -55,6 +57,9 @@
 #include "devices.h"
 #include "usb.h"
 
+extern struct clk emi_slow_clk;
+static int efikasb_camera_power(struct device *dev, int on);
+
 /* MX53 Efika SB GPIO PIN configurations */
 #define USBDR_OC                IMX_GPIO_NR(4, 14) /* GPIO_4_14 */
 #define USBDR_PWREN             IMX_GPIO_NR(4, 15) /* GPIO_4_15 */
@@ -65,7 +70,7 @@
 #define SD1_WP                  IMX_GPIO_NR(1, 9)  /* GPIO_1_9 */
 
 #define PERIPH_RESET            IMX_GPIO_NR(5, 28) /* GPIO_5_28 */
-#define PERIPH_PWR		        IMX_GPIO_NR(5, 29) /* GPIO_5_29 */
+#define PERIPH_PWR		IMX_GPIO_NR(5, 29) /* GPIO_5_29 */
 
 /* GPIO I2C */
 #define GPIO_SDA                IMX_GPIO_NR(5, 27) /* GPIO_5_27 */
@@ -248,10 +253,28 @@ static struct i2c_board_info mxc_i2c0_board_info[] __initdata = {
 	.type = "cs42l52",
 	.addr = 0x4a,
 	 },
+};
+
+static struct i2c_board_info mxc_ov7690_info[] __initdata = {
 	{
-	.type = "gc0308",
-	.addr = 0x42,
+	.type = "ov7690",
+	.addr = 0x21,
 	.platform_data = (void *)&camera_data,
+	},
+};
+
+static struct soc_camera_link iclink_ov7690 = {
+	.bus_id		= 0,		/* Must match with the camera ID */
+	.power		= efikasb_camera_power,
+	.board_info	= &mxc_ov7690_info[0],
+	.i2c_adapter_id	= 0,
+};
+
+static struct platform_device mxc_soc_camera = {
+	.name	= "soc-camera-pdrv",
+	.id	= 0,
+	.dev	= {
+		.platform_data = &iclink_ov7690,
 	},
 };
 
@@ -377,6 +400,14 @@ static void mx53_efikasb_periph_power(bool on)
 		gpio_set_value(PERIPH_PWR, 1);
 	else
 		gpio_set_value(PERIPH_PWR, 0);
+}
+
+static int efikasb_camera_power(struct device *dev, int on)
+{
+	mx53_efikasb_periph_power((bool) on);
+	(void) dev;
+
+	return 0;
 }
 
 static void mx53_efikasb_do_periph_reset(void)
@@ -515,6 +546,7 @@ static void efikasb_mclk_init(void)
 
 	struct clk *oclk, *pclk;
 	int ret = 0;
+	unsigned long rate;
 
 	oclk = clk_get(NULL, "cko1");
 	pclk = clk_get(NULL, "pll3");
@@ -532,6 +564,9 @@ static void efikasb_mclk_init(void)
 	ret = clk_enable(oclk);
 	if (ret)
 		printk(KERN_ERR "Can't enable Output Clock.\n");
+
+	rate = clk_get_rate(oclk);
+/*	printk(KERN_ERR "Clock rate %ld\n",  rate); */
 }
 
 
@@ -556,6 +591,8 @@ static void __init mx53_efikasb_board_init(void)
 
 	i2c_register_board_info(0, mxc_i2c0_board_info,
 				ARRAY_SIZE(mxc_i2c0_board_info));
+
+	platform_device_register(&mxc_soc_camera);
 
 	/* SD Interfaces */
 	imx53_add_sdhci_esdhc_imx(0, &mx53_efikasb_sd1_data);
@@ -590,7 +627,7 @@ static void __init mx53_efikasb_board_init(void)
 	efikasb_mclk_init();
 
 	/* Power on peripherals */
-	mx53_efikasb_periph_power(1);
+	mx53_efikasb_periph_power(0);
 
 	/* Power on WLan */
 	mx53_efikasb_wlan_power(1);
@@ -607,7 +644,7 @@ static struct sys_timer mx53_efikasb_timer = {
 	.init	= mx53_efikasb_timer_init,
 };
 
-MACHINE_START(MX53_EFIKASB, "Genesi MX53 Efika SB Board")
+MACHINE_START(MX53_EFIKASB, "Genesi Efika MX (Slimbook)")
 	.fixup = fixup_mxc_board,
 	.map_io = mx53_map_io,
 	.init_early = imx53_init_early,
