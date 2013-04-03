@@ -35,7 +35,7 @@
 #include "spppdriver.h"
 
 /* Read and write registers */
-#define __REG(x)	(*((u32 *)(x)))
+#define __REG(x)	(*((volatile u32 *)(x)))
 
 /* Maximum number of SPPP clients */
 #define MAX_CLIENTS  10
@@ -51,7 +51,7 @@ struct sppp_device {
 static struct sppp_client *array_of_clients[MAX_CLIENTS] = {NULL};
 
 /* baseint contains the address as a 32 bit integer */
-static u32 *base, baseint;
+static volatile u32 *base, baseint;
 
 /* Actual SPPP device */
 static struct sppp_device sppp __initdata;
@@ -177,7 +177,7 @@ sppp_start:
 static irqreturn_t sppp_int(int irq, void *dev_id)
 {
 	uint8_t rx;
-	unsigned int sr2, sr1, cr1;
+	volatile unsigned int sr2, sr1, cr1;
 
 	sr1 = __REG(baseint + USR1);
 	sr2 = __REG(baseint + USR2);
@@ -367,7 +367,7 @@ EXPORT_SYMBOL(sppp_send);
 
 static int __init sppp_init(void)
 {
-	printk(KERN_ALERT "Inserting SPPP driver.\n");
+	printk(KERN_INFO "Inserting SPPP driver.\n");
 	sppp_setup();
 	sppp_rx_g.sync = SPPP_NOSYNC;
 
@@ -376,7 +376,7 @@ static int __init sppp_init(void)
 
 static void __exit sppp_exit(void)
 {
-	printk(KERN_ALERT "Removing SPPP driver.\n");
+	printk(KERN_INFO "Removing SPPP driver.\n");
 
 	/* free_irq(port->irq, NULL); //--> needs fixing, blows up with segfault... */
 	clk_disable(clk_get_sys("imx-uart.1", NULL));
