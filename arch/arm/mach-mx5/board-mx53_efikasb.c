@@ -58,25 +58,22 @@
 #include "usb.h"
 
 extern struct clk emi_slow_clk;
-static int efikasb_camera_power(struct device *dev, int on);
 
 /* MX53 Efika SB GPIO PIN configurations */
-#define USBDR_OC                IMX_GPIO_NR(4, 14) /* GPIO_4_14 */
-#define USBDR_PWREN             IMX_GPIO_NR(4, 15) /* GPIO_4_15 */
-#define USBH1_OC                IMX_GPIO_NR(3, 30) /* GPIO_3_30 */
-#define USBH1_PWREN             IMX_GPIO_NR(3, 31) /* GPIO_3_31 */
-#define CLKO                    IMX_GPIO_NR(1, 5)  /* GPIO_1_5 */
-#define WIFISWITCH              IMX_GPIO_NR(1, 0)  /* GPIO_1_0 */
+#define USBDR_OC                IMX_GPIO_NR(4, 14)
+#define USBDR_PWREN             IMX_GPIO_NR(4, 15)
+#define USBH1_OC                IMX_GPIO_NR(3, 30)
+#define USBH1_PWREN             IMX_GPIO_NR(3, 31)
+#define CLKO                    IMX_GPIO_NR(1, 5)
 #define SD1_WP                  IMX_GPIO_NR(1, 9)
 
-#define PERIPH_RESET            IMX_GPIO_NR(5, 28)
-#define PERIPH_PWR		IMX_GPIO_NR(5, 29)
+#define WIFI_PON              IMX_GPIO_NR(1, 0)
+#define WIFI_RST		IMX_GPIO_NR(5, 28)
+#define CAMERA_PWD		IMX_GPIO_NR(5, 29)
 
 /* GPIO I2C */
 #define GPIO_SDA                IMX_GPIO_NR(5, 27)
 #define GPIO_SCL                IMX_GPIO_NR(5, 26)
-
-#define CAMERA_RESET		IMX_GPIO_NR(5, 29)
 
 static iomux_v3_cfg_t mx53_efikasb_pads[] = {
 	/* USB */
@@ -91,9 +88,9 @@ static iomux_v3_cfg_t mx53_efikasb_pads[] = {
 	MX53_PAD_CSI0_DAT7__AUDMUX_AUD3_RXD,
 	/* PERIPHERAL */
 	MX53_PAD_GPIO_5__CCM_CLKO,       /* CLKO master audio/camera clock */
-	MX53_PAD_GPIO_0__GPIO1_0,        /* WIFI switch */
-	MX53_PAD_CSI0_DAT10__GPIO5_28,   /* Periph Reset */
-	MX53_PAD_CSI0_DAT11__GPIO5_29,   /* Periph Power Down */
+	MX53_PAD_GPIO_0__GPIO1_0,        /* WIFI PON */
+	MX53_PAD_CSI0_DAT10__GPIO5_28,   /* WIFI RST */
+	MX53_PAD_CSI0_DAT11__GPIO5_29,   /* CAMR PWDN */
 	/* SD1 */
 	MX53_PAD_SD1_CMD__ESDHC1_CMD,
 	MX53_PAD_SD1_CLK__ESDHC1_CLK,
@@ -137,7 +134,6 @@ static iomux_v3_cfg_t mx53_efikasb_pads[] = {
 	MX53_PAD_CSI0_VSYNC__IPU_CSI0_VSYNC,
 	MX53_PAD_CSI0_MCLK__IPU_CSI0_HSYNC,
 	MX53_PAD_CSI0_PIXCLK__IPU_CSI0_PIXCLK,
-	MX53_PAD_CSI0_DAT11__GPIO5_29, /* reset */
 };
 
 static iomux_v3_cfg_t mx53_efikasb_nand_pads[] = {
@@ -266,9 +262,10 @@ static struct i2c_board_info mxc_ov7690_info[] __initdata = {
 	},
 };
 
+static int soc_camera_power(struct device *dev, int on);
 static struct soc_camera_link iclink_ov7690 = {
 	.bus_id		= 0,		/* Must match with the camera ID */
-	.power		= efikasb_camera_power,
+	.power		= soc_camera_power,
 	.board_info	= &mxc_ov7690_info[0],
 	.i2c_adapter_id	= 0,
 };
@@ -389,43 +386,42 @@ static void mx53_efikasb_usbdr_vbus(bool on)
 		gpio_set_value(USBDR_PWREN, 0);
 }
 
-static void mx53_efikasb_wlan_power(bool on)
+static void mx53_efikasb_wifi_power(bool on)
 {
 	if (on)
-		gpio_set_value(WIFISWITCH, 1);
+		gpio_set_value(WIFI_PON, 1);
 	else
-		gpio_set_value(WIFISWITCH, 0);
+		gpio_set_value(WIFI_PON, 0);
 }
 
-static void mx53_efikasb_periph_power(bool on)
+static void mx53_efikasb_camera_power(bool on)
 {
 	if (on)
-		gpio_set_value(PERIPH_PWR, 1);
+		gpio_set_value(CAMERA_PWD, 1);
 	else
-		gpio_set_value(PERIPH_PWR, 0);
+		gpio_set_value(CAMERA_PWD, 0);
 }
 
-static int efikasb_camera_power(struct device *dev, int on)
+static int soc_camera_power(struct device *dev, int on)
 {
-	mx53_efikasb_periph_power((bool) on);
+	mx53_efikasb_camera_power((bool) on);
 	(void) dev;
 
 	return 0;
 }
 
-static void mx53_efikasb_do_periph_reset(void)
+static void mx53_efikasb_wifi_reset(void)
 {
-	gpio_set_value(PERIPH_RESET, 1);
+	gpio_set_value(WIFI_RST, 1);
 	msleep(50);
-	gpio_set_value(PERIPH_RESET, 0);
+	gpio_set_value(WIFI_RST, 0);
 	msleep(1);
-	gpio_set_value(PERIPH_RESET, 1);
+	gpio_set_value(WIFI_RST, 1);
 	msleep(30);
 }
 
 static struct imx_ssi_platform_data efikasb_ssi_pdata = {
-	.flags = IMX_SSI_DMA | IMX_SSI_SYN |
-					IMX_SSI_NET | IMX_SSI_USE_I2S_SLAVE,
+	.flags = IMX_SSI_DMA | IMX_SSI_SYN | IMX_SSI_NET | IMX_SSI_USE_I2S_SLAVE,
 };
 
 
@@ -529,20 +525,17 @@ static void __init mx53_efikasb_io_init(void)
 	gpio_request(USBDR_PWREN, "usb-pwr0");
 	gpio_direction_output(USBDR_PWREN, 0);
 
-	/* WIFI power */
-	gpio_request(WIFISWITCH, "wifi-pwr");
-	gpio_direction_output(WIFISWITCH, 0);
+	/* Wifi Power On signal */
+	gpio_request(WIFI_PON, "wifi-power");
+	gpio_direction_output(WIFI_PON, 0);
 
-	/* Peripheral power */
-	gpio_request(PERIPH_PWR, "periph-pwr");
-	gpio_direction_output(PERIPH_PWR, 0);
+	/* Wifi Reset */
+	gpio_request(WIFI_RST, "wifi-reset");
+	gpio_direction_output(WIFI_RST, 0);
 
-	/* Peripheral reset */
-	gpio_request(PERIPH_RESET, "periph-reset");
-	gpio_direction_output(PERIPH_RESET, 0);
-
-	gpio_request(CAMERA_RESET, "camera-reset");
-	gpio_direction_output(CAMERA_RESET, 0);
+	/* Camera Power Down signal */
+	gpio_request(CAMERA_PWD, "camera-power");
+	gpio_direction_output(CAMERA_PWD, 0);
 }
 
 /* Sets up the MCLK for audio and camera */
@@ -553,7 +546,7 @@ static void efikasb_mclk_init(void)
 	int ret = 0;
 	unsigned long rate;
 
-	gpio_set_value(CAMERA_RESET, 0);
+	gpio_set_value(CAMERA_PWD, 0);
 	msleep(20);
 
 	oclk = clk_get(NULL, "cko1");
@@ -576,7 +569,7 @@ static void efikasb_mclk_init(void)
 	rate = clk_get_rate(oclk);
 
 	msleep(10);
-	gpio_set_value(CAMERA_RESET, 1);
+	gpio_set_value(CAMERA_PWD, 1);
 
 /*	printk(KERN_ERR "Clock rate %ld\n",  rate); */
 }
@@ -639,12 +632,12 @@ static void __init mx53_efikasb_board_init(void)
 	efikasb_mclk_init();
 
 	/* Power on peripherals */
-	mx53_efikasb_periph_power(0);
+	mx53_efikasb_camera_power(0);
 
 	/* Power on WLan */
-	mx53_efikasb_wlan_power(1);
+	mx53_efikasb_wifi_power(1);
 	/* And do reset... */
-	mx53_efikasb_do_periph_reset();
+	mx53_efikasb_wifi_reset();
 }
 
 static void __init mx53_efikasb_timer_init(void)
