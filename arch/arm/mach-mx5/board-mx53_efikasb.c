@@ -67,14 +67,16 @@ static int efikasb_camera_power(struct device *dev, int on);
 #define USBH1_PWREN             IMX_GPIO_NR(3, 31) /* GPIO_3_31 */
 #define CLKO                    IMX_GPIO_NR(1, 5)  /* GPIO_1_5 */
 #define WIFISWITCH              IMX_GPIO_NR(1, 0)  /* GPIO_1_0 */
-#define SD1_WP                  IMX_GPIO_NR(1, 9)  /* GPIO_1_9 */
+#define SD1_WP                  IMX_GPIO_NR(1, 9)
 
-#define PERIPH_RESET            IMX_GPIO_NR(5, 28) /* GPIO_5_28 */
-#define PERIPH_PWR		IMX_GPIO_NR(5, 29) /* GPIO_5_29 */
+#define PERIPH_RESET            IMX_GPIO_NR(5, 28)
+#define PERIPH_PWR		IMX_GPIO_NR(5, 29)
 
 /* GPIO I2C */
-#define GPIO_SDA                IMX_GPIO_NR(5, 27) /* GPIO_5_27 */
-#define GPIO_SCL                IMX_GPIO_NR(5, 26) /* GPIO_5_26 */
+#define GPIO_SDA                IMX_GPIO_NR(5, 27)
+#define GPIO_SCL                IMX_GPIO_NR(5, 26)
+
+#define CAMERA_RESET		IMX_GPIO_NR(5, 29)
 
 static iomux_v3_cfg_t mx53_efikasb_pads[] = {
 	/* USB */
@@ -135,6 +137,7 @@ static iomux_v3_cfg_t mx53_efikasb_pads[] = {
 	MX53_PAD_CSI0_VSYNC__IPU_CSI0_VSYNC,
 	MX53_PAD_CSI0_MCLK__IPU_CSI0_HSYNC,
 	MX53_PAD_CSI0_PIXCLK__IPU_CSI0_PIXCLK,
+	MX53_PAD_CSI0_DAT11__GPIO5_29, /* reset */
 };
 
 static iomux_v3_cfg_t mx53_efikasb_nand_pads[] = {
@@ -257,7 +260,7 @@ static struct i2c_board_info mxc_i2c0_board_info[] __initdata = {
 
 static struct i2c_board_info mxc_ov7690_info[] __initdata = {
 	{
-	.type = "ov7690",
+	.type = "ov7690-test",
 	.addr = 0x21,
 	.platform_data = (void *)&camera_data,
 	},
@@ -538,6 +541,8 @@ static void __init mx53_efikasb_io_init(void)
 	gpio_request(PERIPH_RESET, "periph-reset");
 	gpio_direction_output(PERIPH_RESET, 0);
 
+	gpio_request(CAMERA_RESET, "camera-reset");
+	gpio_direction_output(CAMERA_RESET, 0);
 }
 
 /* Sets up the MCLK for audio and camera */
@@ -547,6 +552,9 @@ static void efikasb_mclk_init(void)
 	struct clk *oclk, *pclk;
 	int ret = 0;
 	unsigned long rate;
+
+	gpio_set_value(CAMERA_RESET, 0);
+	msleep(20);
 
 	oclk = clk_get(NULL, "cko1");
 	pclk = clk_get(NULL, "pll3");
@@ -566,6 +574,10 @@ static void efikasb_mclk_init(void)
 		printk(KERN_ERR "Can't enable Output Clock.\n");
 
 	rate = clk_get_rate(oclk);
+
+	msleep(10);
+	gpio_set_value(CAMERA_RESET, 1);
+
 /*	printk(KERN_ERR "Clock rate %ld\n",  rate); */
 }
 

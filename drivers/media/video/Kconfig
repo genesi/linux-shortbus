@@ -307,6 +307,12 @@ config VIDEO_OV7670
 	  OV7670 VGA camera.  It currently only works with the M88ALP01
 	  controller.
 
+config VIDEO_OV7690_TEST
+	tristate "OmniVision OV7690 low-level test"
+	depends on I2C
+	---help---
+	  Only for board production verification!!!!
+
 config VIDEO_MT9V011
 	tristate "Micron mt9v011 sensor support"
 	depends on I2C && VIDEO_V4L2
