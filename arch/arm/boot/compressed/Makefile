@@ -96,7 +96,13 @@ KBUILD_CFLAGS = $(subst -pg, , $(ORIG_CFLAGS))
 endif
 
 EXTRA_CFLAGS  := -fpic -fno-builtin
-EXTRA_AFLAGS  := -Wa,-march=all
+
+# HACK - get rid of the (null) warning which is supposed to be telling
+# us that the architecture in question may not implement certain instrs.
+# (march=all is giving it a crisis of confidence)
+# since this kernel only cares about Cortex-A8, just build for ARMv7-A.
+#EXTRA_AFLAGS  := -Wa,-march=all
+EXTRA_AFLAGS  := -Wa,-march=armv7-a
 
 # Provide size of uncompressed kernel to the decompressor via a linker symbol.
 LDFLAGS_vmlinux = --defsym _image_size=$(shell stat -c "%s" $(obj)/../Image)
