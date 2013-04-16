@@ -533,6 +533,14 @@ config KEYBOARD_MXS
 	help
 	  This is the Keypad driver for the Freescale mxs soc
 
+config KEYBOARD_SPPP
+	tristate "SPPP keyboard driver"
+	depends on MACH_MX53_EFIKASB 
+	help
+	  Say Y here if you have a Genesi MX53 EfikaSB based
+	  System. These systems use the SPPP protocol to 
+	  communicate with a housekeeper chip responsible 
+	  for keyboard and trackpad among others.
 
 config KEYBOARD_MC9S08DZ60
 	tristate "mc9s08dz60 keyboard"
