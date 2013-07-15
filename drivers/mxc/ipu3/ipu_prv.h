@@ -17,7 +17,7 @@
 #include <linux/device.h>
 #include <linux/clk.h>
 #include <linux/interrupt.h>
-#include <linux/fsl_devices.h>
+#include <mach/hardware.h>
 
 /* Globals */
 extern struct device *g_ipu_dev;
@@ -66,8 +66,8 @@ void _ipu_dp_dc_enable(ipu_channel_t channel);
 void _ipu_dp_dc_disable(ipu_channel_t channel, bool swap);
 void _ipu_dmfc_init(int dmfc_type, int first);
 void _ipu_dmfc_set_wait4eot(int dma_chan, int width);
+int _ipu_chan_is_interlaced(ipu_channel_t channel);
 void _ipu_dmfc_set_burst_size(int dma_chan, int burst_size);
-int _ipu_disp_chan_is_interlaced(ipu_channel_t channel);
 
 void _ipu_ic_enable_task(ipu_channel_t channel);
 void _ipu_ic_disable_task(ipu_channel_t channel);
@@ -99,5 +99,7 @@ void _ipu_csi_ccir_err_detection_disable(uint32_t csi);
 void _ipu_smfc_init(ipu_channel_t channel, uint32_t mipi_id, uint32_t csi);
 void _ipu_smfc_set_burst_size(ipu_channel_t channel, uint32_t bs);
 void _ipu_dp_set_csc_coefficients(ipu_channel_t channel, int32_t param[][3]);
+void _ipu_clear_buffer_ready(ipu_channel_t channel, ipu_buffer_t type,
+			     uint32_t bufNum);
 
 #endif				/* __INCLUDE_IPU_PRV_H__ */

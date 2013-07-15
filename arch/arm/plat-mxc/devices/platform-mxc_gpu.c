@@ -93,6 +93,12 @@ struct platform_device *__init imx_add_mxc_gpu(
 			.name = "gpu_graphics_mem",
 			.flags = IORESOURCE_MEM,
 		},
+		{
+			.start = pdata->reserved_mem_base,
+			.end = pdata->reserved_mem_base + pdata->reserved_mem_size - 1,
+			.name = "gpu_reserved_mem",
+			.flags = IORESOURCE_MEM,
+		},
 	};
 
 	return imx_add_platform_device_dmamask("mxc_gpu", 0,

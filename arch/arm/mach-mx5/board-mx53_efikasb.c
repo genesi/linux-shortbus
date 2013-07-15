@@ -32,8 +32,6 @@
 #include <linux/fsl_devices.h>
 #include <linux/i2c-gpio.h>
 
-#include <media/soc_camera.h>
-
 #include <mach/common.h>
 #include <mach/hardware.h>
 #include <mach/imx-uart.h>
@@ -66,8 +64,9 @@ extern struct clk emi_slow_clk;
 #define USBH1_PWREN             IMX_GPIO_NR(3, 31)
 #define CLKO                    IMX_GPIO_NR(1, 5)
 #define SD1_WP                  IMX_GPIO_NR(1, 9)
+#define SD1_CD                  IMX_GPIO_NR(1, 21)
 
-#define WIFI_PON              IMX_GPIO_NR(1, 0)
+#define WIFI_PON		IMX_GPIO_NR(1, 0)
 #define WIFI_RST		IMX_GPIO_NR(5, 28)
 #define CAMERA_PWD		IMX_GPIO_NR(5, 29)
 
@@ -97,7 +96,7 @@ static iomux_v3_cfg_t mx53_efikasb_pads[] = {
 	MX53_PAD_SD1_DATA0__ESDHC1_DAT0,
 	MX53_PAD_SD1_DATA1__ESDHC1_DAT1,
 	MX53_PAD_SD1_DATA2__ESDHC1_DAT2,
-	MX53_PAD_SD1_DATA3__ESDHC1_DAT3,
+	MX53_PAD_SD1_DATA3__GPIO1_21,       /* Used as card detect too */
 	MX53_PAD_GPIO_9__GPIO1_9,           /* SD1 write protect */
 	/* SD2 */
 	MX53_PAD_SD2_CMD__ESDHC2_CMD,
@@ -107,16 +106,14 @@ static iomux_v3_cfg_t mx53_efikasb_pads[] = {
 	MX53_PAD_SD2_DATA2__ESDHC2_DAT2,
 	MX53_PAD_SD2_DATA3__ESDHC2_DAT3,
 	/* LVDS */
-/*	MX53_PAD_LVDS0_TX3_P__LDB_LVDS0_TX3, */ /* Schematic says no */
+	MX53_PAD_LVDS0_TX3_P__LDB_LVDS0_TX3,  /* Schematic says no */
 	MX53_PAD_LVDS0_CLK_P__LDB_LVDS0_CLK,
 	MX53_PAD_LVDS0_TX2_P__LDB_LVDS0_TX2,
 	MX53_PAD_LVDS0_TX1_P__LDB_LVDS0_TX1,
 	MX53_PAD_LVDS0_TX0_P__LDB_LVDS0_TX0,
 	/* I2C1 */
-//	MX53_PAD_CSI0_DAT8__I2C1_SDA, 
-//	MX53_PAD_CSI0_DAT9__I2C1_SCL, 
-	MX53_PAD_CSI0_DAT8__GPIO5_26,
-	MX53_PAD_CSI0_DAT9__GPIO5_27,
+	MX53_PAD_CSI0_DAT8__I2C1_SDA,
+	MX53_PAD_CSI0_DAT9__I2C1_SCL,
 	/* UART */
 	MX53_PAD_PATA_DIOW__UART1_TXD_MUX,
 	MX53_PAD_PATA_DMACK__UART1_RXD_MUX,
@@ -161,10 +158,10 @@ static struct fb_videomode video_modes[] = {
 	{
 		/* WSVGA 1024x600 @ 60 Hz */
 		"WSVGA", 60, 1024, 600, 22800,
-		80, 40,
-		20, 21,
-		4, 4,
-		FB_SYNC_OE_LOW_ACT,
+		40, 1024,//80, 40,
+		14, 424,//20, 21,
+		40, 14, //4, 4
+		0, //FB_SYNC_OE_LOW_ACT,
 		FB_VMODE_NONINTERLACED,
 		0,},
 };
@@ -219,17 +216,20 @@ static struct mxc_dvfs_platform_data efikasb_dvfs_core_data = {
 };
 
 static const struct esdhc_platform_data mx53_efikasb_sd1_data __initconst = {
-	.always_present = true,
+	.always_present = false,
 	.wp_gpio = SD1_WP,
+	.cd_gpio = SD1_CD,
 };
 
 static const struct esdhc_platform_data mx53_efikasb_sd2_data __initconst = {
 	.always_present = true,
 };
 
+static void mx53_efikasb_camera_power(int off);
 static struct fsl_mxc_camera_platform_data camera_data = {
 	.mclk = 27000000,
 	.csi = 0,
+	.pwdn = &mx53_efikasb_camera_power,
 };
 
 static struct mxc_audio_platform_data cs42l52_data = {
@@ -251,42 +251,12 @@ static struct i2c_board_info mxc_i2c0_board_info[] __initdata = {
 	{
 	.type = "cs42l52",
 	.addr = 0x4a,
-	 },
-};
-
-static struct i2c_board_info mxc_ov7690_info[] __initdata = {
+	},
 	{
-	.type = "ov7690-test",
+	.type = "ov7690",
 	.addr = 0x21,
 	.platform_data = (void *)&camera_data,
 	},
-};
-
-static int soc_camera_power(struct device *dev, int on);
-static struct soc_camera_link iclink_ov7690 = {
-	.bus_id		= 0,		/* Must match with the camera ID */
-	.power		= soc_camera_power,
-	.board_info	= &mxc_ov7690_info[0],
-	.i2c_adapter_id	= 0,
-};
-
-static struct platform_device mxc_soc_camera = {
-	.name	= "soc-camera-pdrv",
-	.id	= 0,
-	.dev	= {
-		.platform_data = &iclink_ov7690,
-	},
-};
-
-/* Temporary GPIO I2C solution */
-static struct i2c_gpio_platform_data i2c_gpio_data = {
-	.sda_pin	= GPIO_SDA,
-	.scl_pin	= GPIO_SCL,
-};
-
-static struct platform_device i2c_gpio_device = {
-	.name		= "i2c-gpio",
-	.id			= 0,
 };
 
 static int nand_init(void)
@@ -394,20 +364,12 @@ static void mx53_efikasb_wifi_power(bool on)
 		gpio_set_value(WIFI_PON, 0);
 }
 
-static void mx53_efikasb_camera_power(bool on)
+static void mx53_efikasb_camera_power(int off)
 {
-	if (on)
+	if (off)
 		gpio_set_value(CAMERA_PWD, 1);
 	else
 		gpio_set_value(CAMERA_PWD, 0);
-}
-
-static int soc_camera_power(struct device *dev, int on)
-{
-	mx53_efikasb_camera_power((bool) on);
-	(void) dev;
-
-	return 0;
 }
 
 static void mx53_efikasb_wifi_reset(void)
@@ -426,6 +388,7 @@ static struct imx_ssi_platform_data efikasb_ssi_pdata = {
 
 
 static struct mxc_gpu_platform_data gpu_data __initdata;
+static struct mxc_vpu_platform_data vpu_data __initdata;
 /*!
  * Board specific fixup function. It is called by \b setup_arch() in
  * setup.c file very early on during kernel starts. It allows the user to
@@ -440,63 +403,37 @@ static struct mxc_gpu_platform_data gpu_data __initdata;
 static void __init fixup_mxc_board(struct machine_desc *desc, struct tag *tags,
 				   char **cmdline, struct meminfo *mi)
 {
-	struct tag *t;
 	struct tag *mem_tag = 0;
 	int total_mem = SZ_512M;
-	int left_mem = 0;
-	int gpu_mem = SZ_32M;
+	int gpu_mem = SZ_32M + SZ_16M;
 	int fb_mem = SZ_16M;
-	char *str;
+	int vpu_mem = SZ_32M;
+	int sys_mem = 0;
 
 	for_each_tag(mem_tag, tags) {
 		if (mem_tag->hdr.tag == ATAG_MEM) {
 			total_mem = mem_tag->u.mem.size;
-			left_mem = total_mem - gpu_mem - fb_mem;
 			break;
 		}
 	}
 
-	for_each_tag(t, tags) {
-		if (t->hdr.tag == ATAG_CMDLINE) {
-			str = t->u.cmdline.cmdline;
-			str = strstr(str, "mem=");
-			if (str != NULL) {
-				str += 4;
-				left_mem = memparse(str, &str);
-				if (left_mem == 0 || left_mem > total_mem)
-					left_mem = total_mem - gpu_mem - fb_mem;
-			}
-
-			str = t->u.cmdline.cmdline;
-			str = strstr(str, "gpu_memory=");
-			if (str != NULL) {
-				str += 11;
-				gpu_mem = memparse(str, &str);
-			}
-
-			break;
-		}
-	}
+	sys_mem = total_mem - gpu_mem - fb_mem - vpu_mem;
 
 	if (mem_tag) {
-		fb_mem = total_mem - left_mem - gpu_mem;
-		if (fb_mem < 0) {
-			gpu_mem = total_mem - left_mem;
-			fb_mem = 0;
-		}
-		mem_tag->u.mem.size = left_mem;
+		mem_tag->u.mem.size = sys_mem;
 
-		/* reserve memory for gpu */
-		gpu_data.reserved_mem_base =
-				mem_tag->u.mem.start + left_mem;
+		gpu_data.reserved_mem_base = mem_tag->u.mem.start + sys_mem;
 		gpu_data.reserved_mem_size = gpu_mem;
 
-		/* reserve memory for fb */
-		efikasb_fb0_data.res_base = gpu_data.reserved_mem_base
+		vpu_data.reserved_mem_base = gpu_data.reserved_mem_base
 					+ gpu_data.reserved_mem_size;
+		vpu_data.reserved_mem_size = vpu_mem;
+
+		efikasb_fb0_data.res_base = vpu_data.reserved_mem_base
+					+ vpu_data.reserved_mem_size;
 		efikasb_fb0_data.res_size = fb_mem;
-		efikasb_fb1_data.res_base = gpu_data.reserved_mem_base
-					+ gpu_data.reserved_mem_size;
+		efikasb_fb1_data.res_base = efikasb_fb0_data.res_base
+					+ efikasb_fb0_data.res_size;
 		efikasb_fb1_data.res_size = fb_mem;
 	}
 }
@@ -512,11 +449,6 @@ static void __init mx53_efikasb_io_init(void)
 
 	mxc_iomux_v3_setup_multiple_pads(mx53_efikasb_nand_pads,
 					ARRAY_SIZE(mx53_efikasb_nand_pads));
-
-	/* SD1 Write Protect */
-	gpio_request(SD1_WP, "sd1-wp");
-	gpio_direction_input(SD1_WP);
-	gpio_free(SD1_WP);
 
 	/* USB PWR enable */
 	gpio_request(USBH1_PWREN, "usb-pwr1");
@@ -535,7 +467,7 @@ static void __init mx53_efikasb_io_init(void)
 
 	/* Camera Power Down signal */
 	gpio_request(CAMERA_PWD, "camera-power");
-	gpio_direction_output(CAMERA_PWD, 0);
+	gpio_direction_output(CAMERA_PWD, 1);
 }
 
 /* Sets up the MCLK for audio and camera */
@@ -546,7 +478,7 @@ static void efikasb_mclk_init(void)
 	int ret = 0;
 	unsigned long rate;
 
-	gpio_set_value(CAMERA_PWD, 0);
+	gpio_set_value(CAMERA_PWD, 1);
 	msleep(20);
 
 	oclk = clk_get(NULL, "cko1");
@@ -569,11 +501,10 @@ static void efikasb_mclk_init(void)
 	rate = clk_get_rate(oclk);
 
 	msleep(10);
-	gpio_set_value(CAMERA_PWD, 1);
+	gpio_set_value(CAMERA_PWD, 0);
 
 /*	printk(KERN_ERR "Clock rate %ld\n",  rate); */
 }
-
 
 static void __init mx53_efikasb_board_init(void)
 {
@@ -583,21 +514,19 @@ static void __init mx53_efikasb_board_init(void)
 
 	imx53_add_ipuv3(&ipu_data);
 
-	imx53_add_vpu();
+	imx53_add_vpu(&vpu_data);
 	imx53_add_ldb(&ldb_data);
 	imx53_add_v4l2_output(0);
+	imx53_add_v4l2_capture(0);
 
 	imx53_add_imx2_wdt(0, NULL);
 	imx53_add_dvfs_core(&efikasb_dvfs_core_data);
 
 	/* I2C */
-	//imx53_add_imx_i2c(0, &mx53_efikasb_i2c_data);
-	mxc_register_device(&i2c_gpio_device, &i2c_gpio_data);
+	imx53_add_imx_i2c(0, &mx53_efikasb_i2c_data);
 
 	i2c_register_board_info(0, mxc_i2c0_board_info,
 				ARRAY_SIZE(mxc_i2c0_board_info));
-
-	platform_device_register(&mxc_soc_camera);
 
 	/* SD Interfaces */
 	imx53_add_sdhci_esdhc_imx(0, &mx53_efikasb_sd1_data);
@@ -631,10 +560,9 @@ static void __init mx53_efikasb_board_init(void)
 	/* MCLK for camera and audio */
 	efikasb_mclk_init();
 
-	/* Power on peripherals */
+	/* Power on camera */
 	mx53_efikasb_camera_power(0);
-
-	/* Power on WLan */
+	/* Power on wlan */
 	mx53_efikasb_wifi_power(1);
 	/* And do reset... */
 	mx53_efikasb_wifi_reset();

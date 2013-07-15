@@ -99,7 +99,8 @@ const struct imx_vpu_data imx53_vpu_data __initconst =
 #endif
 
 struct platform_device *__init imx_add_vpu(
-		const struct imx_vpu_data *data)
+		const struct imx_vpu_data *data,
+		const struct mxc_vpu_platform_data *pdatain)
 {
 	struct mxc_vpu_platform_data pdata;
 	struct resource res[] = {
@@ -111,7 +112,12 @@ struct platform_device *__init imx_add_vpu(
 			.start = data->irq,
 			.end = data->irq,
 			.flags = IORESOURCE_IRQ,
-		},
+		}, {
+			.start = pdatain->reserved_mem_base,
+			.end = pdatain->reserved_mem_base + pdatain->reserved_mem_size - 1,
+			.name = "vpu_reserved_mem",
+			.flags = IORESOURCE_MEM,
+		}
 	};
 
 	pdata.reset = data->reset;

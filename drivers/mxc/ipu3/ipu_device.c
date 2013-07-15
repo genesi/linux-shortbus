@@ -1,5 +1,5 @@
 /*
- * Copyright 2005-2011 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2005-2010 Freescale Semiconductor, Inc. All Rights Reserved.
  */
 
 /*
@@ -84,7 +84,6 @@ static int mxc_ipu_open(struct inode *inode, struct file *file)
 	int ret = 0;
 	return ret;
 }
-
 static long mxc_ipu_ioctl(struct file *file,
 		unsigned int cmd, unsigned long arg)
 {
@@ -465,12 +464,20 @@ static int mxc_ipu_release(struct inode *inode, struct file *file)
 	return 0;
 }
 
+int mxc_ipu_fsync(struct file *filp, int datasync)
+{
+	flush_cache_all();
+	outer_flush_all();
+	return 0;
+}
+
 static struct file_operations mxc_ipu_fops = {
 	.owner = THIS_MODULE,
 	.open = mxc_ipu_open,
 	.mmap = mxc_ipu_mmap,
 	.release = mxc_ipu_release,
 	.unlocked_ioctl = mxc_ipu_ioctl,
+	.fsync = mxc_ipu_fsync
 };
 
 int register_ipu_device()

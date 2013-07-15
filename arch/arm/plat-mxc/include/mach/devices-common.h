@@ -289,13 +289,15 @@ struct platform_device *__init imx_add_ipuv3(
 struct imx_vpu_data {
 	resource_size_t iobase;
 	resource_size_t irq;
+	struct resource resbase;
 	bool iram_enable;
 	int iram_size;
 	void (*reset) (void);
 	void (*pg) (int);
 };
 struct platform_device *__init imx_add_vpu(
-		const struct imx_vpu_data *data);
+		const struct imx_vpu_data *data,
+		const struct mxc_vpu_platform_data *pdata);
 
 #include <mach/mxc_dvfs.h>
 struct imx_dvfs_core_data {

@@ -42,6 +42,10 @@
 
 #include "queue.h"
 
+#ifdef CONFIG_MACH_MX53_EFIKASB
+#include <mach/iomux-mx53.h>
+#endif
+
 MODULE_ALIAS("mmc:block");
 #ifdef MODULE_PARAM_PREFIX
 #undef MODULE_PARAM_PREFIX
@@ -114,6 +118,16 @@ static void mmc_blk_put(struct mmc_blk_data *md)
 
 		put_disk(md->disk);
 		kfree(md);
+
+#ifdef CONFIG_MACH_MX53_EFIKASB
+	/* Switch IOMUX settings to GPIO */
+	static iomux_v3_cfg_t mx53_efikasb_cd_pads[] = {
+		MX53_PAD_SD1_DATA3__GPIO1_21
+	};
+
+	mxc_iomux_v3_setup_multiple_pads(mx53_efikasb_cd_pads,
+					ARRAY_SIZE(mx53_efikasb_cd_pads));
+#endif
 	}
 	mutex_unlock(&open_lock);
 }
@@ -146,6 +160,16 @@ static int mmc_blk_release(struct gendisk *disk, fmode_t mode)
 	mutex_lock(&block_mutex);
 	mmc_blk_put(md);
 	mutex_unlock(&block_mutex);
+
+#if 0//def CONFIG_MACH_MX53_EFIKASB
+	/* Switch IOMUX settings to GPIO */
+	static iomux_v3_cfg_t mx53_efikasb_cd_pads[] = {
+		MX53_PAD_SD1_DATA3__GPIO1_21
+	};
+
+	mxc_iomux_v3_setup_multiple_pads(mx53_efikasb_cd_pads,
+					ARRAY_SIZE(mx53_efikasb_cd_pads));
+#endif
 	return 0;
 }
 
@@ -256,9 +280,19 @@ static u32 get_card_status(struct mmc_card *card, struct request *req)
 		cmd.arg = card->rca << 16;
 	cmd.flags = MMC_RSP_SPI_R2 | MMC_RSP_R1 | MMC_CMD_AC;
 	err = mmc_wait_for_cmd(card->host, &cmd, 0);
-	if (err)
+	if (err) {
 		printk(KERN_ERR "%s: error %d sending status command",
 		       req->rq_disk->disk_name, err);
+#if 0//def CONFIG_MACH_MX53_EFIKASB
+	/* Switch IOMUX settings to GPIO */
+	static iomux_v3_cfg_t mx53_efikasb_cd_pads[] = {
+		MX53_PAD_SD1_DATA3__GPIO1_21
+	};
+
+	mxc_iomux_v3_setup_multiple_pads(mx53_efikasb_cd_pads,
+					ARRAY_SIZE(mx53_efikasb_cd_pads));
+#endif
+	}
 	return cmd.resp[0];
 }
 

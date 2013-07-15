@@ -31,6 +31,8 @@
 struct mxc_vpu_platform_data {
 	bool iram_enable;
 	int  iram_size;
+	resource_size_t reserved_mem_base;
+	resource_size_t reserved_mem_size;
 	void (*reset) (void);
 	void (*pg) (int);
 };

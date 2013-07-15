@@ -37,6 +37,9 @@ obj-$(CONFIG_MXC_CAMERA_OV3640) += ov3640_camera.o
 ov5640_camera-objs := ov5640.o sensor_clock.o
 obj-$(CONFIG_MXC_CAMERA_OV5640) += ov5640_camera.o
 
+ov7690_camera-objs := ov7690.o sensor_clock.o
+obj-$(CONFIG_MXC_CAMERA_OV7690) += ov7690_camera.o
+
 ov5642_camera-objs := ov5642.o sensor_clock.o
 obj-$(CONFIG_MXC_CAMERA_OV5642) += ov5642_camera.o
 

@@ -23,6 +23,7 @@
 #include <linux/mmc/sdio.h>
 #include <mach/hardware.h>
 #include <mach/esdhc.h>
+#include <mach/iomux-mx53.h>
 #include "sdhci.h"
 #include "sdhci-pltfm.h"
 #include "sdhci-esdhc.h"
@@ -236,6 +237,14 @@ static irqreturn_t cd_irq(int irq, void *data)
 {
 	struct sdhci_host *sdhost = (struct sdhci_host *)data;
 
+	/* Switch IOMUX settings to SDCARD */
+	static iomux_v3_cfg_t mx53_efikasb_cd_pads[] = {
+		MX53_PAD_SD1_DATA3__ESDHC1_DAT3
+	};
+
+	mxc_iomux_v3_setup_multiple_pads(mx53_efikasb_cd_pads,
+					ARRAY_SIZE(mx53_efikasb_cd_pads));
+
 	tasklet_schedule(&sdhost->card_tasklet);
 	return IRQ_HANDLED;
 };
@@ -300,7 +309,7 @@ static int esdhc_pltfm_init(struct sdhci_host *host, struct sdhci_pltfm_data *pd
 		}
 
 		err = request_irq(gpio_to_irq(boarddata->cd_gpio), cd_irq,
-				 IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING,
+				 IRQF_TRIGGER_RISING,
 				 mmc_hostname(host->mmc), host);
 		if (err) {
 			dev_warn(mmc_dev(host->mmc), "request irq error\n");

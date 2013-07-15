@@ -74,19 +74,6 @@ typedef struct _kgsl_device_regread_t {
     unsigned int    *value;
 } kgsl_device_regread_t;
 
-typedef struct _kgsl_device_regwrite_t {
-    gsl_deviceid_t  device_id;
-    unsigned int    offsetwords;
-    unsigned int    value;
-} kgsl_device_regwrite_t;
-
-typedef struct _kgsl_device_waitirq_t {
-    gsl_deviceid_t  device_id;
-    gsl_intrid_t    intr_id;
-    unsigned int    *count;
-    unsigned int    timeout;
-} kgsl_device_waitirq_t;
-
 typedef struct _kgsl_cmdstream_issueibcmds_t {
     gsl_deviceid_t  device_id;
     int     drawctxt_index;
@@ -195,16 +182,6 @@ typedef struct _kgsl_sharedmem_fromhostpointer_t {
     void        *hostptr;
 } kgsl_sharedmem_fromhostpointer_t;
 
-typedef struct _kgsl_add_timestamp_t {
-    gsl_deviceid_t device_id;
-    gsl_timestamp_t *timestamp;
-} kgsl_add_timestamp_t;
-
-typedef struct _kgsl_device_clock_t {
-    gsl_deviceid_t device; /* GSL_DEVICE_YAMATO = 1, GSL_DEVICE_G12 = 2 */
-    int enable; /* 0: disable, 1: enable */
-} kgsl_device_clock_t;
-
 //////////////////////////////////////////////////////////////////////////////
 // ioctl numbers
 //////////////////////////////////////////////////////////////////////////////
@@ -217,8 +194,6 @@ typedef struct _kgsl_device_clock_t {
 #define IOCTL_KGSL_DEVICE_GETPROPERTY           _IOWR(GSL_MAGIC, 0x24, struct _kgsl_device_getproperty_t)
 #define IOCTL_KGSL_DEVICE_SETPROPERTY           _IOW(GSL_MAGIC, 0x25, struct _kgsl_device_setproperty_t)
 #define IOCTL_KGSL_DEVICE_REGREAD               _IOWR(GSL_MAGIC, 0x26, struct _kgsl_device_regread_t)
-#define IOCTL_KGSL_DEVICE_REGWRITE              _IOW(GSL_MAGIC, 0x27, struct _kgsl_device_regwrite_t)
-#define IOCTL_KGSL_DEVICE_WAITIRQ               _IOWR(GSL_MAGIC, 0x28, struct _kgsl_device_waitirq_t)
 #define IOCTL_KGSL_CMDSTREAM_ISSUEIBCMDS        _IOWR(GSL_MAGIC, 0x29, struct _kgsl_cmdstream_issueibcmds_t)
 #define IOCTL_KGSL_CMDSTREAM_READTIMESTAMP      _IOWR(GSL_MAGIC, 0x2A, struct _kgsl_cmdstream_readtimestamp_t)
 #define IOCTL_KGSL_CMDSTREAM_FREEMEMONTIMESTAMP _IOW(GSL_MAGIC, 0x2B, struct _kgsl_cmdstream_freememontimestamp_t)
@@ -235,9 +210,7 @@ typedef struct _kgsl_device_clock_t {
 #define IOCTL_KGSL_SHAREDMEM_LARGESTFREEBLOCK   _IOWR(GSL_MAGIC, 0x36, struct _kgsl_sharedmem_largestfreeblock_t)
 #define IOCTL_KGSL_SHAREDMEM_CACHEOPERATION     _IOW(GSL_MAGIC, 0x37, struct _kgsl_sharedmem_cacheoperation_t)
 #define IOCTL_KGSL_SHAREDMEM_FROMHOSTPOINTER    _IOW(GSL_MAGIC, 0x38, struct _kgsl_sharedmem_fromhostpointer_t)
-#define IOCTL_KGSL_ADD_TIMESTAMP                _IOWR(GSL_MAGIC, 0x39, struct _kgsl_add_timestamp_t)
 #define IOCTL_KGSL_DRIVER_EXIT		        _IOWR(GSL_MAGIC, 0x3A, NULL)
-#define IOCTL_KGSL_DEVICE_CLOCK			_IOWR(GSL_MAGIC, 0x60, struct _kgsl_device_clock_t)
 
 
 #endif

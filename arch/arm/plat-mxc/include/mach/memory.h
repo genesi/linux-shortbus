@@ -22,6 +22,7 @@
 #define MX50_PHYS_OFFSET	UL(0x70000000)
 #define MX51_PHYS_OFFSET	UL(0x90000000)
 #define MX53_PHYS_OFFSET	UL(0x70000000)
+#define MX6_PHYS_OFFSET		UL(0x10000000)
 #define MXC91231_PHYS_OFFSET	UL(0x90000000)
 
 #if !defined(CONFIG_RUNTIME_PHYS_OFFSET)
@@ -43,6 +44,10 @@
 #  define PLAT_PHYS_OFFSET		MX51_PHYS_OFFSET
 # elif defined CONFIG_ARCH_MX53
 #  define PLAT_PHYS_OFFSET		MX53_PHYS_OFFSET
+# elif defined CONFIG_ARCH_MX50
+#  define PLAT_PHYS_OFFSET		MX50_PHYS_OFFSET
+# elif defined CONFIG_ARCH_MX6
+#  define PLAT_PHYS_OFFSET		MX6_PHYS_OFFSET
 # endif
 #endif
 
@@ -61,12 +66,35 @@
 #define CONSISTENT_DMA_SIZE SZ_4M
 #else
 
-#ifdef CONFIG_ARCH_MX5
-#define CONSISTENT_DMA_SIZE     (128 * SZ_1M)
+#if defined(CONFIG_ARCH_MX5) || defined(CONFIG_ARCH_MX6)
+#define CONSISTENT_DMA_SIZE     (184 * SZ_1M)
 #else
 #define CONSISTENT_DMA_SIZE     (32 * SZ_1M)
 #endif
 
 #endif /* CONFIG_MX1_VIDEO || CONFIG_VIDEO_MX2_HOSTSUPPORT */
+
+#ifndef __ASSEMBLY__
+
+#ifdef CONFIG_DMA_ZONE_SIZE
+#define MXC_DMA_ZONE_SIZE       ((CONFIG_DMA_ZONE_SIZE * SZ_1M) >> PAGE_SHIFT)
+#else
+#define MXC_DMA_ZONE_SIZE       ((12 * SZ_1M) >> PAGE_SHIFT)
+#endif
+
+static inline void __arch_adjust_zones(unsigned long *zone_size,
+		unsigned long *zhole_size)
+{
+	/* Create separate zone to reserve memory for DMA */
+	zone_size[1] = zone_size[0] - MXC_DMA_ZONE_SIZE;
+	zone_size[0] = MXC_DMA_ZONE_SIZE;
+	zhole_size[1] = zhole_size[0];
+	zhole_size[0] = 0;
+}
+
+#define arch_adjust_zones(size, holes) \
+	__arch_adjust_zones(size, holes)
+
+#endif
 
 #endif /* __ASM_ARCH_MXC_MEMORY_H__ */

@@ -87,7 +87,7 @@ extern int dvfs_core_is_active;
 /* To keep compatible with some NAND flash, limit
  * max NAND clk to 34MHZ. The user can modify it for
  * dedicate NAND flash */
-#define MAX_NFC_CLK     48000000 /* Default: 34000000 Micron: 48000000 */
+#define MAX_NFC_CLK     52000000 /* Default: 34000000 Micron: 48000000 */
 
 #define UART1_DMA_ENABLE	0
 #define UART2_DMA_ENABLE	0
@@ -5012,15 +5012,13 @@ int __init mx53_clocks_init(unsigned long ckil, unsigned long osc, unsigned long
 	clk_set_parent(&esdhc2_clk[0], &esdhc1_clk[0]);
 	clk_set_parent(&esdhc3_clk[0], &pll2_sw_clk);
 
-#if 0
 	/*Setup the LPM bypass bits */
 	reg = __raw_readl(MXC_CCM_CLPCR);
 	reg |= MXC_CCM_CLPCR_BYPASS_IPU_LPM_HS
 		| MXC_CCM_CLPCR_BYPASS_RTIC_LPM_HS
-		| MXC_CCM_CLPCR_BYPASS_SCC_LPM_HS
+		| MXC_CCM_CLPCR_BYPASS_SCC_LPM_HS_MX53
 		| MXC_CCM_CLPCR_BYPASS_SDMA_LPM_HS;
 	__raw_writel(reg, MXC_CCM_CLPCR);
-#endif
 
 	clk_enable(&cpu_clk);
 
@@ -5032,7 +5030,6 @@ int __init mx53_clocks_init(unsigned long ckil, unsigned long osc, unsigned long
 	/* Initialise the parents to be axi_b, parents are set to
 	 * axi_a when the clocks are enabled.
 	 */
-
 	clk_set_parent(&vpu_clk[0], &axi_b_clk);
 	clk_set_parent(&vpu_clk[1], &axi_b_clk);
 
@@ -5123,8 +5120,8 @@ int __init mx53_clocks_init(unsigned long ckil, unsigned long osc, unsigned long
 	clk_set_parent(&gpu3d_clk, &axi_b_clk);
 	clk_set_parent(&gpu2d_clk, &axi_b_clk);
 
-	clk_set_parent(&emi_slow_clk, &ahb_clk);
-	clk_set_rate(&emi_slow_clk, clk_round_rate(&emi_slow_clk, 133333333));
+	clk_set_parent(&emi_slow_clk, &main_bus_clk);
+	clk_set_rate(&emi_slow_clk, clk_round_rate(&emi_slow_clk, 233333333));
 
 	clk_set_rate(&emi_enfc_clk, clk_round_rate(&emi_enfc_clk,
 			MAX_NFC_CLK));

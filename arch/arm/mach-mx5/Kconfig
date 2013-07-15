@@ -216,6 +216,7 @@ config MACH_MX53_EFIKASB
 	select IMX_HAVE_PLATFORM_SDHCI_ESDHC_IMX
 	select IMX_HAVE_PLATFORM_AHCI
 	select IMX_HAVE_PLATFORM_MXC_NAND
+	select WIRELESS_EXT
 	help
 	  Include support for MX53 EFIKASB platform. This includes specific
 	  configurations for the board and its peripherals.

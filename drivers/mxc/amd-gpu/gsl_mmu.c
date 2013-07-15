@@ -546,7 +546,7 @@ kgsl_mmu_init(gsl_device_t *device)
             device->ftbl.device_regwrite(device, gsl_cfg_mmu_reg[devindex].VA_RANGE, (mmu->hwpagetable->va_base | (mmu->hwpagetable->va_range >> 16)));
 
             // allocate memory used for completing r/w operations that cannot be mapped by the MMU
-            flags  = (GSL_MEMFLAGS_ALIGN32 | GSL_MEMFLAGS_CONPHYS | GSL_MEMFLAGS_STRICTREQUEST);
+            flags  = (GSL_MEMFLAGS_ALIGN4K | GSL_MEMFLAGS_CONPHYS | GSL_MEMFLAGS_STRICTREQUEST);
             status = kgsl_sharedmem_alloc0(device->id, flags, 32, &mmu->dummyspace);
             if (status != GSL_SUCCESS)
             {
@@ -652,6 +652,8 @@ kgsl_mmu_map(gsl_mmu_t *mmu, gpuaddr_t gpubaseaddr, const gsl_scatterlist_t *sca
 
             KGSL_DEBUG(GSL_DBGFLAGS_DUMPX, KGSL_DEBUG_DUMPX(BB_DUMP_SET_MMUTBL, pte , *(unsigned int*)(((char*)pagetable->base.hostptr) + (pte * GSL_PT_ENTRY_SIZEBYTES)), 0, "kgsl_mmu_map"));
         }
+
+        mb();
 
         if (flushtlb)
         {
@@ -781,6 +783,8 @@ kgsl_mmu_unmap(gsl_mmu_t *mmu, gpuaddr_t gpubaseaddr, int range, unsigned int pi
         DEBUG_ASSERT(0);
         status = GSL_FAILURE;
     }
+
+    mb();
 
     // invalidate tlb, debug only
 	KGSL_DEBUG(GSL_DBGFLAGS_MMU, mmu->device->ftbl.mmu_tlbinvalidate(mmu->device, gsl_cfg_mmu_reg[mmu->device->id-1].INVALIDATE, pagetable->pid));

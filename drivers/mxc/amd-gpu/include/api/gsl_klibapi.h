@@ -64,7 +64,6 @@ int                kgsl_device_getproperty(gsl_deviceid_t device_id, gsl_propert
 int                kgsl_device_setproperty(gsl_deviceid_t device_id, gsl_property_type_t type, void *value, unsigned int sizebytes);
 int                kgsl_device_regread(gsl_deviceid_t device_id, unsigned int offsetwords, unsigned int *value);
 int                kgsl_device_regwrite(gsl_deviceid_t device_id, unsigned int offsetwords, unsigned int value);
-int                kgsl_device_waitirq(gsl_deviceid_t device_id, gsl_intrid_t intr_id, unsigned int *count, unsigned int timeout);
 
 
 ////////////////////////////////////////////////////////////////////////////
@@ -75,7 +74,6 @@ gsl_timestamp_t    kgsl_cmdstream_readtimestamp(gsl_deviceid_t device_id, gsl_ti
 int                kgsl_cmdstream_freememontimestamp(gsl_deviceid_t device_id, gsl_memdesc_t *memdesc, gsl_timestamp_t timestamp, gsl_timestamp_type_t type);
 int                kgsl_cmdstream_waittimestamp(gsl_deviceid_t device_id, gsl_timestamp_t timestamp, unsigned int timeout);
 int                kgsl_cmdwindow_write(gsl_deviceid_t device_id, gsl_cmdwindow_t target, unsigned int addr, unsigned int data);
-int                kgsl_add_timestamp(gsl_deviceid_t device_id, gsl_timestamp_t *timestamp);
 int                kgsl_cmdstream_check_timestamp(gsl_deviceid_t device_id, gsl_timestamp_t timestamp);
 
 ////////////////////////////////////////////////////////////////////////////

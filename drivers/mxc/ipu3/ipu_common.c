@@ -1187,7 +1187,7 @@ int32_t ipu_init_channel_buffer(ipu_channel_t channel, ipu_buffer_t type,
 		spin_unlock_irqrestore(&ipu_lock, lock_flags);
 	}
 
-	if (_ipu_disp_chan_is_interlaced(channel) ||
+	if (_ipu_chan_is_interlaced(channel) ||
 		g_chan_is_interlaced[dma_chan])
 		_ipu_ch_param_set_interlaced_scan(dma_chan);
 

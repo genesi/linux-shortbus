@@ -1,4 +1,5 @@
 /* Copyright (c) 2008-2010, Advanced Micro Devices. All rights reserved.
+ * Copyright (c) 2008-2011, Freescale Semiconductor, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,6 +35,8 @@
 #include <asm/tlbflush.h>
 #include <asm/cacheflush.h>
 
+#define DRVNAME "amd-gpu"
+
 #include <linux/slab.h>
 
 #define GSL_HAL_MEM1                        0
@@ -47,66 +50,27 @@ extern int gpu_2d_regsize;
 extern phys_addr_t gpu_3d_regbase;
 extern int gpu_3d_regsize;
 extern int gmem_size;
-extern phys_addr_t gpu_reserved_mem;
-extern int gpu_reserved_mem_size;
 extern int gpu_2d_irq, gpu_3d_irq;
 extern int enable_mmu;
+extern phys_addr_t gpu_reserved_mem;
+extern int gpu_reserved_mem_size;
 
-
-KGSLHAL_API int
-kgsl_hal_allocphysical(unsigned int virtaddr, unsigned int numpages, unsigned int scattergatterlist[])
-{
-    /* allocate physically contiguous memory */
-
-	int i;
-	void *va;
-
-	va = gsl_linux_map_alloc(virtaddr, numpages*PAGE_SIZE);
-
-	if (!va)
-		return GSL_FAILURE_OUTOFMEM;
-
-	for (i = 0; i < numpages; i++) {
-		scattergatterlist[i] = page_to_phys(vmalloc_to_page(va));
-		va += PAGE_SIZE;
-	}
-
-	return GSL_SUCCESS;
-}
-
-/* --------------------------------------------------------------------------- */
-
-KGSLHAL_API int
-kgsl_hal_freephysical(unsigned int virtaddr, unsigned int numpages, unsigned int scattergatterlist[])
-{
-    /* free physical memory */
-
-	gsl_linux_map_free(virtaddr);
-
-    return GSL_SUCCESS;
-}
-
-/* ---------------------------------------------------------------------------- */
 
 KGSLHAL_API int
 kgsl_hal_init(void)
 {
     gsl_hal_t *hal;
-    unsigned long physsize, virtsize;
-    unsigned int va, pa;
+    unsigned int va;
 
     if (gsl_driver.hal) {
 	return GSL_FAILURE_ALREADYINITIALIZED;
     }
 
-    gsl_driver.hal = (void *)kmalloc(sizeof(gsl_hal_t), GFP_KERNEL);
+    gsl_driver.hal = (void *)kzalloc(sizeof(gsl_hal_t), GFP_KERNEL);
 
     if (!gsl_driver.hal) {
 	return GSL_FAILURE_OUTOFMEM;
     }
-
-    memset(gsl_driver.hal, 0, sizeof(gsl_hal_t));
-
 
     /* overlay structure on hal memory */
     hal = (gsl_hal_t *) gsl_driver.hal;
@@ -136,9 +100,9 @@ kgsl_hal_init(void)
 	}
 
 #ifdef GSL_HAL_DEBUG
-	printk(KERN_INFO "%s: hal->z430_regspace.mmio_phys_base = 0x%p\n", __func__, (void *)hal->z430_regspace.mmio_phys_base);
-	printk(KERN_INFO "%s: hal->z430_regspace.mmio_virt_base = 0x%p\n", __func__, (void *)hal->z430_regspace.mmio_virt_base);
-	printk(KERN_INFO "%s: hal->z430_regspace.sizebytes      = 0x%08x\n", __func__, hal->z430_regspace.sizebytes);
+	pr_info("%s: Z430: phys 0x%p virt 0x%p size 0x%08x irq %d\n", DRVNAME, (void *)hal->z430_regspace.mmio_phys_base,
+									(void *)hal->z430_regspace.mmio_virt_base,
+									hal->z430_regspace.sizebytes, gpu_3d_irq);
 #endif
     }
 
@@ -152,94 +116,36 @@ kgsl_hal_init(void)
 	}
 
 #ifdef GSL_HAL_DEBUG
-	printk(KERN_INFO "%s: hal->z160_regspace.mmio_phys_base = 0x%p\n", __func__, (void *)hal->z160_regspace.mmio_phys_base);
-	printk(KERN_INFO "%s: hal->z160_regspace.mmio_virt_base = 0x%p\n", __func__, (void *)hal->z160_regspace.mmio_virt_base);
-	printk(KERN_INFO "%s: hal->z160_regspace.sizebytes      = 0x%08x\n", __func__, hal->z160_regspace.sizebytes);
+	pr_info("%s: Z160: phys 0x%p virt 0x%p size 0x%08x irq %d\n", DRVNAME, (void *)hal->z160_regspace.mmio_phys_base,
+									(void *)hal->z160_regspace.mmio_virt_base,
+									hal->z160_regspace.sizebytes, gpu_2d_irq);
 #endif
     }
-
-    physsize = SZ_8M;
 
     if (gsl_driver.enable_mmu) {
-	printk(KERN_INFO "GPU MMU enabled\n");
-	virtsize = GSL_HAL_SHMEM_SIZE_EMEM_MMU;
-	if (gpu_reserved_mem && gpu_reserved_mem_size >= physsize) {
-	    pa = gpu_reserved_mem;
-	    va = (unsigned int)ioremap/*_wc*/(gpu_reserved_mem, gpu_reserved_mem_size);
-	    physsize = gpu_reserved_mem_size;
-	} else {
-	    if (gpu_reserved_mem_size > 0) {
-		    printk(KERN_INFO "Reallocating PHYS aperture: reserved memory going to waste\n");
-	    }
-	    gpu_reserved_mem = 0;
-	    va = (unsigned int)dma_alloc_coherent(0, physsize, (dma_addr_t *)&pa, GFP_DMA | GFP_KERNEL);
-	}
-    } else {
-	printk(KERN_INFO "GPU MMU disabled\n");
-	if (gpu_reserved_mem && gpu_reserved_mem_size >= physsize) {
-	    physsize = gpu_reserved_mem_size;
-	    pa = gpu_reserved_mem;
-	    va = (unsigned int)ioremap(gpu_reserved_mem, gpu_reserved_mem_size);
-	} else {
-	    if (gpu_reserved_mem_size > 0) {
-		    printk(KERN_INFO "Reallocating PHYS aperture: reserved memory going to waste\n");
-	    }
-	    gpu_reserved_mem = 0;
-	    physsize = GSL_HAL_SHMEM_SIZE_PHYS_NOMMU;
-	    va = (unsigned int)dma_alloc_coherent(0, physsize, (dma_addr_t *)&pa, GFP_DMA | GFP_KERNEL);
-	}
-	virtsize = physsize - GSL_HAL_SHMEM_SIZE_PHYS_NOMMU;
+	pr_info("%s: GPU MMU enabled\n", DRVNAME);
     }
 
+    va = (unsigned int) ioremap_wc(gpu_reserved_mem, gpu_reserved_mem_size);
     if (va) {
-	memset((void *)va, 0, physsize);
+	/* it would be nice if we didn't do this on module init.. */
+        memset((void *)va, 0, gpu_reserved_mem_size);
 
-	hal->memchunk.mmio_virt_base = (void *)va;
-	hal->memchunk.mmio_phys_base = pa;
-	hal->memchunk.sizebytes      = physsize;
-
-#ifdef GSL_HAL_DEBUG
-	printk(KERN_INFO "Reserved memory: pa = 0x%p va = 0x%p size = 0x%08x\n",
-								(void *)hal->memchunk.mmio_phys_base,
-								(void *)hal->memchunk.mmio_virt_base,
-								hal->memchunk.sizebytes
-								);
-#endif
-
-	hal->memspace[GSL_HAL_MEM2].mmio_virt_base  = (void *) va;
-	hal->memspace[GSL_HAL_MEM2].gpu_base        = pa;
-	hal->memspace[GSL_HAL_MEM2].sizebytes   = physsize;
-	va += physsize;
-	pa += physsize;
+	hal->memchunk.mmio_virt_base = (void *) va;
+	hal->memchunk.mmio_phys_base = (void *) gpu_reserved_mem;
+	hal->memchunk.sizebytes = (void *) gpu_reserved_mem_size;
 
 #ifdef GSL_HAL_DEBUG
-	printk(KERN_INFO "GSL_HAL_MEM2 aperture (PHYS) pa = 0x%p va = 0x%p size = 0x%08x\n",
-								(void *)hal->memspace[GSL_HAL_MEM2].gpu_base,
-								(void *)hal->memspace[GSL_HAL_MEM2].mmio_virt_base,
-								hal->memspace[GSL_HAL_MEM2].sizebytes
-								);
+	pr_info("%s: EMEM: phys 0x%p virt 0x%p size %dMiB\n", DRVNAME, (void *)hal->memchunk.mmio_phys_base,
+									(void *)hal->memchunk.mmio_virt_base,
+									hal->memchunk.sizebytes / SZ_1M);
 #endif
+	hal->memspace.mmio_virt_base = (void *) va;
+	hal->memspace.gpu_base       = gpu_reserved_mem;
+	hal->memspace.sizebytes      = gpu_reserved_mem_size;
 
-	if (gsl_driver.enable_mmu) {
-	    gsl_linux_map_init();
-	    hal->memspace[GSL_HAL_MEM1].mmio_virt_base = (void *)GSL_LINUX_MAP_RANGE_START;
-	    hal->memspace[GSL_HAL_MEM1].gpu_base       = GSL_LINUX_MAP_RANGE_START;
-	} else {
-	    hal->memspace[GSL_HAL_MEM1].mmio_virt_base = (void *) va;
-	    hal->memspace[GSL_HAL_MEM1].gpu_base       = pa;
-	}
-	hal->memspace[GSL_HAL_MEM1].sizebytes      = virtsize;
-
-#ifdef GSL_HAL_DEBUG
-	printk(KERN_INFO "GSL_HAL_MEM1 aperture (%s) pa = 0x%p va = 0x%p size = 0x%08x\n",
-								gsl_driver.enable_mmu ? "MMU" : "EMEM",
-								(void *)hal->memspace[GSL_HAL_MEM1].gpu_base,
-								(void *)hal->memspace[GSL_HAL_MEM1].mmio_virt_base,
-								hal->memspace[GSL_HAL_MEM1].sizebytes
-								);
-#endif
     } else {
-	kgsl_hal_close();
+	pr_err("%s: ioremap of reserved memory failed!\n", DRVNAME);
 	return GSL_FAILURE_SYSTEMERROR;
     }
 
@@ -252,6 +158,7 @@ KGSLHAL_API int
 kgsl_hal_close(void)
 {
     gsl_hal_t  *hal;
+    printk(KERN_INFO "kgsl_hal_close\n");
 
     if (gsl_driver.hal) {
 	/* overlay structure on hal memory */
@@ -266,27 +173,23 @@ kgsl_hal_close(void)
 	    iounmap(hal->z160_regspace.mmio_virt_base);
 	}
 
-	/* free physical block */
-	if (hal->memchunk.mmio_virt_base && gpu_reserved_mem) {
+	if (hal->memchunk.mmio_virt_base) {
 	    iounmap(hal->memchunk.mmio_virt_base);
-	} else {
-	    dma_free_coherent(0, hal->memchunk.sizebytes, hal->memchunk.mmio_virt_base, hal->memchunk.mmio_phys_base);
 	}
 
+/*
 	if (gsl_driver.enable_mmu) {
 	    gsl_linux_map_destroy();
 	}
-
+*/
 	/* release hal struct */
-	memset(hal, 0, sizeof(gsl_hal_t));
-	kfree(gsl_driver.hal);
 	gsl_driver.hal = NULL;
+	memset(hal, 0, sizeof(gsl_hal_t));
+	kfree(hal);
     }
 
     return GSL_SUCCESS;
 }
-
-/* ---------------------------------------------------------------------------- */
 
 KGSLHAL_API int
 kgsl_hal_getshmemconfig(gsl_shmemconfig_t *config)
@@ -297,31 +200,15 @@ kgsl_hal_getshmemconfig(gsl_shmemconfig_t *config)
     memset(config, 0, sizeof(gsl_shmemconfig_t));
 
     if (hal) {
-	config->numapertures = GSL_SHMEM_MAX_APERTURES;
-
-	if (gsl_driver.enable_mmu) {
-	    config->apertures[0].id    = GSL_APERTURE_MMU;
-	} else {
-	    config->apertures[0].id    = GSL_APERTURE_EMEM;
-	}
-	config->apertures[0].channel   = GSL_CHANNEL_1;
-	config->apertures[0].hostbase  = (unsigned int)hal->memspace[GSL_HAL_MEM1].mmio_virt_base;
-	config->apertures[0].gpubase   = hal->memspace[GSL_HAL_MEM1].gpu_base;
-	config->apertures[0].sizebytes = hal->memspace[GSL_HAL_MEM1].sizebytes;
-
-	config->apertures[1].id        = GSL_APERTURE_PHYS;
-	config->apertures[1].channel   = GSL_CHANNEL_1;
-	config->apertures[1].hostbase  = (unsigned int)hal->memspace[GSL_HAL_MEM2].mmio_virt_base;
-	config->apertures[1].gpubase   = hal->memspace[GSL_HAL_MEM2].gpu_base;
-	config->apertures[1].sizebytes = hal->memspace[GSL_HAL_MEM2].sizebytes;
-
-	status = GSL_SUCCESS;
+       config->emem_hostbase = hal->memchunk.mmio_virt_base;
+       config->emem_gpubase = hal->memchunk.mmio_phys_base;
+       config->emem_sizebytes = hal->memchunk.sizebytes;
+       status = GSL_SUCCESS;
     }
 
     return status;
 }
 
-/* ---------------------------------------------------------------------------- */
 
 KGSLHAL_API int
 kgsl_hal_getdevconfig(gsl_deviceid_t device_id, gsl_devconfig_t *config)
@@ -341,6 +228,7 @@ kgsl_hal_getdevconfig(gsl_deviceid_t device_id, gsl_devconfig_t *config)
 		config->gmemspace.gpu_base        = 0;
 		config->gmemspace.mmio_virt_base  = 0;
 		config->gmemspace.mmio_phys_base  = 0;
+
 		if (gmem_size) {
 		    config->gmemspace.sizebytes = gmem_size;
 		} else {
@@ -354,6 +242,7 @@ kgsl_hal_getdevconfig(gsl_deviceid_t device_id, gsl_devconfig_t *config)
 
 		mmu_config.f.mmu_enable           = 1;
 
+/*
 		if (gsl_driver.enable_mmu) {
 		    mmu_config.f.split_mode_enable    = 0;
 		    mmu_config.f.rb_w_clnt_behavior   = 1;
@@ -368,17 +257,20 @@ kgsl_hal_getdevconfig(gsl_deviceid_t device_id, gsl_devconfig_t *config)
 		    mmu_config.f.tc_r_clnt_behavior   = 1;
 		    mmu_config.f.pa_w_clnt_behavior   = 1;
 		}
-
+*/
 		config->mmu_config                = mmu_config.val;
 
+/*
 		if (gsl_driver.enable_mmu) {
-		    config->va_base               = hal->memspace[GSL_HAL_MEM1].gpu_base;
-		    config->va_range              = hal->memspace[GSL_HAL_MEM1].sizebytes;
+		    config->va_base               = hal->memspace.gpu_base;
+		    config->va_range              = hal->memspace.sizebytes;
 		} else {
+*/
 		    config->va_base               = 0x00000000;
 		    config->va_range              = 0x00000000;
+/*
 		}
-
+*/
 		/* turn off memory protection unit by setting acceptable physical address range to include all pages */
 		config->mpu_base                  = 0x00000000; /* hal->memchunk.mmio_virt_base; */
 		config->mpu_range                 = 0xFFFFF000; /* hal->memchunk.sizebytes; */
@@ -398,16 +290,19 @@ kgsl_hal_getdevconfig(gsl_deviceid_t device_id, gsl_devconfig_t *config)
 
 		mmu_config.f.mmu_enable           = 1;
 
+/*
 		if (gsl_driver.enable_mmu) {
 		    config->mmu_config              = 0x00555551;
-		    config->va_base                 = hal->memspace[GSL_HAL_MEM1].gpu_base;
-		    config->va_range                = hal->memspace[GSL_HAL_MEM1].sizebytes;
+		    config->va_base                 = hal->memspace.gpu_base;
+		    config->va_range                = hal->memspace.sizebytes;
 		} else {
+*/
 		    config->mmu_config              = mmu_config.val;
 		    config->va_base                 = 0x00000000;
 		    config->va_range                = 0x00000000;
+/*
 		}
-
+*/
 		config->mpu_base                = 0x00000000; /* (unsigned int) hal->memchunk.mmio_virt_base; */
 		config->mpu_range               = 0xFFFFF000; /* hal->memchunk.sizebytes; */
 
@@ -453,7 +348,7 @@ kgsl_hal_getchipid(gsl_deviceid_t device_id)
 	chipid = ((coreid << 24) | (majorid << 16) | (minorid << 8) | (patchid << 0));
 
 #ifdef GSL_HAL_DEBUG
-	printk(KERN_INFO "Z430 found: core %u major %u minor %u patch %u (chipid 0x%08x)\n", coreid, majorid, minorid, patchid, chipid);
+	pr_info("Z430 found: core %u major %u minor %u patch %u (chipid 0x%08x)\n", coreid, majorid, minorid, patchid, chipid);
 #endif
     }
 
@@ -546,7 +441,7 @@ KGSLHAL_API int kgsl_clock(gsl_deviceid_t dev, int enable)
 	}
 
 	if (IS_ERR(gpu_clk)) {
-		printk(KERN_ERR "%s: GPU clock get failed!\n", __func__);
+		printk(KERN_ERR "%s: GPU clock get failed!\n", DRVNAME);
 		return GSL_FAILURE_DEVICEERROR;
 	}
 

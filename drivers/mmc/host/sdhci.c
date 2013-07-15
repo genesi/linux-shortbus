@@ -26,6 +26,10 @@
 #include <linux/mmc/mmc.h>
 #include <linux/mmc/host.h>
 
+#ifdef CONFIG_MACH_MX53_EFIKASB
+#include <mach/iomux-mx53.h>
+#endif
+
 #include "sdhci.h"
 
 #define DRIVER_NAME "sdhci"
@@ -1150,6 +1154,15 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	if (!present || host->flags & SDHCI_DEVICE_DEAD) {
 		host->mrq->cmd->error = -ENOMEDIUM;
 		tasklet_schedule(&host->finish_tasklet);
+#ifdef CONFIG_MACH_MX53_EFIKASB
+	/* Switch IOMUX settings to GPIO */
+	static iomux_v3_cfg_t mx53_efikasb_cd_pads[] = {
+		MX53_PAD_SD1_DATA3__GPIO1_21
+	};
+
+	mxc_iomux_v3_setup_multiple_pads(mx53_efikasb_cd_pads,
+					ARRAY_SIZE(mx53_efikasb_cd_pads));
+#endif
 	} else
 		sdhci_send_command(host, mrq->cmd);
 
@@ -1364,6 +1377,16 @@ static void sdhci_tasklet_finish(unsigned long param)
 		   controllers do not like that. */
 		sdhci_reset(host, SDHCI_RESET_CMD);
 		sdhci_reset(host, SDHCI_RESET_DATA);
+
+#ifdef CONFIG_MACH_MX53_EFIKASB
+	/* Switch IOMUX settings to GPIO */
+	static iomux_v3_cfg_t mx53_efikasb_cd_pads[] = {
+		MX53_PAD_SD1_DATA3__GPIO1_21
+	};
+
+	mxc_iomux_v3_setup_multiple_pads(mx53_efikasb_cd_pads,
+					ARRAY_SIZE(mx53_efikasb_cd_pads));
+#endif
 	}
 
 	host->mrq = NULL;

@@ -41,7 +41,7 @@
 
 #define nfc_is_v21()		(cpu_is_mx25() || cpu_is_mx35())
 #define nfc_is_v1()		(cpu_is_mx31() || cpu_is_mx27() || cpu_is_mx21())
-#define nfc_is_v3_2()		cpu_is_mx51()
+#define nfc_is_v3_2()		(cpu_is_mx51() || cpu_is_mx53())
 #define nfc_is_v3()		nfc_is_v3_2()
 
 /* Addresses for NFC registers */
@@ -171,6 +171,7 @@ struct mxc_nand_host {
 	void			(*send_addr)(struct mxc_nand_host *, uint16_t, int);
 	void			(*send_page)(struct mtd_info *, unsigned int);
 	void			(*send_read_id)(struct mxc_nand_host *);
+	void			(*send_read_param)(struct mxc_nand_host *);
 	uint16_t		(*get_dev_status)(struct mxc_nand_host *);
 	int			(*check_int)(struct mxc_nand_host *);
 	void			(*irq_control)(struct mxc_nand_host *, int);
@@ -436,6 +437,16 @@ static void send_page_v1_v2(struct mtd_info *mtd, unsigned int ops)
 	}
 }
 
+static void send_read_param_v3(struct mxc_nand_host *host)
+{
+	/* Read param into main buffer */
+	writel(NFC_OUTPUT, NFC_V3_LAUNCH);
+
+	wait_op_done(host, true);
+
+	memcpy(host->data_buf, host->main_area0, 1024);
+}
+
 static void send_read_id_v3(struct mxc_nand_host *host)
 {
 	/* Read ID into main buffer */
@@ -554,10 +565,10 @@ static int mxc_nand_correct_data_v2_v3(struct mtd_info *mtd, u_char *dat,
 	u32 ecc_stat, err;
 	int no_subpages = 1;
 	int ret = 0;
-	u8 ecc_bit_mask, err_limit;
+	u16 ecc_bit_mask, err_limit;
 
-	ecc_bit_mask = (host->eccsize == 4) ? 0x7 : 0xf;
-	err_limit = (host->eccsize == 4) ? 0x4 : 0x8;
+	ecc_bit_mask = /*(host->eccsize == 4) ? 0x7 :*/ 0x7;
+	err_limit = /*(host->eccsize == 4) ? 0x4 :*/ 0x6;
 
 	no_subpages = mtd->writesize >> 9;
 
@@ -577,7 +588,7 @@ static int mxc_nand_correct_data_v2_v3(struct mtd_info *mtd, u_char *dat,
 		ecc_stat >>= 4;
 	} while (--no_subpages);
 
-	mtd->ecc_stats.corrected += ret;
+	//mtd->ecc_stats.corrected += ret;
 	pr_debug("%d Symbol Correctable RS-ECC Error\n", ret);
 
 	return ret;
@@ -647,6 +658,10 @@ static void mxc_nand_read_buf(struct mtd_info *mtd, u_char *buf, int len)
 	int n = mtd->oobsize + mtd->writesize - col;
 
 	n = min(n, len);
+
+	/* handle the read param special case */
+	if ((mtd->writesize == 0) && (len != 0))
+		n = len;
 
 	memcpy(buf, host->data_buf + col, len);
 
@@ -733,7 +748,7 @@ static void mxc_do_addr_cycle(struct mtd_info *mtd, int column, int page_addr)
 		 * we will used the saved column address to index into
 		 * the full page.
 		 */
-		host->send_addr(host, 0, page_addr == -1);
+		host->send_addr(host, column, page_addr == -1);
 		if (mtd->writesize > 512)
 			/* another col addr cycle for 2k page */
 			host->send_addr(host, 0, false);
@@ -858,7 +873,8 @@ static void preset_v3(struct mtd_info *mtd)
 
 	config2 = NFC_V3_CONFIG2_ONE_CYCLE |
 		NFC_V3_CONFIG2_2CMD_PHASES |
-		NFC_V3_CONFIG2_SPAS(mtd->oobsize >> 1) |
+		NFC_V3_CONFIG2_SPAS(((mtd->oobsize > 218) ?
+				    218 : mtd->oobsize) >> 1) |
 		NFC_V3_CONFIG2_ST_CMD(0x70) |
 		NFC_V3_CONFIG2_INT_MSK |
 		NFC_V3_CONFIG2_NUM_ADDR_PHASE0;
@@ -886,6 +902,7 @@ static void preset_v3(struct mtd_info *mtd)
 			config2 |= NFC_V3_CONFIG2_ECC_MODE_8;
 	}
 
+	config2 = 0x6da3be;//0x6dacfe;//0x706dacfe;
 	writel(config2, NFC_V3_CONFIG2);
 
 	config3 = NFC_V3_CONFIG3_NUM_OF_DEVICES(0) |
@@ -976,7 +993,14 @@ static void mxc_nand_command(struct mtd_info *mtd, unsigned command,
 		host->send_cmd(host, command, true);
 		mxc_do_addr_cycle(mtd, column, page_addr);
 		host->send_read_id(host);
-		host->buf_start = column;
+		host->buf_start = 0;
+		break;
+
+	case NAND_CMD_PARAM:
+		host->send_cmd(host, command, true);
+		mxc_do_addr_cycle(mtd, column, page_addr);
+		host->send_read_param(host);
+		host->buf_start = 0;
 		break;
 
 	case NAND_CMD_ERASE1:
@@ -1055,7 +1079,7 @@ static int __init mxcnd_probe(struct platform_device *pdev)
 	this->read_buf = mxc_nand_read_buf;
 	this->verify_buf = mxc_nand_verify_buf;
 
-	host->clk = clk_get(&pdev->dev, "nfc");
+	host->clk = clk_get(&pdev->dev, "nfc_clk");
 	if (IS_ERR(host->clk)) {
 		err = PTR_ERR(host->clk);
 		goto eclk;
@@ -1126,6 +1150,7 @@ static int __init mxcnd_probe(struct platform_device *pdev)
 		host->send_addr = send_addr_v3;
 		host->send_page = send_page_v3;
 		host->send_read_id = send_read_id_v3;
+		host->send_read_param = send_read_param_v3;
 		host->check_int = check_int_v3;
 		host->get_dev_status = get_dev_status_v3;
 		host->irq_control = irq_control_v3;
@@ -1134,8 +1159,7 @@ static int __init mxcnd_probe(struct platform_device *pdev)
 	} else
 		BUG();
 
-	this->ecc.size = 512;
-	this->ecc.layout = oob_smallpage;
+	this->ecc.size = 4096;
 
 	if (pdata->hw_ecc) {
 		this->ecc.calculate = mxc_nand_calculate_ecc;
@@ -1197,7 +1221,7 @@ static int __init mxcnd_probe(struct platform_device *pdev)
 	/* Call preset again, with correct writesize this time */
 	host->preset(mtd);
 
-	if (mtd->writesize == 2048)
+	if (mtd->writesize >= 2048)
 		this->ecc.layout = oob_largepage;
 
 	/* second phase scan */

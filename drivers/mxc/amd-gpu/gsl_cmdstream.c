@@ -54,6 +54,9 @@ gsl_timestamp_t kgsl_cmdstream_readtimestamp0(gsl_deviceid_t device_id, gsl_time
 		// end-of-pipeline timestamp
 		GSL_CMDSTREAM_GET_EOP_TIMESTAMP(device, (unsigned int*)&timestamp);
     }
+
+    rmb();
+
     kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_ringbuffer_readtimestamp. Return value %d\n", timestamp );
     return (timestamp);
 }
@@ -93,25 +96,6 @@ kgsl_cmdstream_issueibcmds(gsl_deviceid_t device_id, int drawctxt_index, gpuaddr
 
     mutex_unlock(&gsl_driver.lock);
 
-    return status;
-}
-
-//----------------------------------------------------------------------------
-
-int
-kgsl_add_timestamp(gsl_deviceid_t device_id, gsl_timestamp_t *timestamp)
-{
-    gsl_device_t* device  = &gsl_driver.device[device_id-1];
-    int status = GSL_FAILURE;
-
-    mutex_lock(&gsl_driver.lock);
-
-    if (device->ftbl.device_addtimestamp)
-    {
-        status = device->ftbl.device_addtimestamp(device, timestamp);
-    }
-
-    mutex_unlock(&gsl_driver.lock);
     return status;
 }
 

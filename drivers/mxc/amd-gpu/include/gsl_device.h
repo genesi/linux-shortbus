@@ -50,10 +50,8 @@ typedef struct _gsl_functable_t {
 	int (*device_idle)            (gsl_device_t *device, unsigned int timeout);
 	int (*device_regread)         (gsl_device_t *device, unsigned int offsetwords, unsigned int *value);
 	int (*device_regwrite)        (gsl_device_t *device, unsigned int offsetwords, unsigned int value);
-	int (*device_waitirq)         (gsl_device_t *device, gsl_intrid_t intr_id, unsigned int *count, unsigned int timeout);
 	int (*device_waittimestamp)   (gsl_device_t *device, gsl_timestamp_t timestamp, unsigned int timeout);
 	int (*device_runpending)      (gsl_device_t *device);
-	int (*device_addtimestamp)    (gsl_device_t *device_id, gsl_timestamp_t *timestamp);
 	int (*intr_isr)               (gsl_device_t *device);
 	int (*mmu_tlbinvalidate)      (gsl_device_t *device, unsigned int reg_invalidate, unsigned int pid);
 	int (*mmu_setpagetable)       (gsl_device_t *device, unsigned int reg_ptbase, gpuaddr_t ptbase, unsigned int pid);
@@ -92,7 +90,6 @@ struct _gsl_device_t {
 #endif // GSL_BLD_YAMATO
 
 #ifdef GSL_BLD_G12
-	unsigned int		intrcnt[GSL_G12_INTR_COUNT];
 	gsl_timestamp_t		current_timestamp;
 	gsl_timestamp_t		timestamp;
 #ifdef IRQTHREAD_POLL
@@ -122,7 +119,6 @@ int     kgsl_g12_getfunctable(gsl_functable_t *ftbl);
 
 int kgsl_clock(gsl_deviceid_t dev, int enable);
 int kgsl_device_active(gsl_device_t *dev);
-int kgsl_device_clock(gsl_deviceid_t id, int enable);
 int kgsl_device_autogate_init(gsl_device_t *dev);
 void kgsl_device_autogate_exit(gsl_device_t *dev);
 

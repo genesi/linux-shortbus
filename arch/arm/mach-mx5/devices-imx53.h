@@ -46,7 +46,8 @@ extern const struct imx_ipuv3_data imx53_ipuv3_data __initconst;
 #define imx53_add_ipuv3(pdata)	imx_add_ipuv3(&imx53_ipuv3_data, pdata)
 
 extern const struct imx_vpu_data imx53_vpu_data __initconst;
-#define imx53_add_vpu()	imx_add_vpu(&imx53_vpu_data)
+#define imx53_add_vpu(pdata) \
+	imx_add_vpu(&imx53_vpu_data, pdata)
 
 extern const struct imx_tve_data imx53_tve_data __initconst;
 #define imx53_add_tve(pdata)	\
