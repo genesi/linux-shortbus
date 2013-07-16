@@ -154,30 +154,14 @@ static iomux_v3_cfg_t mx53_efikasb_nand_pads[] = {
 	MX53_PAD_EIM_DA7__EMI_NAND_WEIM_DA_7,
 };
 
-static struct fb_videomode video_modes[] = {
-	{
-		/* WSVGA 1024x600 @ 60 Hz */
-		"WSVGA", 60, 1024, 600, 22800,
-		40, 1024,//80, 40,
-		14, 424,//20, 21,
-		40, 14, //4, 4
-		0, //FB_SYNC_OE_LOW_ACT,
-		FB_VMODE_NONINTERLACED,
-		0,},
-};
-
 static struct ipuv3_fb_platform_data efikasb_fb0_data = {
 	.interface_pix_fmt = IPU_PIX_FMT_BGR24,
 	.mode_str = "WSVGA",
-	.modes = video_modes,
-	.num_modes = ARRAY_SIZE(video_modes),
 };
 
 static struct ipuv3_fb_platform_data efikasb_fb1_data = {
 	.interface_pix_fmt = IPU_PIX_FMT_BGR24,
 	.mode_str = "WSVGA",
-	.modes = video_modes,
-	.num_modes = ARRAY_SIZE(video_modes),
 };
 
 static struct imx_ipuv3_platform_data ipu_data = {

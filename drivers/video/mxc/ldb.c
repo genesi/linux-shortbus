@@ -135,7 +135,7 @@ struct fb_videomode mxcfb_ldb_modedb[] = {
 	 "WSVGA", 60, 1024, 600, 22800,
 	 80, 40,
 	 20, 21,
-	 4, 4,
+	 60, 14,
 	 0,
 	 FB_VMODE_NONINTERLACED,
 	 FB_MODE_IS_DETAILED,},
