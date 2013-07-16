@@ -200,9 +200,9 @@ static struct mxc_dvfs_platform_data efikasb_dvfs_core_data = {
 };
 
 static const struct esdhc_platform_data mx53_efikasb_sd1_data __initconst = {
-	.always_present = true,
+	.always_present = false,
 	.wp_gpio = SD1_WP,
-//	.cd_gpio = SD1_CD,
+	.cd_gpio = SD1_CD,
 };
 
 static const struct esdhc_platform_data mx53_efikasb_sd2_data __initconst = {

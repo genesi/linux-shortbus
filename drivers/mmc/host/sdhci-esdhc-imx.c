@@ -26,6 +26,7 @@
 #include "sdhci.h"
 #include "sdhci-pltfm.h"
 #include "sdhci-esdhc.h"
+#include <mach/iomux-mx53.h>
 
 #define SDHCI_CTRL_D3CD		0x08
 /* VENDOR SPEC register */
@@ -236,7 +237,12 @@ static irqreturn_t cd_irq(int irq, void *data)
 {
 	struct sdhci_host *sdhost = (struct sdhci_host *)data;
 
-	tasklet_schedule(&sdhost->card_tasklet);
+	/* only switch to sdhc iomux if gpio is high */
+#define SD1_CD                  IMX_GPIO_NR(1, 21)
+	if (gpio_get_value(SD1_CD)) {
+		mxc_iomux_v3_setup_pad(MX53_PAD_SD1_DATA3__ESDHC1_DAT3);
+		tasklet_schedule(&sdhost->card_tasklet);
+	}
 	return IRQ_HANDLED;
 };
 
@@ -300,7 +306,7 @@ static int esdhc_pltfm_init(struct sdhci_host *host, struct sdhci_pltfm_data *pd
 		}
 
 		err = request_irq(gpio_to_irq(boarddata->cd_gpio), cd_irq,
-				 IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING,
+				 IRQF_TRIGGER_RISING,
 				 mmc_hostname(host->mmc), host);
 		if (err) {
 			dev_warn(mmc_dev(host->mmc), "request irq error\n");
