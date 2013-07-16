@@ -96,7 +96,7 @@ static iomux_v3_cfg_t mx53_efikasb_pads[] = {
 	MX53_PAD_SD1_DATA0__ESDHC1_DAT0,
 	MX53_PAD_SD1_DATA1__ESDHC1_DAT1,
 	MX53_PAD_SD1_DATA2__ESDHC1_DAT2,
-	MX53_PAD_SD1_DATA3__GPIO1_21,       /* Used as card detect too */
+	MX53_PAD_SD1_DATA3__ESDHC1_DAT3,
 	MX53_PAD_GPIO_9__GPIO1_9,           /* SD1 write protect */
 	/* SD2 */
 	MX53_PAD_SD2_CMD__ESDHC2_CMD,
@@ -216,9 +216,9 @@ static struct mxc_dvfs_platform_data efikasb_dvfs_core_data = {
 };
 
 static const struct esdhc_platform_data mx53_efikasb_sd1_data __initconst = {
-	.always_present = false,
+	.always_present = true,
 	.wp_gpio = SD1_WP,
-	.cd_gpio = SD1_CD,
+//	.cd_gpio = SD1_CD,
 };
 
 static const struct esdhc_platform_data mx53_efikasb_sd2_data __initconst = {
