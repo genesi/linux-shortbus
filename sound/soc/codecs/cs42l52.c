@@ -36,6 +36,8 @@ struct sp_config {
 	u32 srate;
 };
 
+#define CS42L52_CACHEREGNUM 56
+
 struct  cs42l52_private {
 	enum snd_soc_control_type control_type;
 	void *control_data;
@@ -67,481 +69,513 @@ static const u8 cs42l52_reg[] = {
 	0x00, 0x3b, 0x00, 0x5f, /*52*/
 };
 
-static inline int cs42l52_read_reg_cache(struct snd_soc_codec *codec,
-		u_int reg)
-{
-	u8 *cache = codec->reg_cache;
-
-	return reg > CS42L52_CACHEREGNUM ? -EINVAL : cache[reg];
-}
-
-static inline void cs42l52_write_reg_cache(struct snd_soc_codec *codec,
-		u_int reg, u_int val)
-{
-	u8 *cache = codec->reg_cache;
-
-	if (reg > CS42L52_CACHEREGNUM)
-		return;
-	cache[reg] = val & 0xff;
-}
-
-static inline int cs42l52_get_revison(struct snd_soc_codec *codec)
-{
-	u8 data;
-	u8 addr;
-	int ret;
-
-	/* struct cs42l52_private *info = snd_soc_codec_get_drvdata(codec); */
-
-	if (codec->hw_write(codec->control_data, &addr, 1) == 1) {
-		if (codec->hw_read(codec->control_data, 1) == 1) {
-			if ((data & CHIP_ID_MASK) != CHIP_ID)
-				ret = -ENODEV;
-		} else
-			ret = -EIO;
-	} else
-		ret = -EIO;
-
-	return ret < 0 ? ret : data;
-}
-
-/**
- * snd_soc_get_volsw - single mixer get callback
- * @kcontrol: mixer control
- * @uinfo: control element information
- *
- * Callback to get the value of a single mixer control.
- *
- * Returns 0 for success.
- */
-int cs42l52_get_volsw(struct snd_kcontrol *kcontrol,
-		      struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-	struct soc_mixer_control *mc =
-	    (struct soc_mixer_control *)kcontrol->private_value;
-
-	unsigned int reg = mc->reg;
-	unsigned int shift = mc->shift;
-	unsigned int rshift = mc->rshift;
-	int max = mc->max;
-	int min = mc->min;
-	int mmax = (max > min) ? max : min;
-	unsigned int mask = (1 << fls(mmax)) - 1;
-
-	ucontrol->value.integer.value[0] =
-	    ((snd_soc_read(codec, reg) >> shift) - min) & mask;
-	if (shift != rshift)
-		ucontrol->value.integer.value[1] =
-		    ((snd_soc_read(codec, reg) >> rshift) - min) & mask;
-
-	return 0;
-}
-
-/**
- * snd_soc_put_volsw - single mixer put callback
- * @kcontrol: mixer control
- * @uinfo: control element information
- *
- * Callback to set the value of a single mixer control.
- *
- * Returns 0 for success.
- */
-int cs42l52_put_volsw(struct snd_kcontrol *kcontrol,
-		      struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-	struct soc_mixer_control *mc =
-	    (struct soc_mixer_control *)kcontrol->private_value;
-
-	unsigned int reg = mc->reg;
-	unsigned int shift = mc->shift;
-	unsigned int rshift = mc->rshift;
-	int max = mc->max;
-	int min = mc->min;
-	int mmax = (max > min) ? max : min;
-	unsigned int mask = (1 << fls(mmax)) - 1;
-	unsigned short val, val2, val_mask;
-
-	val = ((ucontrol->value.integer.value[0] + min) & mask);
-
-	val_mask = mask << shift;
-	val = val << shift;
-	if (shift != rshift) {
-		val2 = ((ucontrol->value.integer.value[1] + min) & mask);
-		val_mask |= mask << rshift;
-		val |= val2 << rshift;
-	}
-	return snd_soc_update_bits(codec, reg, val_mask, val);
-}
-
-/**
- * snd_soc_info_volsw_2r - double mixer info callback
- * @kcontrol: mixer control
- * @uinfo: control element information
- *
- * Callback to provide information about a double mixer control that
- * spans 2 codec registers.
- *
- * Returns 0 for success.
- */
-int cs42l52_info_volsw_2r(struct snd_kcontrol *kcontrol,
-			  struct snd_ctl_elem_info *uinfo)
-{
-	struct soc_mixer_control *mc =
-	    (struct soc_mixer_control *)kcontrol->private_value;
-
-	int max = mc->max;
-
-	if (max == 1)
-		uinfo->type = SNDRV_CTL_ELEM_TYPE_BOOLEAN;
-	else
-		uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
-
-	uinfo->count = 2;
-	uinfo->value.integer.min = 0;
-	uinfo->value.integer.max = max;
-	return 0;
-}
-
-/**
- * snd_soc_get_volsw_2r - double mixer get callback
- * @kcontrol: mixer control
- * @uinfo: control element information
- *
- * Callback to get the value of a double mixer control that spans 2 registers.
- *
- * Returns 0 for success.
- */
-int cs42l52_get_volsw_2r(struct snd_kcontrol *kcontrol,
-			 struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-	struct soc_mixer_control *mc =
-	    (struct soc_mixer_control *)kcontrol->private_value;
-
-	unsigned int reg = mc->reg;
-	unsigned int reg2 = mc->rreg;
-	int max = mc->max;
-	int min = mc->min;
-	int mmax = (max > min) ? max : min;
-	unsigned int mask = (1 << fls(mmax)) - 1;
-	int val, val2;
-
-	val = snd_soc_read(codec, reg);
-	val2 = snd_soc_read(codec, reg2);
-	ucontrol->value.integer.value[0] = (val - min) & mask;
-	ucontrol->value.integer.value[1] = (val2 - min) & mask;
-	return 0;
-}
-
-/**
- * snd_soc_put_volsw_2r - double mixer set callback
- * @kcontrol: mixer control
- * @uinfo: control element information
- *
- * Callback to set the value of a double mixer control that spans 2 registers.
- *
- * Returns 0 for success.
- */
-int cs42l52_put_volsw_2r(struct snd_kcontrol *kcontrol,
-			 struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-	struct soc_mixer_control *mc =
-	    (struct soc_mixer_control *)kcontrol->private_value;
-
-	unsigned int reg = mc->reg;
-	unsigned int reg2 = mc->rreg;
-	int max = mc->max;
-	int min = mc->min;
-	int mmax = (max > min) ? max : min;
-	unsigned int mask = (1 << fls(mmax)) - 1;
-	int err;
-	unsigned short val, val2;
-
-	val = (ucontrol->value.integer.value[0] + min) & mask;
-	val2 = (ucontrol->value.integer.value[1] + min) & mask;
-
-	err = snd_soc_update_bits(codec, reg, mask, val);
-	if (err < 0)
-		return err;
-
-	return snd_soc_update_bits(codec, reg2, mask, val2);
-}
-
-#define SOC_SINGLE_S8_C_TLV(xname, xreg, xshift, xmax, xmin, tlv_array) \
-{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname, \
-	.access = SNDRV_CTL_ELEM_ACCESS_TLV_READ | \
-		    SNDRV_CTL_ELEM_ACCESS_READWRITE, \
-	.info = snd_soc_info_volsw, .get = cs42l52_get_volsw,\
-	.put = cs42l52_put_volsw, .tlv.p  = (tlv_array),\
-	.private_value = (unsigned long)&(struct soc_mixer_control) \
-		{.reg = xreg, .shift = xshift, .rshift = xshift, \
-		.max = xmax, .min = xmin} }
-
-#define SOC_DOUBLE_R_S8_C_TLV(xname, xreg, xrreg, xmax, xmin, tlv_array) \
-{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = (xname), \
-	.access = SNDRV_CTL_ELEM_ACCESS_TLV_READ | \
-		    SNDRV_CTL_ELEM_ACCESS_READWRITE, \
-	.info = cs42l52_info_volsw_2r, \
-	.get = cs42l52_get_volsw_2r, .put = cs42l52_put_volsw_2r, \
-	.tlv.p  = (tlv_array), \
-	.private_value = (unsigned long)&(struct soc_mixer_control) \
-		{.reg = xreg, .rreg = xrreg, .max = xmax, .min = xmin} }
-
-/* Analog Input PGA Mux */
-static const char *cs42l52_pgaa_text[] = {
-	"INPUT1A", "INPUT2A", "INPUT3A", "INPUT4A", "MICA"
-};
-
-static const char *cs42l52_pgab_text[] = {
-	"INPUT1B", "INPUT2B", "INPUT3B", "INPUT4B", "MICB"
-};
-
-static const struct soc_enum pgaa_enum =
-	SOC_ENUM_SINGLE(ADC_PGA_A, 0,
-		ARRAY_SIZE(cs42l52_pgaa_text), cs42l52_pgaa_text);
-
-static const struct soc_enum pgab_enum =
-	SOC_ENUM_SINGLE(ADC_PGA_B, 0,
-		ARRAY_SIZE(cs42l52_pgab_text), cs42l52_pgab_text);
-
-static const struct snd_kcontrol_new pgaa_mux =
-SOC_DAPM_ENUM("Left Analog Input Capture Mux", pgaa_enum);
-
-static const struct snd_kcontrol_new pgab_mux =
-SOC_DAPM_ENUM("Right Analog Input Capture Mux", pgab_enum);
-
-/*
- * HP,LO Analog Volume TLV
- * -76dB ... -50 dB in 2dB steps
- * -50dB ... 12dB in 1dB steps
- */
-static const unsigned int hpaloa_tlv[] = {
-	TLV_DB_RANGE_HEAD(2),
-	 0, 13, TLV_DB_SCALE_ITEM(-7600, 200, 0),
-	14, 75, TLV_DB_SCALE_ITEM(-4900, 100, 0),
-};
-
-/* -102dB ... 12 dB in 0.5 dB steps */
 static DECLARE_TLV_DB_SCALE(hl_tlv, -10200, 50, 0);
 
-/* -96dB ... 12 dB in 1 dB steps */
+static DECLARE_TLV_DB_SCALE(hpd_tlv, -9600, 50, 1);
+
 static DECLARE_TLV_DB_SCALE(ipd_tlv, -9600, 100, 0);
 
-/* -6dB ... 12 dB in 0.5 dB steps */
-static DECLARE_TLV_DB_SCALE(micpga_tlv, -600, 50, 0);
+static DECLARE_TLV_DB_SCALE(mic_tlv, 1600, 100, 0);
 
-/*
- * HL, ESL, SPK, Limiter Threshold/Cushion TLV
- * 0dB -12 dB in -3dB steps
- * -12dB -30dB in -6dB steps
- */
+static DECLARE_TLV_DB_SCALE(pga_tlv, -600, 50, 0);
+
+static DECLARE_TLV_DB_SCALE(mix_tlv, -50, 50, 0);
+
 static const unsigned int limiter_tlv[] = {
 	TLV_DB_RANGE_HEAD(2),
 	0, 2, TLV_DB_SCALE_ITEM(-3000, 600, 0),
 	3, 7, TLV_DB_SCALE_ITEM(-1200, 300, 0),
 };
 
-/*
- * Stereo Mixer Input Attenuation (regs 35h-54h) TLV
- * Mono Mixer Input Attenuation (regs 56h-5Dh)
- * -62dB ... 0dB in 1dB steps, < -62dB = mute
- */
-static const DECLARE_TLV_DB_SCALE(attn_tlv, -6300, 100, 1);
+static const char * cs42l52_adca_text[] = {
+	"Input1A", "Input2A", "Input3A", "Input4A", "PGA Input Left"};
 
-/* NG */
-static const char *cs42l52_ng_delay_text[] = {
-	"50ms", "100ms", "150ms", "200ms"
+static const char * cs42l52_adcb_text[] = {
+	"Input1B", "Input2B", "Input3B", "Input4B", "PGA Input Right"};
+
+static const struct soc_enum adca_enum =
+	SOC_ENUM_SINGLE(CS42L52_ADC_PGA_A, 5,
+		ARRAY_SIZE(cs42l52_adca_text), cs42l52_adca_text);
+
+static const struct soc_enum adcb_enum =
+	SOC_ENUM_SINGLE(CS42L52_ADC_PGA_B, 5,
+		ARRAY_SIZE(cs42l52_adcb_text), cs42l52_adcb_text);
+
+static const struct snd_kcontrol_new adca_mux =
+	SOC_DAPM_ENUM("Left ADC Input Capture Mux", adca_enum);
+
+static const struct snd_kcontrol_new adcb_mux =
+	SOC_DAPM_ENUM("Right ADC Input Capture Mux", adcb_enum);
+
+static const char * mic_bias_level_text[] = {
+	"0.5 +VA", "0.6 +VA", "0.7 +VA",
+	"0.8 +VA", "0.83 +VA", "0.91 +VA"
 };
 
+static const struct soc_enum mic_bias_level_enum =
+	SOC_ENUM_SINGLE(CS42L52_IFACE_CTL2, 0,
+			ARRAY_SIZE(mic_bias_level_text), mic_bias_level_text);
+
+static const char * cs42l52_mic_text[] = { "Single", "Differential" };
+
+static const struct soc_enum mica_enum =
+	SOC_ENUM_SINGLE(CS42L52_MICA_CTL, 5,
+			ARRAY_SIZE(cs42l52_mic_text), cs42l52_mic_text);
+
+static const struct soc_enum micb_enum =
+	SOC_ENUM_SINGLE(CS42L52_MICB_CTL, 5,
+			ARRAY_SIZE(cs42l52_mic_text), cs42l52_mic_text);
+
+static const char * cs42l52_micsel_text[] = { "MIC1", "MIC2" };
+
+static const struct soc_enum mica_sel_enum =
+	SOC_ENUM_SINGLE(CS42L52_MICA_CTL, 6,
+			ARRAY_SIZE(cs42l52_micsel_text), cs42l52_micsel_text);
+
+static const struct soc_enum micb_sel_enum =
+	SOC_ENUM_SINGLE(CS42L52_MICB_CTL, 6,
+			ARRAY_SIZE(cs42l52_micsel_text), cs42l52_micsel_text);
+
+/*static const struct snd_kcontrol_new mica_mux =
+	SOC_DAPM_ENUM("Left Mic Input Capture Mux", mica_enum);
+
+static const struct snd_kcontrol_new micb_mux =
+	SOC_DAPM_ENUM("Right Mic Input Capture Mux", micb_enum);
+
+static const struct snd_kcontrol_new mica_sel_mux =
+	SOC_DAPM_ENUM("Left Mic Input Sel Capture Mux", mica_sel_enum);
+
+static const struct snd_kcontrol_new micb_sel_mux =
+	SOC_DAPM_ENUM("Right Mic Input Sel Capture Mux", micb_sel_enum);*/
+
+static const char * digital_output_mux_text[] = {"ADC", "DSP"};
+
+static const struct soc_enum digital_output_mux_enum =
+	SOC_ENUM_SINGLE(CS42L52_ADC_MISC_CTL, 6,
+			ARRAY_SIZE(digital_output_mux_text),
+			digital_output_mux_text);
+
+static const struct snd_kcontrol_new digital_output_mux =
+	SOC_DAPM_ENUM("Digital Output Mux", digital_output_mux_enum);
+
+static const char * hp_gain_num_text[] = {
+	"0.3959", "0.4571", "0.5111", "0.6047",
+	"0.7099", "0.8399", "1.000", "1.1430"
+};
+
+static const struct soc_enum hp_gain_enum =
+	SOC_ENUM_SINGLE(CS42L52_PB_CTL1, 5,
+		ARRAY_SIZE(hp_gain_num_text), hp_gain_num_text);
+
+static const char * beep_pitch_text[] = {
+	"C4", "C5", "D5", "E5", "F5", "G5", "A5", "B5",
+	"C6", "D6", "E6", "F6", "G6", "A6", "B6", "C7"
+};
+
+static const struct soc_enum beep_pitch_enum =
+	SOC_ENUM_SINGLE(CS42L52_BEEP_FREQ, 4,
+			ARRAY_SIZE(beep_pitch_text), beep_pitch_text);
+
+static const char * beep_ontime_text[] = {
+	"86 ms", "430 ms", "780 ms", "1.20 s", "1.50 s",
+	"1.80 s", "2.20 s", "2.50 s", "2.80 s", "3.20 s",
+	"3.50 s", "3.80 s", "4.20 s", "4.50 s", "4.80 s", "5.20 s"
+};
+
+static const struct soc_enum beep_ontime_enum =
+	SOC_ENUM_SINGLE(CS42L52_BEEP_FREQ, 0,
+			ARRAY_SIZE(beep_ontime_text), beep_ontime_text);
+
+static const char * beep_offtime_text[] = {
+	"1.23 s", "2.58 s", "3.90 s", "5.20 s",
+	"6.60 s", "8.05 s", "9.35 s", "10.80 s"
+};
+
+static const struct soc_enum beep_offtime_enum =
+	SOC_ENUM_SINGLE(CS42L52_BEEP_VOL, 5,
+			ARRAY_SIZE(beep_offtime_text), beep_offtime_text);
+
+static const char * beep_config_text[] = {
+	"Off", "Single", "Multiple", "Continuous"
+};
+
+static const struct soc_enum beep_config_enum =
+	SOC_ENUM_SINGLE(CS42L52_BEEP_TONE_CTL, 6,
+			ARRAY_SIZE(beep_config_text), beep_config_text);
+
+static const char * beep_bass_text[] = {
+	"50 Hz", "100 Hz", "200 Hz", "250 Hz"
+};
+
+static const struct soc_enum beep_bass_enum =
+	SOC_ENUM_SINGLE(CS42L52_BEEP_TONE_CTL, 1,
+			ARRAY_SIZE(beep_bass_text), beep_bass_text);
+
+static const char * beep_treble_text[] = {
+	"5 kHz", "7 kHz", "10 kHz", " 15 kHz"
+};
+
+static const struct soc_enum beep_treble_enum =
+	SOC_ENUM_SINGLE(CS42L52_BEEP_TONE_CTL, 3,
+			ARRAY_SIZE(beep_treble_text), beep_treble_text);
+
+static const char * ng_threshold_text[] = {
+	"-34dB", "-37dB", "-40dB", "-43dB",
+	"-46dB", "-52dB", "-58dB", "-64dB"
+};
+
+static const struct soc_enum ng_threshold_enum =
+	SOC_ENUM_SINGLE(CS42L52_NOISE_GATE_CTL, 2,
+		ARRAY_SIZE(ng_threshold_text), ng_threshold_text);
+
+static const char * cs42l52_ng_delay_text[] = {
+	"50ms", "100ms", "150ms", "200ms"};
+
 static const struct soc_enum ng_delay_enum =
-	SOC_ENUM_SINGLE(NOISE_GATE_CTL, 0,
+	SOC_ENUM_SINGLE(CS42L52_NOISE_GATE_CTL, 0,
 		ARRAY_SIZE(cs42l52_ng_delay_text), cs42l52_ng_delay_text);
 
-static const char *cs42l52_ng_type_text[] = {
+static const char * cs42l52_ng_type_text[] = {
 	"Apply Specific", "Apply All"
 };
 
 static const struct soc_enum ng_type_enum =
-	SOC_ENUM_SINGLE(NOISE_GATE_CTL, 6,
+	SOC_ENUM_SINGLE(CS42L52_NOISE_GATE_CTL, 6,
 		ARRAY_SIZE(cs42l52_ng_type_text), cs42l52_ng_type_text);
 
+static const char * left_swap_text[] = {
+	"Left", "LR 2", "Right"};
+
+static const char * right_swap_text[] = {
+	"Right", "LR 2", "Left"};
+
+static const unsigned int swap_values[] = { 0, 1, 3 };
+
+static const struct soc_enum adca_swap_enum =
+	SOC_VALUE_ENUM_SINGLE(CS42L52_ADC_PCM_MIXER, 2, 1,
+			      ARRAY_SIZE(left_swap_text),
+			      left_swap_text,
+			      swap_values);
+
+static const struct snd_kcontrol_new adca_mixer =
+	SOC_DAPM_ENUM("Route", adca_swap_enum);
+
+static const struct soc_enum pcma_swap_enum =
+	SOC_VALUE_ENUM_SINGLE(CS42L52_ADC_PCM_MIXER, 6, 1,
+			      ARRAY_SIZE(left_swap_text),
+			      left_swap_text,
+			      swap_values);
+
+static const struct snd_kcontrol_new pcma_mixer =
+	SOC_DAPM_ENUM("Route", pcma_swap_enum);
+
+static const struct soc_enum adcb_swap_enum =
+	SOC_VALUE_ENUM_SINGLE(CS42L52_ADC_PCM_MIXER, 0, 1,
+			      ARRAY_SIZE(right_swap_text),
+			      right_swap_text,
+			      swap_values);
+
+static const struct snd_kcontrol_new adcb_mixer =
+	SOC_DAPM_ENUM("Route", adcb_swap_enum);
+
+static const struct soc_enum pcmb_swap_enum =
+	SOC_VALUE_ENUM_SINGLE(CS42L52_ADC_PCM_MIXER, 4, 1,
+			      ARRAY_SIZE(right_swap_text),
+			      right_swap_text,
+			      swap_values);
+
+static const struct snd_kcontrol_new pcmb_mixer =
+	SOC_DAPM_ENUM("Route", pcmb_swap_enum);
+
+
+static const struct snd_kcontrol_new passthrul_ctl =
+	SOC_DAPM_SINGLE("Switch", CS42L52_MISC_CTL, 6, 1, 0);
+
+static const struct snd_kcontrol_new passthrur_ctl =
+	SOC_DAPM_SINGLE("Switch", CS42L52_MISC_CTL, 7, 1, 0);
+
+static const struct snd_kcontrol_new spkl_ctl =
+	SOC_DAPM_SINGLE("Switch", CS42L52_PWRCTL3, 0, 1, 1);
+
+static const struct snd_kcontrol_new spkr_ctl =
+	SOC_DAPM_SINGLE("Switch", CS42L52_PWRCTL3, 2, 1, 1);
+
+static const struct snd_kcontrol_new hpl_ctl =
+	SOC_DAPM_SINGLE("Switch", CS42L52_PWRCTL3, 4, 1, 1);
+
+static const struct snd_kcontrol_new hpr_ctl =
+	SOC_DAPM_SINGLE("Switch", CS42L52_PWRCTL3, 6, 1, 1);
+
 static const struct snd_kcontrol_new cs42l52_snd_controls[] = {
-SOC_DOUBLE_R_S8_C_TLV("Master Playback Volume",
-			      MASTERA_VOL, MASTERB_VOL, 0xe4, 0x34, hl_tlv),
 
-/* Headphone */
-SOC_DOUBLE_R_S8_C_TLV("HP Digital Playback Volume", HPA_VOL, HPB_VOL, 0xff, 0x1, hl_tlv),
+	SOC_DOUBLE_R_SX_TLV("Master Volume", CS42L52_MASTERA_VOL,
+			      CS42L52_MASTERB_VOL, 0, 0x34, 0xE4, hl_tlv),
 
-SOC_SINGLE_S8_C_TLV("HP Analog Playback Volume", PB_CTL1, 5, 7, 0, hpaloa_tlv),
+	SOC_DOUBLE_R_SX_TLV("Headphone Volume", CS42L52_HPA_VOL,
+			      CS42L52_HPB_VOL, 0, 0x34, 0xCC, hpd_tlv),
 
-SOC_SINGLE_S8_C_TLV("HP Digital Playback Switch", PB_CTL2, 6, 7, 1, NULL),
+	SOC_ENUM("Headphone Analog Gain", hp_gain_enum),
 
-/* Speaker */
-SOC_DOUBLE_R_S8_C_TLV("Speaker Playback Volume", SPKA_VOL, SPKB_VOL, 0xff, 0x1, hl_tlv),
-SOC_SINGLE_S8_C_TLV("Speaker Playback Switch", PB_CTL2, 4, 5, 1, NULL),
+	SOC_DOUBLE_R_SX_TLV("Speaker Volume", CS42L52_SPKA_VOL,
+			      CS42L52_SPKB_VOL, 0, 0x1, 0xff, hl_tlv),
 
-/* Passthrough */
-SOC_DOUBLE_R_S8_C_TLV("Passthru Playback Volume", PASSTHRUA_VOL,
-		      PASSTHRUB_VOL, 0x90, 0x88, hl_tlv),
-SOC_SINGLE("Passthru Playback Switch", MISC_CTL, 4, 5, 1),
+	SOC_DOUBLE_R_SX_TLV("Bypass Volume", CS42L52_PASSTHRUA_VOL,
+			      CS42L52_PASSTHRUB_VOL, 6, 0x18, 0x90, pga_tlv),
 
-/* Mic LineIN */
-SOC_DOUBLE_R_S8_C_TLV("Mic Gain Capture Volume", MICA_CTL, MICB_CTL, 0, 31, micpga_tlv),
+	SOC_DOUBLE("Bypass Mute", CS42L52_MISC_CTL, 4, 5, 1, 0),
 
-/* ADC */
-SOC_DOUBLE_R_S8_C_TLV("ADC Capture Volume", ADCA_VOL, ADCB_VOL, 0x80, 0xA0, ipd_tlv),
-SOC_DOUBLE_R_S8_C_TLV("ADC Mixer Capture Volume", ADCA_MIXER_VOL, ADCB_MIXER_VOL, 0x7f, 0x19, ipd_tlv),
-SOC_DOUBLE("ADC Switch", ADC_MISC_CTL, 0, 1, 1, 1),
+	SOC_DOUBLE_R_TLV("MIC Gain Volume", CS42L52_MICA_CTL,
+			      CS42L52_MICB_CTL, 0, 0x10, 0, mic_tlv),
 
-SOC_DOUBLE_R("ADC Mixer Switch", ADCA_MIXER_VOL, ADCB_MIXER_VOL, 7, 1, 1),
-SOC_DOUBLE_R_S8_C_TLV("PGA Volume", PGAA_CTL, PGAB_CTL, 0x30, 0x18, micpga_tlv),
+	SOC_ENUM("MIC Bias Level", mic_bias_level_enum),
+	SOC_ENUM("MICA Top Mux", mica_enum),
+	SOC_ENUM("MICA Sel Mux", mica_sel_enum),
+	SOC_ENUM("MICB Top Mux", micb_enum),
+	SOC_ENUM("MICB Sel Mux", micb_sel_enum),
 
-SOC_DOUBLE_R("PCM Mixer Playback Switch", PCMA_MIXER_VOL, PCMB_MIXER_VOL, 7, 1, 1),
+	SOC_DOUBLE_R_SX_TLV("ADC Volume", CS42L52_ADCA_VOL,
+			      CS42L52_ADCB_VOL, 7, 0x80, 0xA0, ipd_tlv),
+	SOC_DOUBLE_R_SX_TLV("ADC Mixer Volume",
+			     CS42L52_ADCA_MIXER_VOL, CS42L52_ADCB_MIXER_VOL,
+				6, 0x7f, 0x19, ipd_tlv),
 
-SOC_DOUBLE_R_S8_C_TLV("PCM Mixer Playback Volume", PCMA_MIXER_VOL, PCMB_MIXER_VOL, 0x7f, 0x19, hl_tlv),
+	SOC_DOUBLE("ADC Switch", CS42L52_ADC_MISC_CTL, 0, 1, 1, 0),
 
-SOC_SINGLE_S8_C_TLV("Beep Volume", BEEP_VOL, 0, 0x1f, 0x07, hl_tlv),
+	SOC_DOUBLE_R("ADC Mixer Switch", CS42L52_ADCA_MIXER_VOL,
+		     CS42L52_ADCB_MIXER_VOL, 7, 1, 1),
 
-SOC_SINGLE_S8_C_TLV("Treble Gain Playback Volume", TONE_CTL, 4, 15, 1, hl_tlv),
-SOC_SINGLE_S8_C_TLV("Bass Gain Playback Volume", TONE_CTL, 0, 15, 1, hl_tlv),
+	SOC_DOUBLE_R_SX_TLV("PGA Volume", CS42L52_PGAA_CTL,
+			    CS42L52_PGAB_CTL, 0, 0x28, 0x30, pga_tlv),
 
-/* Limiter */
-SOC_SINGLE_TLV("Limiter Max Threshold Volume", LIMITER_CTL1, 5, 7, 0, limiter_tlv),
-SOC_SINGLE_TLV("Limiter Cushion Threshold Volume", LIMITER_CTL1, 2, 7, 0, limiter_tlv),
-SOC_SINGLE_TLV("Limiter Release Rate Volume", LIMITER_CTL2, 0, 63, 0, limiter_tlv),
-SOC_SINGLE_TLV("Limiter Attack Rate Volume", LIMITER_AT_RATE, 0, 63, 0, limiter_tlv),
+	SOC_DOUBLE_R_SX_TLV("PCM Mixer Volume",
+			    CS42L52_PCMA_MIXER_VOL, CS42L52_PCMB_MIXER_VOL,
+				0, 0x7f, 0x19, mix_tlv),
+	SOC_DOUBLE_R("PCM Mixer Switch",
+		     CS42L52_PCMA_MIXER_VOL, CS42L52_PCMB_MIXER_VOL, 7, 1, 1),
 
-SOC_SINGLE("Limiter SR Switch", LIMITER_CTL1, 1, 1, 0),
-SOC_SINGLE("Limiter ZC Switch", LIMITER_CTL1, 0, 1, 0),
-SOC_SINGLE("Limiter Switch", LIMITER_CTL2, 7, 1, 0),
+	SOC_ENUM("Beep Config", beep_config_enum),
+	SOC_ENUM("Beep Pitch", beep_pitch_enum),
+	SOC_ENUM("Beep on Time", beep_ontime_enum),
+	SOC_ENUM("Beep off Time", beep_offtime_enum),
+	SOC_SINGLE_TLV("Beep Volume", CS42L52_BEEP_VOL, 0, 0x1f, 0x07, hl_tlv),
+	SOC_SINGLE("Beep Mixer Switch", CS42L52_BEEP_TONE_CTL, 5, 1, 1),
+	SOC_ENUM("Beep Treble Corner Freq", beep_treble_enum),
+	SOC_ENUM("Beep Bass Corner Freq", beep_bass_enum),
 
-/* ALC */
-SOC_SINGLE_TLV("ALC Attack Rate Volume", ALC_CTL, 0, 63, 0, limiter_tlv),
-SOC_SINGLE_TLV("ALC Release Rate Volume", ALC_RATE, 0, 63, 0, limiter_tlv),
-SOC_SINGLE_TLV("ALC Max Threshold Volume", ALC_THRESHOLD, 5, 7, 0, limiter_tlv),
-SOC_SINGLE_TLV("ALC Min Threshold Volume", ALC_THRESHOLD, 2, 7, 0, limiter_tlv),
+	SOC_SINGLE("Tone Control Switch", CS42L52_BEEP_TONE_CTL, 0, 1, 1),
+	SOC_SINGLE_TLV("Treble Gain Volume",
+			    CS42L52_TONE_CTL, 4, 15, 1, hl_tlv),
+	SOC_SINGLE_TLV("Bass Gain Volume",
+			    CS42L52_TONE_CTL, 0, 15, 1, hl_tlv),
 
-SOC_DOUBLE_R("ALC SR Capture Switch", PGAA_CTL, PGAB_CTL, 7, 1, 1), /*20*/
-SOC_DOUBLE_R("ALC ZC Capture Switch", PGAA_CTL, PGAB_CTL, 6, 1, 1),
-SOC_DOUBLE("ALC Capture Switch", ALC_CTL, 6, 7, 1, 0),
+	/* Limiter */
+	SOC_SINGLE_TLV("Limiter Max Threshold Volume",
+		       CS42L52_LIMITER_CTL1, 5, 7, 0, limiter_tlv),
+	SOC_SINGLE_TLV("Limiter Cushion Threshold Volume",
+		       CS42L52_LIMITER_CTL1, 2, 7, 0, limiter_tlv),
+	SOC_SINGLE_TLV("Limiter Release Rate Volume",
+		       CS42L52_LIMITER_CTL2, 0, 63, 0, limiter_tlv),
+	SOC_SINGLE_TLV("Limiter Attack Rate Volume",
+		       CS42L52_LIMITER_AT_RATE, 0, 63, 0, limiter_tlv),
 
-/* Noise gate */
-SOC_ENUM("NG Type Switch", ng_type_enum),
-SOC_SINGLE("NG Enable Switch", NOISE_GATE_CTL, 6, 1, 0),
-SOC_SINGLE("NG Boost Switch", NOISE_GATE_CTL, 5, 1, 1),
-SOC_SINGLE("NG Threshold", NOISE_GATE_CTL, 2, 7, 0),
-SOC_ENUM("NG Delay", ng_delay_enum),
+	SOC_SINGLE("Limiter SR Switch", CS42L52_LIMITER_CTL1, 1, 1, 0),
+	SOC_SINGLE("Limiter ZC Switch", CS42L52_LIMITER_CTL1, 0, 1, 0),
+	SOC_SINGLE("Limiter Switch", CS42L52_LIMITER_CTL2, 7, 1, 0),
 
-SOC_DOUBLE("HPF Switch", ANALOG_HPF_CTL, 5, 7, 1, 0),
+	/* ALC */
+	SOC_SINGLE_TLV("ALC Attack Rate Volume", CS42L52_ALC_CTL,
+		       0, 63, 0, limiter_tlv),
+	SOC_SINGLE_TLV("ALC Release Rate Volume", CS42L52_ALC_RATE,
+		       0, 63, 0, limiter_tlv),
+	SOC_SINGLE_TLV("ALC Max Threshold Volume", CS42L52_ALC_THRESHOLD,
+		       5, 7, 0, limiter_tlv),
+	SOC_SINGLE_TLV("ALC Min Threshold Volume", CS42L52_ALC_THRESHOLD,
+		       2, 7, 0, limiter_tlv),
 
-SOC_DOUBLE("Analog SR Switch", ANALOG_HPF_CTL, 1, 3, 1, 1),
-SOC_DOUBLE("Analog ZC Switch", ANALOG_HPF_CTL, 0, 2, 1, 1),
+	SOC_DOUBLE_R("ALC SR Capture Switch", CS42L52_PGAA_CTL,
+		     CS42L52_PGAB_CTL, 7, 1, 1),
+	SOC_DOUBLE_R("ALC ZC Capture Switch", CS42L52_PGAA_CTL,
+		     CS42L52_PGAB_CTL, 6, 1, 1),
+	SOC_DOUBLE("ALC Capture Switch", CS42L52_ALC_CTL, 6, 7, 1, 0),
 
-SOC_SINGLE("Batt Compensation Switch", BATT_COMPEN, 7, 1, 0),
-SOC_SINGLE("Batt VP Monitor Switch", BATT_COMPEN, 6, 1, 0),
-SOC_SINGLE("Batt VP ref", BATT_COMPEN, 0, 0x0f, 0),
-SOC_SINGLE("Playback Charge Pump Freq", CHARGE_PUMP, 4, 15, 0),
+	/* Noise gate */
+	SOC_ENUM("NG Type Switch", ng_type_enum),
+	SOC_SINGLE("NG Enable Switch", CS42L52_NOISE_GATE_CTL, 6, 1, 0),
+	SOC_SINGLE("NG Boost Switch", CS42L52_NOISE_GATE_CTL, 5, 1, 1),
+	SOC_ENUM("NG Threshold", ng_threshold_enum),
+	SOC_ENUM("NG Delay", ng_delay_enum),
+
+	SOC_DOUBLE("HPF Switch", CS42L52_ANALOG_HPF_CTL, 5, 7, 1, 0),
+
+	SOC_DOUBLE("Analog SR Switch", CS42L52_ANALOG_HPF_CTL, 1, 3, 1, 1),
+	SOC_DOUBLE("Analog ZC Switch", CS42L52_ANALOG_HPF_CTL, 0, 2, 1, 1),
+	SOC_SINGLE("Digital SR Switch", CS42L52_MISC_CTL, 1, 1, 0),
+	SOC_SINGLE("Digital ZC Switch", CS42L52_MISC_CTL, 0, 1, 0),
+	SOC_SINGLE("Deemphasis Switch", CS42L52_MISC_CTL, 2, 1, 0),
+
+	SOC_SINGLE("Batt Compensation Switch", CS42L52_BATT_COMPEN, 7, 1, 0),
+	SOC_SINGLE("Batt VP Monitor Switch", CS42L52_BATT_COMPEN, 6, 1, 0),
+	SOC_SINGLE("Batt VP ref", CS42L52_BATT_COMPEN, 0, 0x0f, 0),
+
+	SOC_SINGLE("PGA AIN1L Switch", CS42L52_ADC_PGA_A, 0, 1, 0),
+	SOC_SINGLE("PGA AIN1R Switch", CS42L52_ADC_PGA_B, 0, 1, 0),
+	SOC_SINGLE("PGA AIN2L Switch", CS42L52_ADC_PGA_A, 1, 1, 0),
+	SOC_SINGLE("PGA AIN2R Switch", CS42L52_ADC_PGA_B, 1, 1, 0),
+
+	SOC_SINGLE("PGA AIN3L Switch", CS42L52_ADC_PGA_A, 2, 1, 0),
+	SOC_SINGLE("PGA AIN3R Switch", CS42L52_ADC_PGA_B, 2, 1, 0),
+
+	SOC_SINGLE("PGA AIN4L Switch", CS42L52_ADC_PGA_A, 3, 1, 0),
+	SOC_SINGLE("PGA AIN4R Switch", CS42L52_ADC_PGA_B, 3, 1, 0),
+
+	SOC_SINGLE("PGA MICA Switch", CS42L52_ADC_PGA_A, 4, 1, 0),
+	SOC_SINGLE("PGA MICB Switch", CS42L52_ADC_PGA_B, 4, 1, 0),
 };
 
 static const struct snd_soc_dapm_widget cs42l52_dapm_widgets[] = {
-	SND_SOC_DAPM_INPUT("INPUT1A"),
-	SND_SOC_DAPM_INPUT("INPUT2A"),
-	SND_SOC_DAPM_INPUT("INPUT3A"),
-	SND_SOC_DAPM_INPUT("INPUT4A"),
-	SND_SOC_DAPM_INPUT("INPUT1B"),
-	SND_SOC_DAPM_INPUT("INPUT2B"),
-	SND_SOC_DAPM_INPUT("INPUT3B"),
-	SND_SOC_DAPM_INPUT("INPUT4B"),
+	SND_SOC_DAPM_INPUT("AIN1L"),
+	SND_SOC_DAPM_INPUT("AIN1R"),
+	SND_SOC_DAPM_INPUT("AIN2L"),
+	SND_SOC_DAPM_INPUT("AIN2R"),
+	SND_SOC_DAPM_INPUT("AIN3L"),
+	SND_SOC_DAPM_INPUT("AIN3R"),
+	SND_SOC_DAPM_INPUT("AIN4L"),
+	SND_SOC_DAPM_INPUT("AIN4R"),
 	SND_SOC_DAPM_INPUT("MICA"),
 	SND_SOC_DAPM_INPUT("MICB"),
+	//SND_SOC_DAPM_SIGGEN("Beep"),
 
-	/* Input path */
-	SND_SOC_DAPM_ADC("ADC Left", "Capture", PWRCTL1, 1, 1),
-	SND_SOC_DAPM_ADC("ADC Right", "Capture", PWRCTL1, 2, 1),
-	/* PGA Power */
-	SND_SOC_DAPM_PGA("PGA Left", PWRCTL1, 3, 1, NULL, 0),
-	SND_SOC_DAPM_PGA("PGA Right", PWRCTL1, 4, 1, NULL, 0),
+	SND_SOC_DAPM_AIF_OUT("AIFOUTL", NULL,  0,
+			SND_SOC_NOPM, 0, 0),
+	SND_SOC_DAPM_AIF_OUT("AIFOUTR", NULL,  0,
+			SND_SOC_NOPM, 0, 0),
 
-	/* MIC PGA Power */
-	SND_SOC_DAPM_PGA("PGA MICA", PWRCTL2, 1, 1, NULL, 0),
-	SND_SOC_DAPM_PGA("PGA MICB", PWRCTL2, 2, 1, NULL, 0),
-	/* MIC bias */
-	SND_SOC_DAPM_MICBIAS("Mic-Bias", PWRCTL2, 0, 1),
+//	SND_SOC_DAPM_MUX("MICA Top Mux", SND_SOC_NOPM, 0, 0, &mica_mux),
+//	SND_SOC_DAPM_MUX("MICB Top Mux", SND_SOC_NOPM, 0, 0, &micb_mux),
+//	SND_SOC_DAPM_MUX("MICA Sel Mux", SND_SOC_NOPM, 0, 0, &mica_sel_mux),
+//	SND_SOC_DAPM_MUX("MICB Sel Mux", SND_SOC_NOPM, 0, 0, &micb_sel_mux),
 
-	SND_SOC_DAPM_DAC("DAC Left", "Playback", SND_SOC_NOPM, 0, 0),
-	SND_SOC_DAPM_DAC("DAC Right", "Playback", SND_SOC_NOPM, 0, 0),
+	SND_SOC_DAPM_ADC("ADC Left", NULL, CS42L52_PWRCTL1, 1, 1),
+	SND_SOC_DAPM_ADC("ADC Right", NULL, CS42L52_PWRCTL1, 2, 1),
+	SND_SOC_DAPM_PGA("PGA Left", CS42L52_PWRCTL1, 3, 1, NULL, 0),
+	SND_SOC_DAPM_PGA("PGA Right", CS42L52_PWRCTL1, 4, 1, NULL, 0),
 
-	SND_SOC_DAPM_PGA("HP Amp Left", PWRCTL3, 4, 1, NULL, 0),
-	SND_SOC_DAPM_PGA("HP Amp Right", PWRCTL3, 6, 1, NULL, 0),
+	SND_SOC_DAPM_MUX("ADC Left Mux", SND_SOC_NOPM, 0, 0, &adca_mux),
+	SND_SOC_DAPM_MUX("ADC Right Mux", SND_SOC_NOPM, 0, 0, &adcb_mux),
 
-	SND_SOC_DAPM_PGA("SPK Pwr Left", PWRCTL3, 0, 1, NULL, 0),
-	SND_SOC_DAPM_PGA("SPK Pwr Right", PWRCTL3, 2, 1, NULL, 0),
+	SND_SOC_DAPM_MUX("ADC Left Swap", SND_SOC_NOPM,
+			 0, 0, &adca_mixer),
+	SND_SOC_DAPM_MUX("ADC Right Swap", SND_SOC_NOPM,
+			 0, 0, &adcb_mixer),
 
-	SND_SOC_DAPM_OUTPUT("HPA"),
-	SND_SOC_DAPM_OUTPUT("HPB"),
-	SND_SOC_DAPM_OUTPUT("SPKA"),
-	SND_SOC_DAPM_OUTPUT("SPKB"),
+	SND_SOC_DAPM_MUX("Output Mux", SND_SOC_NOPM,
+			 0, 0, &digital_output_mux),
+
+	SND_SOC_DAPM_PGA("PGA MICA", CS42L52_PWRCTL2, 1, 1, NULL, 0),
+	SND_SOC_DAPM_PGA("PGA MICB", CS42L52_PWRCTL2, 2, 1, NULL, 0),
+
+	SND_SOC_DAPM_SUPPLY("Mic Bias", CS42L52_PWRCTL2, 0, 1, NULL, 0),
+	SND_SOC_DAPM_SUPPLY("Charge Pump", CS42L52_PWRCTL1, 7, 1, NULL, 0),
+
+	SND_SOC_DAPM_AIF_IN("AIFINL", NULL,  0,
+			SND_SOC_NOPM, 0, 0),
+	SND_SOC_DAPM_AIF_IN("AIFINR", NULL,  0,
+			SND_SOC_NOPM, 0, 0),
+
+	SND_SOC_DAPM_DAC("DAC Left", NULL, SND_SOC_NOPM, 0, 0),
+	SND_SOC_DAPM_DAC("DAC Right", NULL, SND_SOC_NOPM, 0, 0),
+
+	SND_SOC_DAPM_SWITCH("Bypass Left", CS42L52_MISC_CTL,
+			    6, 0, &passthrul_ctl),
+	SND_SOC_DAPM_SWITCH("Bypass Right", CS42L52_MISC_CTL,
+			    7, 0, &passthrur_ctl),
+
+	SND_SOC_DAPM_MUX("PCM Left Swap", SND_SOC_NOPM,
+			 0, 0, &pcma_mixer),
+	SND_SOC_DAPM_MUX("PCM Right Swap", SND_SOC_NOPM,
+			 0, 0, &pcmb_mixer),
+
+	SND_SOC_DAPM_SWITCH("HP Left Amp", SND_SOC_NOPM, 0, 0, &hpl_ctl),
+	SND_SOC_DAPM_SWITCH("HP Right Amp", SND_SOC_NOPM, 0, 0, &hpr_ctl),
+
+	SND_SOC_DAPM_SWITCH("SPK Left Amp", SND_SOC_NOPM, 0, 0, &spkl_ctl),
+	SND_SOC_DAPM_SWITCH("SPK Right Amp", SND_SOC_NOPM, 0, 0, &spkr_ctl),
+
+	SND_SOC_DAPM_OUTPUT("HPOUTA"),
+	SND_SOC_DAPM_OUTPUT("HPOUTB"),
+	SND_SOC_DAPM_OUTPUT("SPKOUTA"),
+	SND_SOC_DAPM_OUTPUT("SPKOUTB"),
 };
 
 static const struct snd_soc_dapm_route cs42l52_audio_map[] = {
-	/* adc select path */
-	{"ADC Left", "AIN1", "INPUT1A"},
-	{"ADC Right", "AIN1", "INPUT1B"},
-	{"ADC Left", "AIN2", "INPUT2A"},
-	{"ADC Right", "AIN2", "INPUT2B"},
-	{"ADC Left", "AIN3", "INPUT3A"},
-	{"ADC Right", "AIN3", "INPUT3B"},
-	{"ADC Left", "AIN4", "INPUT4A"},
-	{"ADC Right", "AIN4", "INPUT4B"},
+	//{"Capture", NULL, "AIFOUTL"},
+	//{"Capture", NULL, "AIFOUTL"},
 
-	/* left capture part */
-	{"AIN1A Switch", NULL, "INPUT1A"},
-	{"AIN2A Switch", NULL, "INPUT2A"},
-	{"AIN3A Switch", NULL, "INPUT3A"},
-	{"AIN4A Switch", NULL, "INPUT4A"},
-	{"MICA Switch",  NULL, "MICA"},
-	{"PGA MICA", NULL, "MICA Switch"},
+	{"AIFOUTL", NULL, "Output Mux"},
+	{"AIFOUTR", NULL, "Output Mux"},
 
-	{"PGA Left", NULL, "AIN1A Switch"},
-	{"PGA Left", NULL, "AIN2A Switch"},
-	{"PGA Left", NULL, "AIN3A Switch"},
-	{"PGA Left", NULL, "AIN4A Switch"},
-	{"PGA Left", NULL, "PGA MICA"},
+	{"Output Mux", "ADC", "ADC Left"},
+	{"Output Mux", "ADC", "ADC Right"},
 
-	/* right capture part */
-	{"AIN1B Switch", NULL, "INPUT1B"},
-	{"AIN2B Switch", NULL, "INPUT2B"},
-	{"AIN3B Switch", NULL, "INPUT3B"},
-	{"AIN4B Switch", NULL, "INPUT4B"},
-	{"MICB Switch",  NULL, "MICB"},
-	{"PGA MICB", NULL, "MICB Switch"},
+	{"ADC Left", NULL, "Charge Pump"},
+	{"ADC Right", NULL, "Charge Pump"},
 
-	{"PGA Right", NULL, "AIN1B Switch"},
-	{"PGA Right", NULL, "AIN2B Switch"},
-	{"PGA Right", NULL, "AIN3B Switch"},
-	{"PGA Right", NULL, "AIN4B Switch"},
-	{"PGA Right", NULL, "PGA MICB"},
+	{"Charge Pump", NULL, "ADC Left Mux"},
+	{"Charge Pump", NULL, "ADC Right Mux"},
 
-	{"ADC Mux Left", "PGA", "PGA Left"},
-	{"ADC Mux Right", "PGA", "PGA Right"},
-	{"ADC Left", NULL, "ADC Mux Left"},
-	{"ADC Right", NULL, "ADC Mux Right"},
+	{"ADC Left Mux", "Input1A", "AIN1L"},
+	{"ADC Right Mux", "Input1B", "AIN1R"},
+	{"ADC Left Mux", "Input2A", "AIN2L"},
+	{"ADC Right Mux", "Input2B", "AIN2R"},
+	{"ADC Left Mux", "Input3A", "AIN3L"},
+	{"ADC Right Mux", "Input3B", "AIN3R"},
+	{"ADC Left Mux", "Input4A", "AIN4L"},
+	{"ADC Right Mux", "Input4B", "AIN4R"},
+	{"ADC Left Mux", "PGA Input Left", "PGA Left"},
+	{"ADC Right Mux", "PGA Input Right" , "PGA Right"},
 
-/* Output map */
-	/* Headphone */
-	{"HP Amp Left",  NULL, "Passthrough Left"},
-	{"HP Amp Right", NULL, "Passthrough Right"},
-	{"HPA", NULL, "HP Amp Left"},
-	{"HPB", NULL, "HP Amp Right"},
+	{"PGA Left", "Switch", "AIN1L"},
+	{"PGA Right", "Switch", "AIN1R"},
+	{"PGA Left", "Switch", "AIN2L"},
+	{"PGA Right", "Switch", "AIN2R"},
+	{"PGA Left", "Switch", "AIN3L"},
+	{"PGA Right", "Switch", "AIN3R"},
+	{"PGA Left", "Switch", "AIN4L"},
+	{"PGA Right", "Switch", "AIN4R"},
 
-	/* Speakers */
-	{"SPK Pwr Left",  NULL, "DAC Left"},
-	{"SPK Pwr Right", NULL, "DAC Right"},
-	{"SPKA", NULL, "SPK Pwr Left"},
-	{"SPKB", NULL, "SPK Pwr Right"},
+	{"PGA Left", "Switch", "PGA MICA"},
+	{"PGA MICA", NULL, "MICA"},
+
+	{"PGA Right", "Switch", "PGA MICB"},
+	{"PGA MICB", NULL, "MICB"},
+
+	{"HPOUTA", NULL, "HP Left Amp"},
+	{"HPOUTB", NULL, "HP Right Amp"},
+	{"HP Left Amp", NULL, "Bypass Left"},
+	{"HP Right Amp", NULL, "Bypass Right"},
+	{"Bypass Left", "Switch", "PGA Left"},
+	{"Bypass Right", "Switch", "PGA Right"},
+	{"HP Left Amp", "Switch", "DAC Left"},
+	{"HP Right Amp", "Switch", "DAC Right"},
+
+	{"SPKOUTA", NULL, "SPK Left Amp"},
+	{"SPKOUTB", NULL, "SPK Right Amp"},
+
+	//{"SPK Left Amp", NULL, "Beep"},
+	//{"SPK Right Amp", NULL, "Beep"},
+	{"SPK Left Amp", "Switch", "Playback"},
+	{"SPK Right Amp", "Switch", "Playback"},
+
+	//{"DAC Left", NULL, "Beep"},
+	//{"DAC Right", NULL, "Beep"},
+	{"DAC Left", NULL, "Playback"},
+	{"DAC Right", NULL, "Playback"},
+
+	{"Output Mux", "DSP", "Playback"},
+	{"Output Mux", "DSP", "Playback"},
+
+	{"AIFINL", NULL, "Playback"},
+	{"AIFINR", NULL, "Playback"},
 };
 
 static int cs42l52_add_widgets(struct snd_soc_codec *codec)
@@ -557,18 +591,6 @@ static int cs42l52_add_widgets(struct snd_soc_codec *codec)
 	return 0;
 }
 
-#define SOC_CS42L52_RATES (SNDRV_PCM_RATE_8000  | SNDRV_PCM_RATE_11025 | \
-			SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_22050 | \
-			SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 | \
-			SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_88200 | \
-			SNDRV_PCM_RATE_96000) /*refer to cs42l52 datasheet page35*/
-
-#define SOC_CS42L52_FORMATS (SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_U16_LE | \
-			SNDRV_PCM_FMTBIT_S18_3LE | SNDRV_PCM_FMTBIT_U18_3LE | \
-			SNDRV_PCM_FMTBIT_S20_3LE | SNDRV_PCM_FMTBIT_U20_3LE | \
-			SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_U24_LE)
-
-
 struct cs42l52_clk_para {
 	u32 mclk;
 	u32 rate;
@@ -581,54 +603,54 @@ struct cs42l52_clk_para {
 
 static const struct cs42l52_clk_para clk_map_table[] = {
 	/*8k*/
-	{12288000, 8000, CLK_CTL_S_QS_MODE, CLK_CTL_32K_SR, CLK_CTL_NOT_27M, CLK_CTL_RATIO_128, 0},
-	{18432000, 8000, CLK_CTL_S_QS_MODE, CLK_CTL_32K_SR, CLK_CTL_NOT_27M, CLK_CTL_RATIO_128, 0},
-	{12000000, 8000, CLK_CTL_S_QS_MODE, CLK_CTL_32K_SR, CLK_CTL_NOT_27M, CLK_CTL_RATIO_125, 0},
-	{24000000, 8000, CLK_CTL_S_QS_MODE, CLK_CTL_32K_SR, CLK_CTL_NOT_27M, CLK_CTL_RATIO_125, 1},
-	{27000000, 8000, CLK_CTL_S_QS_MODE, CLK_CTL_32K_SR, CLK_CTL_27M_MCLK, CLK_CTL_RATIO_125, 0}, /*4*/
+	{12288000, 8000, CLK_QS_MODE, CLK_32K, CLK_NO_27M, CLK_R_128, 0},
+	{18432000, 8000, CLK_QS_MODE, CLK_32K, CLK_NO_27M, CLK_R_128, 0},
+	{12000000, 8000, CLK_QS_MODE, CLK_32K, CLK_NO_27M, CLK_R_125, 0},
+	{24000000, 8000, CLK_QS_MODE, CLK_32K, CLK_NO_27M, CLK_R_125, 1},
+	{27000000, 8000, CLK_QS_MODE, CLK_32K, CLK_27M_MCLK, CLK_R_125, 0},
 
 	/*11.025k*/
-	{11289600, 11025, CLK_CTL_S_QS_MODE, CLK_CTL_NOT_32K, CLK_CTL_NOT_27M, CLK_CTL_RATIO_128, 0},
-	{16934400, 11025, CLK_CTL_S_QS_MODE, CLK_CTL_NOT_32K, CLK_CTL_NOT_27M, CLK_CTL_RATIO_128, 0},
+	{11289600, 11025, CLK_QS_MODE, CLK_NO_32K, CLK_NO_27M, CLK_R_128, 0},
+	{16934400, 11025, CLK_QS_MODE, CLK_NO_32K, CLK_NO_27M, CLK_R_128, 0},
 
 	/*16k*/
-	{12288000, 16000, CLK_CTL_S_HS_MODE, CLK_CTL_32K_SR, CLK_CTL_NOT_27M, CLK_CTL_RATIO_128, 0},
-	{18432000, 16000, CLK_CTL_S_HS_MODE, CLK_CTL_32K_SR, CLK_CTL_NOT_27M, CLK_CTL_RATIO_128, 0},
-	{12000000, 16000, CLK_CTL_S_HS_MODE, CLK_CTL_32K_SR, CLK_CTL_NOT_27M, CLK_CTL_RATIO_125, 0},/*9*/
-	{24000000, 16000, CLK_CTL_S_HS_MODE, CLK_CTL_32K_SR, CLK_CTL_NOT_27M, CLK_CTL_RATIO_125, 1},
-	{27000000, 16000, CLK_CTL_S_HS_MODE, CLK_CTL_32K_SR, CLK_CTL_27M_MCLK, CLK_CTL_RATIO_125, 1},
+	{12288000, 16000, CLK_HS_MODE, CLK_32K, CLK_NO_27M, CLK_R_128, 0},
+	{18432000, 16000, CLK_HS_MODE, CLK_32K, CLK_NO_27M, CLK_R_128, 0},
+	{12000000, 16000, CLK_HS_MODE, CLK_32K, CLK_NO_27M, CLK_R_125, 0},
+	{24000000, 16000, CLK_HS_MODE, CLK_32K, CLK_NO_27M, CLK_R_125, 1},
+	{27000000, 16000, CLK_HS_MODE, CLK_32K, CLK_27M_MCLK, CLK_R_125, 1},
 
 	/*22.05k*/
-	{11289600, 22050, CLK_CTL_S_HS_MODE, CLK_CTL_NOT_32K, CLK_CTL_NOT_27M, CLK_CTL_RATIO_128, 0},
-	{16934400, 22050, CLK_CTL_S_HS_MODE, CLK_CTL_NOT_32K, CLK_CTL_NOT_27M, CLK_CTL_RATIO_128, 0},
+	{11289600, 22050, CLK_HS_MODE, CLK_NO_32K, CLK_NO_27M, CLK_R_128, 0},
+	{16934400, 22050, CLK_HS_MODE, CLK_NO_32K, CLK_NO_27M, CLK_R_128, 0},
 
 	/* 32k */
-	{12288000, 32000, CLK_CTL_S_SS_MODE, CLK_CTL_32K_SR, CLK_CTL_NOT_27M, CLK_CTL_RATIO_128, 0},/*14*/
-	{18432000, 32000, CLK_CTL_S_SS_MODE, CLK_CTL_32K_SR, CLK_CTL_NOT_27M, CLK_CTL_RATIO_128, 0},
-	{12000000, 32000, CLK_CTL_S_SS_MODE, CLK_CTL_32K_SR, CLK_CTL_NOT_27M, CLK_CTL_RATIO_125, 0},
-	{24000000, 32000, CLK_CTL_S_SS_MODE, CLK_CTL_32K_SR, CLK_CTL_NOT_27M, CLK_CTL_RATIO_125, 1},
-	{27000000, 32000, CLK_CTL_S_SS_MODE, CLK_CTL_32K_SR, CLK_CTL_27M_MCLK, CLK_CTL_RATIO_125, 0},
+	{12288000, 32000, CLK_SS_MODE, CLK_32K, CLK_NO_27M, CLK_R_128, 0},
+	{18432000, 32000, CLK_SS_MODE, CLK_32K, CLK_NO_27M, CLK_R_128, 0},
+	{12000000, 32000, CLK_SS_MODE, CLK_32K, CLK_NO_27M, CLK_R_125, 0},
+	{24000000, 32000, CLK_SS_MODE, CLK_32K, CLK_NO_27M, CLK_R_125, 1},
+	{27000000, 32000, CLK_SS_MODE, CLK_32K, CLK_27M_MCLK, CLK_R_125, 0},
 
 	/* 44.1k */
-	{11289600, 44100, CLK_CTL_S_SS_MODE, CLK_CTL_NOT_32K, CLK_CTL_NOT_27M, CLK_CTL_RATIO_128, 0},/*19*/
-	{16934400, 44100, CLK_CTL_S_SS_MODE, CLK_CTL_NOT_32K, CLK_CTL_NOT_27M, CLK_CTL_RATIO_128, 0},
+	{11289600, 44100, CLK_SS_MODE, CLK_NO_32K, CLK_NO_27M, CLK_R_128, 0},
+	{16934400, 44100, CLK_SS_MODE, CLK_NO_32K, CLK_NO_27M, CLK_R_128, 0},
 
 	/* 48k */
-	{12288000, 48000, CLK_CTL_S_SS_MODE, CLK_CTL_NOT_32K, CLK_CTL_NOT_27M, CLK_CTL_RATIO_128, 0},
-	{18432000, 48000, CLK_CTL_S_SS_MODE, CLK_CTL_NOT_32K, CLK_CTL_NOT_27M, CLK_CTL_RATIO_128, 0},
-	{12000000, 48000, CLK_CTL_S_SS_MODE, CLK_CTL_NOT_32K, CLK_CTL_NOT_27M, CLK_CTL_RATIO_125, 0},
-	{24000000, 48000, CLK_CTL_S_SS_MODE, CLK_CTL_NOT_32K, CLK_CTL_NOT_27M, CLK_CTL_RATIO_125, 1},/*24*/
-	{27000000, 48000, CLK_CTL_S_SS_MODE, CLK_CTL_NOT_32K, CLK_CTL_27M_MCLK, CLK_CTL_RATIO_125, 1},
+	{12288000, 48000, CLK_SS_MODE, CLK_NO_32K, CLK_NO_27M, CLK_R_128, 0},
+	{18432000, 48000, CLK_SS_MODE, CLK_NO_32K, CLK_NO_27M, CLK_R_128, 0},
+	{12000000, 48000, CLK_SS_MODE, CLK_NO_32K, CLK_NO_27M, CLK_R_125, 0},
+	{24000000, 48000, CLK_SS_MODE, CLK_NO_32K, CLK_NO_27M, CLK_R_125, 1},
+	{27000000, 48000, CLK_SS_MODE, CLK_NO_32K, CLK_27M_MCLK, CLK_R_125, 1},
 
 	/* 88.2k */
-	{11289600, 88200, CLK_CTL_S_DS_MODE, CLK_CTL_NOT_32K, CLK_CTL_NOT_27M, CLK_CTL_RATIO_128, 0},
-	{16934400, 88200, CLK_CTL_S_DS_MODE, CLK_CTL_NOT_32K, CLK_CTL_NOT_27M, CLK_CTL_RATIO_128, 0},
+	{11289600, 88200, CLK_DS_MODE, CLK_NO_32K, CLK_NO_27M, CLK_R_128, 0},
+	{16934400, 88200, CLK_DS_MODE, CLK_NO_32K, CLK_NO_27M, CLK_R_128, 0},
 
 	/* 96k */
-	{12288000, 96000, CLK_CTL_S_DS_MODE, CLK_CTL_NOT_32K, CLK_CTL_NOT_27M, CLK_CTL_RATIO_128, 0},
-	{18432000, 96000, CLK_CTL_S_DS_MODE, CLK_CTL_NOT_32K, CLK_CTL_NOT_27M, CLK_CTL_RATIO_128, 0},/*29*/
-	{12000000, 96000, CLK_CTL_S_DS_MODE, CLK_CTL_NOT_32K, CLK_CTL_NOT_27M, CLK_CTL_RATIO_125, 0},
-	{24000000, 96000, CLK_CTL_S_DS_MODE, CLK_CTL_NOT_32K, CLK_CTL_NOT_27M, CLK_CTL_RATIO_125, 1},
+	{12288000, 96000, CLK_DS_MODE, CLK_NO_32K, CLK_NO_27M, CLK_R_128, 0},
+	{18432000, 96000, CLK_DS_MODE, CLK_NO_32K, CLK_NO_27M, CLK_R_128, 0},
+	{12000000, 96000, CLK_DS_MODE, CLK_NO_32K, CLK_NO_27M, CLK_R_125, 0},
+	{24000000, 96000, CLK_DS_MODE, CLK_NO_32K, CLK_NO_27M, CLK_R_125, 1},
 };
 
 static int cs42l52_get_clk(int mclk, int rate)
@@ -659,7 +681,6 @@ static int cs42l52_set_sysclk(struct snd_soc_dai *codec_dai,
 
 	if ((freq >= CS42L52_MIN_CLK) && (freq <= CS42L52_MAX_CLK)) {
 		info->sysclk = freq;
-		dev_info(codec->dev, "sysclk %d\n", info->sysclk);
 	} else {
 		dev_err(codec->dev, "invalid paramter\n");
 		return -EINVAL;
@@ -670,81 +691,75 @@ static int cs42l52_set_sysclk(struct snd_soc_dai *codec_dai,
 static int cs42l52_set_fmt(struct snd_soc_dai *codec_dai, unsigned int fmt)
 {
 	struct snd_soc_codec *codec = codec_dai->codec;
-	struct cs42l52_private *priv = snd_soc_codec_get_drvdata(codec);
-	int ret = 0;
+	struct cs42l52_private *cs42l52 = snd_soc_codec_get_drvdata(codec);
 	u8 iface = 0;
 
-	dev_info(codec->dev, "Enter soc_cs42l52_set_fmt\n");
-	/* set master/slave audio interface */
 	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
-
 	case SND_SOC_DAIFMT_CBM_CFM:
-		dev_info(codec->dev, "codec dai fmt master\n");
-		iface = IFACE_CTL1_MASTER;
+		iface = CS42L52_IFACE_CTL1_MASTER;
 		break;
 	case SND_SOC_DAIFMT_CBS_CFS:
-		dev_info(codec->dev, "codec dai fmt slave\n");
+		iface = CS42L52_IFACE_CTL1_SLAVE;
 		break;
 	default:
-		dev_err(codec->dev, "invaild formate\n");
 		return -EINVAL;
 	}
 
 	 /* interface format */
 	switch (fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
-
 	case SND_SOC_DAIFMT_I2S:
-		iface |= (IFACE_CTL1_ADC_FMT_I2S | IFACE_CTL1_DAC_FMT_I2S);
+		iface |= CS42L52_IFACE_CTL1_ADC_FMT_I2S |
+				CS42L52_IFACE_CTL1_DAC_FMT_I2S;
 		break;
 	case SND_SOC_DAIFMT_RIGHT_J:
-		iface |= IFACE_CTL1_DAC_FMT_RIGHT_J;
+		iface |= CS42L52_IFACE_CTL1_DAC_FMT_RIGHT_J;
 		break;
 	case SND_SOC_DAIFMT_LEFT_J:
-		iface |= (IFACE_CTL1_ADC_FMT_LEFT_J | IFACE_CTL1_DAC_FMT_LEFT_J);
+		iface |= CS42L52_IFACE_CTL1_ADC_FMT_LEFT_J |
+				CS42L52_IFACE_CTL1_DAC_FMT_LEFT_J;
 		break;
 	case SND_SOC_DAIFMT_DSP_A:
-		iface |= IFACE_CTL1_DSP_MODE_EN;
+		iface |= CS42L52_IFACE_CTL1_DSP_MODE_EN;
 		break;
 	case SND_SOC_DAIFMT_DSP_B:
-		dev_err(codec->dev, "unsupported format\n");
-		return -EINVAL;
+		break;
 	default:
-		dev_err(codec->dev, "invaild format\n");
 		return -EINVAL;
 	}
 
 	/* clock inversion */
-	switch (fmt & SND_SOC_DAIFMT_INV_MASK) { /*tonyliu*/
-
+	switch (fmt & SND_SOC_DAIFMT_INV_MASK) {
 	case SND_SOC_DAIFMT_NB_NF:
 		break;
 	case SND_SOC_DAIFMT_IB_IF:
-		iface |= IFACE_CTL1_INV_SCLK;
+		iface |= CS42L52_IFACE_CTL1_INV_SCLK;
 		break;
 	case SND_SOC_DAIFMT_IB_NF:
-		iface |= IFACE_CTL1_INV_SCLK;
+		iface |= CS42L52_IFACE_CTL1_INV_SCLK;
 		break;
 	case SND_SOC_DAIFMT_NB_IF:
 		break;
 	default:
-		dev_err(codec->dev, "unsupported format\n");
-		ret = -EINVAL;
+		return -EINVAL;
 	}
-
-	priv->config.format = iface;
+	cs42l52->config.format = iface;
+	snd_soc_write(codec, CS42L52_IFACE_CTL1, cs42l52->config.format);
 
 	return 0;
 }
 
 static int cs42l52_digital_mute(struct snd_soc_dai *dai, int mute)
 {
-	struct snd_soc_codec *soc_codec = dai->codec;
-	u8 mute_val = snd_soc_read(soc_codec, PB_CTL1) & PB_CTL1_MUTE_MASK;
+	struct snd_soc_codec *codec = dai->codec;
 
 	if (mute)
-		snd_soc_write(soc_codec, PB_CTL1, mute_val | PB_CTL1_MSTB_MUTE | PB_CTL1_MSTA_MUTE);
+		snd_soc_update_bits(codec, CS42L52_PB_CTL1,
+				    CS42L52_PB_CTL1_MUTE_MASK,
+				CS42L52_PB_CTL1_MUTE);
 	else
-		snd_soc_write(soc_codec, PB_CTL1, mute_val);
+		snd_soc_update_bits(codec, CS42L52_PB_CTL1,
+				    CS42L52_PB_CTL1_MUTE_MASK,
+				CS42L52_PB_CTL1_UNMUTE);
 
 	return 0;
 }
@@ -762,18 +777,16 @@ static int cs42l52_pcm_hw_params(struct snd_pcm_substream *substream,
 
 	if (index >= 0) {
 		priv->sysclk = clk_map_table[index].mclk;
-		clk |= (clk_map_table[index].speed << CLK_CTL_SPEED_SHIFT) |
-		      (clk_map_table[index].group << CLK_CTL_32K_SR_SHIFT) |
-		      (clk_map_table[index].videoclk << CLK_CTL_27M_MCLK_SHIFT) |
-		      (clk_map_table[index].ratio << CLK_CTL_RATIO_SHIFT) |
+		clk |= (clk_map_table[index].speed << CLK_SPEED_SHIFT) |
+		      (clk_map_table[index].group << CLK_32K_SR_SHIFT) |
+		      (clk_map_table[index].videoclk << CLK_27M_MCLK_SHIFT) |
+		      (clk_map_table[index].ratio << CLK_RATIO_SHIFT) |
 		      clk_map_table[index].mclkdiv2;
 #ifdef CONFIG_MANUAL_CLK
-		snd_soc_write(codec, CLK_CTL, clk);
+		snd_soc_write(codec, CS42L52_CLK_CTL, clk);
 #else
-		snd_soc_write(codec, CLK_CTL, 0xa0);
+		snd_soc_write(codec, CS42L52_CLK_CTL, 0xa0);
 #endif
-		snd_soc_write(codec, IFACE_CTL1, priv->config.format);
-
 	} else {
 		dev_err(codec->dev, "can't find out right mclk\n");
 		return -EINVAL;
@@ -785,23 +798,23 @@ static int cs42l52_pcm_hw_params(struct snd_pcm_substream *substream,
 static int cs42l52_set_bias_level(struct snd_soc_codec *codec,
 					enum snd_soc_bias_level level)
 {
-	u8 pwrctl1 = snd_soc_read(codec, PWRCTL1) & 0x9f;
-	u8 pwrctl2 = snd_soc_read(codec, PWRCTL2) & 0x07;
+	u8 pwrctl1 = snd_soc_read(codec, CS42L52_PWRCTL1) & 0x9f;
+	u8 pwrctl2 = snd_soc_read(codec, CS42L52_PWRCTL2) & 0x07;
 
 	switch (level) {
 	case SND_SOC_BIAS_ON: /* full On */
 		break;
 	case SND_SOC_BIAS_PREPARE: /* partial On */
-		pwrctl1 &= ~(PWRCTL1_PDN_CHRG | PWRCTL1_PDN_CODEC);
-		snd_soc_write(codec, PWRCTL1, pwrctl1);
+		pwrctl1 &= ~(CS42L52_PWRCTL1_PDN_CHRG | CS42L52_PWRCTL1_PDN_CODEC);
+		snd_soc_write(codec, CS42L52_PWRCTL1, pwrctl1);
 		break;
 	case SND_SOC_BIAS_STANDBY: /* Off, with power */
-		pwrctl1 &= ~(PWRCTL1_PDN_CHRG | PWRCTL1_PDN_CODEC);
-		snd_soc_write(codec, PWRCTL1, pwrctl1);
+		pwrctl1 &= ~(CS42L52_PWRCTL1_PDN_CHRG | CS42L52_PWRCTL1_PDN_CODEC);
+		snd_soc_write(codec, CS42L52_PWRCTL1, pwrctl1);
 		break;
 	case SND_SOC_BIAS_OFF: /* Off, without power */
-		snd_soc_write(codec, PWRCTL1, pwrctl1 | 0x9f);
-		snd_soc_write(codec, PWRCTL2, pwrctl2 | 0x07);
+		snd_soc_write(codec, CS42L52_PWRCTL1, pwrctl1 | 0x9f);
+		snd_soc_write(codec, CS42L52_PWRCTL2, pwrctl2 | 0x07);
 		break;
 	}
 	codec->dapm.bias_level = level;
@@ -845,6 +858,7 @@ struct snd_soc_dai_driver cs42l52_dai = {
 			.formats = CS42L52_FORMATS,
 		},
 		.ops = &cs42l52_ops,
+		.symmetric_rates = 1,
 };
 
 static int cs42l52_suspend(struct snd_soc_codec *codec, pm_message_t state)
@@ -859,7 +873,7 @@ static int cs42l52_resume(struct snd_soc_codec *codec)
 	u8 *cache = codec->reg_cache;
 
 	/* Sync reg_cache with the hardware */
-	for (i = PWRCTL1; i < ARRAY_SIZE(cs42l52_reg); i++)
+	for (i = CS42L52_PWRCTL1; i < ARRAY_SIZE(cs42l52_reg); i++)
 		snd_soc_write(codec, i, cache[i]);
 
 	cs42l52_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
@@ -915,11 +929,46 @@ static int cs42l52_probe(struct snd_soc_codec *codec)
 	info->flags &= ~(CS42L52_CHIP_SWICTH);
 	info->flags |= CS42L52_ALL_IN_ONE;
 
+	snd_soc_update_bits(codec, CS42L52_MICA_CTL,
+			    CS42L52_MIC_CTL_TYPE_MASK,
+			    0 << CS42L52_MIC_CTL_TYPE_SHIFT);
+
+	snd_soc_update_bits(codec, CS42L52_MICB_CTL,
+			    CS42L52_MIC_CTL_TYPE_MASK,
+			    0 << CS42L52_MIC_CTL_TYPE_SHIFT);
+
+	 snd_soc_update_bits(codec, CS42L52_MICA_CTL,
+			    CS42L52_MIC_CTL_MIC_SEL_MASK,
+			    1 << CS42L52_MIC_CTL_MIC_SEL_SHIFT);
+
+	 snd_soc_update_bits(codec, CS42L52_MICB_CTL,
+			    CS42L52_MIC_CTL_MIC_SEL_MASK,
+			    1 << CS42L52_MIC_CTL_MIC_SEL_SHIFT);
+
 	/*init done*/
 	snd_soc_add_controls(codec, cs42l52_snd_controls,
 			     ARRAY_SIZE(cs42l52_snd_controls));
 
-	cs42l52_add_widgets(codec);
+	//cs42l52_add_widgets(codec);
+
+	u8 pwrctl1 = snd_soc_read(codec, CS42L52_PWRCTL1);
+	snd_soc_write(codec, CS42L52_PWRCTL2, 0x00);
+	u8 pwrctl2 = snd_soc_read(codec, CS42L52_PWRCTL2);
+	snd_soc_write(codec, CS42L52_IFACE_CTL2, 0x02);
+	u8 ifacectrl2 = snd_soc_read(codec, CS42L52_IFACE_CTL2);
+	snd_soc_write(codec, CS42L52_MICA_CTL, 0x4F);
+	snd_soc_write(codec, CS42L52_MICB_CTL, 0x4F);
+	u8 micactrl = snd_soc_read(codec, CS42L52_MICA_CTL);
+	u8 micbctrl = snd_soc_read(codec, CS42L52_MICB_CTL);
+	snd_soc_write(codec, CS42L52_ADC_PGA_A, 0x90);
+	snd_soc_write(codec, CS42L52_ADC_PGA_B, 0x90);
+	u8 pgaa = snd_soc_read(codec, CS42L52_ADC_PGA_A);
+	u8 pgab = snd_soc_read(codec, CS42L52_ADC_PGA_B);
+	u8 misc = snd_soc_read(codec, CS42L52_MISC_CTL);
+	//snd_soc_write(codec, CS42L52_MISC_CTL, misc | 0xC0);
+	//misc = snd_soc_read(codec, CS42L52_MISC_CTL);
+	u8 pwrctl3 = snd_soc_read(codec, CS42L52_PWRCTL3);
+	snd_soc_write(codec, CS42L52_PWRCTL3, 0xAA);
 
 	return 0;
 }
