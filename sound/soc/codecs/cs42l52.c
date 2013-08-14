@@ -31,6 +31,18 @@
 
 #include "cs42l52.h"
 
+#define SOC_SINGLE_EXT_SX_TLV(xname, xreg, xshift, \
+	xmin, xmax, xhandler_info, xhandler_get, xhandler_put, tlv_array) \
+{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = (xname), \
+	.access = SNDRV_CTL_ELEM_ACCESS_TLV_READ | \
+		SNDRV_CTL_ELEM_ACCESS_READWRITE, \
+	.tlv.p = (tlv_array), \
+	.info = xhandler_info, \
+	.get = xhandler_get, .put = xhandler_put, \
+	.private_value = (unsigned long)&(struct soc_mixer_control) \
+		{.reg = xreg, .shift = xshift, \
+		.min = xmin, .max = xmax} }
+
 struct sp_config {
 	u8 spc, format, spfs;
 	u32 srate;
@@ -48,6 +60,19 @@ struct  cs42l52_private {
 	u8 flags;
 	struct sp_config config;
 };
+
+/* info/get/put callbacks because the kernel doesn't seem to 
+   know how to handle variable ranges for mixers on 
+   single registers (but two registers it can do...) */
+
+static int cs42l52_snd_soc_info_volsw_sx(struct snd_kcontrol *kcontrol, 
+	struct snd_ctl_elem_info *uinfo);
+
+static int cs42l52_snd_soc_get_volsw_sx(struct snd_kcontrol *kcontrol, 
+	struct snd_ctl_elem_value *ucontrol);
+
+static int cs42l52_snd_soc_put_volsw_sx(struct snd_kcontrol *kcontrol, 
+	struct snd_ctl_elem_value *ucontrol);
 
 /*
  * CS42L52 register default value
@@ -71,7 +96,7 @@ static const u8 cs42l52_reg[] = {
 
 static DECLARE_TLV_DB_SCALE(hl_tlv, -10200, 50, 0);
 
-static DECLARE_TLV_DB_SCALE(hpd_tlv, -9600, 50, 1);
+static DECLARE_TLV_DB_SCALE(hpd_tlv, -9600, 50, 0);
 
 static DECLARE_TLV_DB_SCALE(ipd_tlv, -9600, 100, 0);
 
@@ -79,13 +104,27 @@ static DECLARE_TLV_DB_SCALE(mic_tlv, 1600, 100, 0);
 
 static DECLARE_TLV_DB_SCALE(pga_tlv, -600, 50, 0);
 
-static DECLARE_TLV_DB_SCALE(mix_tlv, -50, 50, 0);
+static DECLARE_TLV_DB_SCALE(pass_tlv, -6000, 50, 0);
+
+static DECLARE_TLV_DB_SCALE(beep_tlv, -5600, 200, 0);
+
+static DECLARE_TLV_DB_SCALE(mix_tlv, -5150, 50, 0);
+
+static DECLARE_TLV_DB_SCALE(tbg_tlv, -1050, 150, 0);
 
 static const unsigned int limiter_tlv[] = {
 	TLV_DB_RANGE_HEAD(2),
 	0, 2, TLV_DB_SCALE_ITEM(-3000, 600, 0),
 	3, 7, TLV_DB_SCALE_ITEM(-1200, 300, 0),
 };
+
+static const char * cs42l52_pdn_adc_mic[] = {
+	"Internal + External Microphone", "External Microphone", "Internal Microphone", "None"
+};
+
+static const struct soc_enum pdn_adc_mic = 
+	SOC_ENUM_SINGLE(CS42L52_PWRCTL1, 1, 
+		ARRAY_SIZE(cs42l52_pdn_adc_mic), cs42l52_pdn_adc_mic);
 
 static const char * cs42l52_adca_text[] = {
 	"Input1A", "Input2A", "Input3A", "Input4A", "PGA Input Left"};
@@ -240,8 +279,27 @@ static const char * cs42l52_ng_type_text[] = {
 };
 
 static const struct soc_enum ng_type_enum =
-	SOC_ENUM_SINGLE(CS42L52_NOISE_GATE_CTL, 6,
+	SOC_ENUM_SINGLE(CS42L52_NOISE_GATE_CTL, 7, 
 		ARRAY_SIZE(cs42l52_ng_type_text), cs42l52_ng_type_text);
+
+static const char * cs42l52_limiter_type_text[] = {
+	"Apply Specific", "Apply All"
+};
+
+static const struct soc_enum limiter_type_enum =
+	SOC_ENUM_SINGLE(CS42L52_LIMITER_CTL2, 6, 
+	ARRAY_SIZE(cs42l52_limiter_type_text), cs42l52_limiter_type_text);
+
+static const char * cs42l52_vpref_text[] = {
+	"1.5V (1.8)", "2.0V (1.8)", "2.5V (1.8)", "3.0V (1.8)", 
+		"3.5V (1.8)", "4.0V (1.8)", "4.5V (1.8)", "5.0V (1.8)",
+	"1.5V (2.5)", "2.0V (2.5)", "2.5V (2.5)", "3.0V (2.5)", 
+		"3.5V (2.5)", "4.0V (2.5)", "4.5V (2.5)",  "5.0V (2.5)" 
+};
+
+static const struct soc_enum vpref_enum = 
+	SOC_ENUM_SINGLE(CS42L52_BATT_COMPEN, 0,
+	ARRAY_SIZE(cs42l52_vpref_text), cs42l52_vpref_text);
 
 static const char * left_swap_text[] = {
 	"Left", "LR 2", "Right"};
@@ -309,113 +367,135 @@ static const struct snd_kcontrol_new hpr_ctl =
 static const struct snd_kcontrol_new cs42l52_snd_controls[] = {
 
 	SOC_DOUBLE_R_SX_TLV("Master Volume", CS42L52_MASTERA_VOL,
-			      CS42L52_MASTERB_VOL, 0, 0x34, 0xE4, hl_tlv),
+		CS42L52_MASTERB_VOL, 8, 0x34, 0x118, hl_tlv),
 
+/*Data sheet for headphone contradicts itself, 
+		no guarantee the dB values are correct*/
 	SOC_DOUBLE_R_SX_TLV("Headphone Volume", CS42L52_HPA_VOL,
-			      CS42L52_HPB_VOL, 0, 0x34, 0xCC, hpd_tlv),
+		CS42L52_HPB_VOL, 8, 0x40, 0x100, hpd_tlv), 
 
 	SOC_ENUM("Headphone Analog Gain", hp_gain_enum),
 
+	SOC_DOUBLE("Headphone Mute", CS42L52_PB_CTL2, 6, 7, 1, 0),
+
+/*Data sheet contradicts extant TLV Scale, 
+		no guarantee the dB values are correct*/
 	SOC_DOUBLE_R_SX_TLV("Speaker Volume", CS42L52_SPKA_VOL,
-			      CS42L52_SPKB_VOL, 0, 0x1, 0xff, hl_tlv),
+			      CS42L52_SPKB_VOL, 8, 0x34, 0x100, hl_tlv), 
 
-	SOC_DOUBLE_R_SX_TLV("Bypass Volume", CS42L52_PASSTHRUA_VOL,
-			      CS42L52_PASSTHRUB_VOL, 6, 0x18, 0x90, pga_tlv),
+	SOC_DOUBLE("Speaker Mute", CS42L52_PB_CTL2, 4, 5, 1, 0),
 
-	SOC_DOUBLE("Bypass Mute", CS42L52_MISC_CTL, 4, 5, 1, 0),
+	SOC_DOUBLE_R_SX_TLV("Bypass Volume", CS42L52_PASSTHRUA_VOL, /* ? */
+			      CS42L52_PASSTHRUB_VOL, 8, 0x88, 0x118, pass_tlv),
 
+	SOC_DOUBLE("Bypass Mute", CS42L52_MISC_CTL, 4, 5, 1, 0), /* ? TODO */
+
+	SOC_ENUM("Mic Config", pdn_adc_mic),
+
+/* A white lie - this doesn't *exactly* match the datasheet*/
 	SOC_DOUBLE_R_TLV("MIC Gain Volume", CS42L52_MICA_CTL,
-			      CS42L52_MICB_CTL, 0, 0x10, 0, mic_tlv),
+			      CS42L52_MICB_CTL, 0, 0x10, 0, mic_tlv), 
 
-	SOC_ENUM("MIC Bias Level", mic_bias_level_enum),
+	SOC_ENUM("MIC Bias Level", mic_bias_level_enum), 
 	SOC_ENUM("MICA Top Mux", mica_enum),
 	SOC_ENUM("MICA Sel Mux", mica_sel_enum),
 	SOC_ENUM("MICB Top Mux", micb_enum),
 	SOC_ENUM("MICB Sel Mux", micb_sel_enum),
 
 	SOC_DOUBLE_R_SX_TLV("ADC Volume", CS42L52_ADCA_VOL,
-			      CS42L52_ADCB_VOL, 7, 0x80, 0xA0, ipd_tlv),
+			      CS42L52_ADCB_VOL, 8, 0xA0, 0x118, ipd_tlv),
 	SOC_DOUBLE_R_SX_TLV("ADC Mixer Volume",
+ /* TODO ipd_tlv has wrong range of values for control! */
 			     CS42L52_ADCA_MIXER_VOL, CS42L52_ADCB_MIXER_VOL,
-				6, 0x7f, 0x19, ipd_tlv),
+				7, 0x19, 0x98, ipd_tlv),
 
-	SOC_DOUBLE("ADC Switch", CS42L52_ADC_MISC_CTL, 0, 1, 1, 0),
+/* TODO showing as control but not simple mixer */
+	SOC_DOUBLE("ADC Switch", CS42L52_ADC_MISC_CTL, 0, 1, 1, 0), 
 
 	SOC_DOUBLE_R("ADC Mixer Switch", CS42L52_ADCA_MIXER_VOL,
 		     CS42L52_ADCB_MIXER_VOL, 7, 1, 1),
 
 	SOC_DOUBLE_R_SX_TLV("PGA Volume", CS42L52_PGAA_CTL,
-			    CS42L52_PGAB_CTL, 0, 0x28, 0x30, pga_tlv),
+			    CS42L52_PGAB_CTL, 6, 0x28, 0x58, pga_tlv),
 
 	SOC_DOUBLE_R_SX_TLV("PCM Mixer Volume",
 			    CS42L52_PCMA_MIXER_VOL, CS42L52_PCMB_MIXER_VOL,
-				0, 0x7f, 0x19, mix_tlv),
+				7, 0x19, 0x98, mix_tlv), 
 	SOC_DOUBLE_R("PCM Mixer Switch",
 		     CS42L52_PCMA_MIXER_VOL, CS42L52_PCMB_MIXER_VOL, 7, 1, 1),
 
-	SOC_ENUM("Beep Config", beep_config_enum),
+	/* Beep */
+/* TODO Slightly weird behavior when setting from alsamixer - 
+	Beep Multiple won't cancel Beep Continuous */
+	SOC_ENUM("Beep Config", beep_config_enum), 
 	SOC_ENUM("Beep Pitch", beep_pitch_enum),
 	SOC_ENUM("Beep on Time", beep_ontime_enum),
 	SOC_ENUM("Beep off Time", beep_offtime_enum),
-	SOC_SINGLE_TLV("Beep Volume", CS42L52_BEEP_VOL, 0, 0x1f, 0x07, hl_tlv),
+
+	SOC_SINGLE_EXT_SX_TLV("Beep Volume", CS42L52_BEEP_VOL, 5, 0x07, 0x26,
+		cs42l52_snd_soc_info_volsw_sx,
+		cs42l52_snd_soc_get_volsw_sx, 
+		cs42l52_snd_soc_put_volsw_sx,
+		beep_tlv),
 	SOC_SINGLE("Beep Mixer Switch", CS42L52_BEEP_TONE_CTL, 5, 1, 1),
 	SOC_ENUM("Beep Treble Corner Freq", beep_treble_enum),
 	SOC_ENUM("Beep Bass Corner Freq", beep_bass_enum),
+	SOC_SINGLE("Tone Control Switch", CS42L52_BEEP_TONE_CTL, 0, 1, 0),
 
-	SOC_SINGLE("Tone Control Switch", CS42L52_BEEP_TONE_CTL, 0, 1, 1),
 	SOC_SINGLE_TLV("Treble Gain Volume",
-			    CS42L52_TONE_CTL, 4, 15, 1, hl_tlv),
+			    CS42L52_TONE_CTL, 4, 15, 1, tbg_tlv),
 	SOC_SINGLE_TLV("Bass Gain Volume",
-			    CS42L52_TONE_CTL, 0, 15, 1, hl_tlv),
+			    CS42L52_TONE_CTL, 0, 15, 1, tbg_tlv),
 
 	/* Limiter */
 	SOC_SINGLE_TLV("Limiter Max Threshold Volume",
-		       CS42L52_LIMITER_CTL1, 5, 7, 0, limiter_tlv),
+		       CS42L52_LIMITER_CTL1, 5, 7, 1, limiter_tlv),
 	SOC_SINGLE_TLV("Limiter Cushion Threshold Volume",
-		       CS42L52_LIMITER_CTL1, 2, 7, 0, limiter_tlv),
-	SOC_SINGLE_TLV("Limiter Release Rate Volume",
-		       CS42L52_LIMITER_CTL2, 0, 63, 0, limiter_tlv),
-	SOC_SINGLE_TLV("Limiter Attack Rate Volume",
-		       CS42L52_LIMITER_AT_RATE, 0, 63, 0, limiter_tlv),
+		       CS42L52_LIMITER_CTL1, 2, 7, 1, limiter_tlv),
 
-	SOC_SINGLE("Limiter SR Switch", CS42L52_LIMITER_CTL1, 1, 1, 0),
-	SOC_SINGLE("Limiter ZC Switch", CS42L52_LIMITER_CTL1, 0, 1, 0),
+	SOC_SINGLE("Limiter Release Rate",
+		       CS42L52_LIMITER_CTL2, 0, 63, 0),
+	SOC_SINGLE("Limiter Attack Rate",
+		       CS42L52_LIMITER_AT_RATE, 0, 63, 0),
+
+	SOC_SINGLE("Limiter Soft Ramp Switch", CS42L52_LIMITER_CTL1, 1, 1, 0),
+	SOC_SINGLE("Limiter Zero Cross Switch", CS42L52_LIMITER_CTL1, 0, 1, 0),
 	SOC_SINGLE("Limiter Switch", CS42L52_LIMITER_CTL2, 7, 1, 0),
+	SOC_ENUM("Limiter Type Switch", limiter_type_enum),
 
 	/* ALC */
-	SOC_SINGLE_TLV("ALC Attack Rate Volume", CS42L52_ALC_CTL,
-		       0, 63, 0, limiter_tlv),
-	SOC_SINGLE_TLV("ALC Release Rate Volume", CS42L52_ALC_RATE,
-		       0, 63, 0, limiter_tlv),
+	/*Same as Limiter Attack/Release rates*/
+	SOC_SINGLE("ALC Attack Rate", CS42L52_ALC_CTL, 0, 63, 0),
+	SOC_SINGLE("ALC Release Rate", CS42L52_ALC_RATE, 0, 63, 0),
 	SOC_SINGLE_TLV("ALC Max Threshold Volume", CS42L52_ALC_THRESHOLD,
-		       5, 7, 0, limiter_tlv),
+		       5, 7, 1, limiter_tlv),
 	SOC_SINGLE_TLV("ALC Min Threshold Volume", CS42L52_ALC_THRESHOLD,
-		       2, 7, 0, limiter_tlv),
+		       2, 7, 1, limiter_tlv),
 
-	SOC_DOUBLE_R("ALC SR Capture Switch", CS42L52_PGAA_CTL,
+	SOC_DOUBLE_R("ALC Soft Ramp Capture Switch", CS42L52_PGAA_CTL,
 		     CS42L52_PGAB_CTL, 7, 1, 1),
-	SOC_DOUBLE_R("ALC ZC Capture Switch", CS42L52_PGAA_CTL,
+	SOC_DOUBLE_R("ALC Zero Cross Capture Switch", CS42L52_PGAA_CTL,
 		     CS42L52_PGAB_CTL, 6, 1, 1),
 	SOC_DOUBLE("ALC Capture Switch", CS42L52_ALC_CTL, 6, 7, 1, 0),
 
 	/* Noise gate */
 	SOC_ENUM("NG Type Switch", ng_type_enum),
 	SOC_SINGLE("NG Enable Switch", CS42L52_NOISE_GATE_CTL, 6, 1, 0),
-	SOC_SINGLE("NG Boost Switch", CS42L52_NOISE_GATE_CTL, 5, 1, 1),
+	SOC_SINGLE("NG Boost Switch", CS42L52_NOISE_GATE_CTL, 5, 1, 0),
 	SOC_ENUM("NG Threshold", ng_threshold_enum),
 	SOC_ENUM("NG Delay", ng_delay_enum),
 
 	SOC_DOUBLE("HPF Switch", CS42L52_ANALOG_HPF_CTL, 5, 7, 1, 0),
 
-	SOC_DOUBLE("Analog SR Switch", CS42L52_ANALOG_HPF_CTL, 1, 3, 1, 1),
-	SOC_DOUBLE("Analog ZC Switch", CS42L52_ANALOG_HPF_CTL, 0, 2, 1, 1),
+	SOC_DOUBLE("Analog SR Switch", CS42L52_ANALOG_HPF_CTL, 1, 3, 1, 0),
+	SOC_DOUBLE("Analog ZC Switch", CS42L52_ANALOG_HPF_CTL, 0, 2, 1, 0),
 	SOC_SINGLE("Digital SR Switch", CS42L52_MISC_CTL, 1, 1, 0),
 	SOC_SINGLE("Digital ZC Switch", CS42L52_MISC_CTL, 0, 1, 0),
 	SOC_SINGLE("Deemphasis Switch", CS42L52_MISC_CTL, 2, 1, 0),
 
 	SOC_SINGLE("Batt Compensation Switch", CS42L52_BATT_COMPEN, 7, 1, 0),
 	SOC_SINGLE("Batt VP Monitor Switch", CS42L52_BATT_COMPEN, 6, 1, 0),
-	SOC_SINGLE("Batt VP ref", CS42L52_BATT_COMPEN, 0, 0x0f, 0),
+	SOC_ENUM("Batt VP ref", vpref_enum),
 
 	SOC_SINGLE("PGA AIN1L Switch", CS42L52_ADC_PGA_A, 0, 1, 0),
 	SOC_SINGLE("PGA AIN1R Switch", CS42L52_ADC_PGA_B, 0, 1, 0),
@@ -561,6 +641,8 @@ static const struct snd_soc_dapm_route cs42l52_audio_map[] = {
 	{"SPKOUTA", NULL, "SPK Left Amp"},
 	{"SPKOUTB", NULL, "SPK Right Amp"},
 
+/*TODO "Playback" isn't considered a DAPM widget in kernel 2.6.38.
+	These paths will cause soc_dapm_add_routes to exit with error */
 	//{"SPK Left Amp", NULL, "Beep"},
 	//{"SPK Right Amp", NULL, "Beep"},
 	{"SPK Left Amp", "Switch", "Playback"},
@@ -578,6 +660,8 @@ static const struct snd_soc_dapm_route cs42l52_audio_map[] = {
 	{"AIFINR", NULL, "Playback"},
 };
 
+/*TODO this function is not enabled. It's helpful for power management
+	but doesn't seem to affect functionality too much */
 static int cs42l52_add_widgets(struct snd_soc_codec *codec)
 {
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
@@ -589,6 +673,64 @@ static int cs42l52_add_widgets(struct snd_soc_codec *codec)
 				  ARRAY_SIZE(cs42l52_audio_map));
 
 	return 0;
+}
+
+static int cs42l52_snd_soc_info_volsw_sx(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_info *uinfo)
+{
+	struct soc_mixer_control *mc =
+                (struct soc_mixer_control *)kcontrol->private_value;
+        int max = mc->max;
+        int min = mc->min;
+
+        uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
+        uinfo->count = 1;
+        uinfo->value.integer.min = 0;
+        uinfo->value.integer.max = max-min;
+
+        return 0;
+}
+
+static int cs42l52_snd_soc_get_volsw_sx(struct snd_kcontrol *kcontrol,
+        struct snd_ctl_elem_value *ucontrol)
+{
+        struct soc_mixer_control *mc =
+                (struct soc_mixer_control *)kcontrol->private_value;
+        struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+        unsigned int mask = (1<<mc->shift)-1;
+        int min = mc->min;
+        int val = snd_soc_read(codec, mc->reg) & mask;
+
+        ucontrol->value.integer.value[0] = ((val & 0xff)-min) & mask;
+        return 0;
+
+}
+
+static int cs42l52_snd_soc_put_volsw_sx(struct snd_kcontrol *kcontrol, 
+	struct snd_ctl_elem_value *ucontrol)
+{
+        struct soc_mixer_control *mc =
+                (struct soc_mixer_control *)kcontrol->private_value;
+        struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+        unsigned int mask = (1<<mc->shift)-1;
+        int min = mc->min;
+        int ret;
+        unsigned int val, oval;
+
+        val = ((ucontrol->value.integer.value[0]+min) & 0xff);
+        val &= mask;
+
+        oval = snd_soc_read(codec, mc->reg) & mask;
+
+        ret = 0;
+        if (oval != val) {
+                ret = snd_soc_write(codec, mc->reg, val);
+                if (ret < 0)
+                        return ret;
+        }
+
+        return 0;
+
 }
 
 struct cs42l52_clk_para {
@@ -906,7 +1048,7 @@ static int cs42l52_probe(struct snd_soc_codec *codec)
 
 	cs42l52_required_setup(codec);
 
-	info->flags |= CS42L52_CHIP_SWICTH;
+	info->flags |= CS42L52_CHIP_SWITCH;
 	/*initialize codec*/
 /*
 	for(i = 0; i < codec->num_dai; i++)
@@ -924,49 +1066,27 @@ static int cs42l52_probe(struct snd_soc_codec *codec)
 
 	}
 */
+
 	info->flags |= 0;
 
-	info->flags &= ~(CS42L52_CHIP_SWICTH);
+	info->flags &= ~(CS42L52_CHIP_SWITCH);
 	info->flags |= CS42L52_ALL_IN_ONE;
-
-	snd_soc_update_bits(codec, CS42L52_MICA_CTL,
-			    CS42L52_MIC_CTL_TYPE_MASK,
-			    0 << CS42L52_MIC_CTL_TYPE_SHIFT);
-
-	snd_soc_update_bits(codec, CS42L52_MICB_CTL,
-			    CS42L52_MIC_CTL_TYPE_MASK,
-			    0 << CS42L52_MIC_CTL_TYPE_SHIFT);
-
-	 snd_soc_update_bits(codec, CS42L52_MICA_CTL,
-			    CS42L52_MIC_CTL_MIC_SEL_MASK,
-			    1 << CS42L52_MIC_CTL_MIC_SEL_SHIFT);
-
-	 snd_soc_update_bits(codec, CS42L52_MICB_CTL,
-			    CS42L52_MIC_CTL_MIC_SEL_MASK,
-			    1 << CS42L52_MIC_CTL_MIC_SEL_SHIFT);
 
 	/*init done*/
 	snd_soc_add_controls(codec, cs42l52_snd_controls,
 			     ARRAY_SIZE(cs42l52_snd_controls));
 
-	//cs42l52_add_widgets(codec);
+/*TODO make widgets visible to DAPM*/
+/*	cs42l52_add_widgets(codec);	*/
 
-	u8 pwrctl1 = snd_soc_read(codec, CS42L52_PWRCTL1);
+	/* Override power control default settings
+		(SPK/HP pin detection in hardware is fixed to LO)*/
+/*TODO Doing this elsewhere might be cleaner. Make snd_kcontrol_new structs 
+	if you wish to give the user control of these settings
+*/
 	snd_soc_write(codec, CS42L52_PWRCTL2, 0x00);
 	u8 pwrctl2 = snd_soc_read(codec, CS42L52_PWRCTL2);
-	snd_soc_write(codec, CS42L52_IFACE_CTL2, 0x02);
-	u8 ifacectrl2 = snd_soc_read(codec, CS42L52_IFACE_CTL2);
-	snd_soc_write(codec, CS42L52_MICA_CTL, 0x4F);
-	snd_soc_write(codec, CS42L52_MICB_CTL, 0x4F);
-	u8 micactrl = snd_soc_read(codec, CS42L52_MICA_CTL);
-	u8 micbctrl = snd_soc_read(codec, CS42L52_MICB_CTL);
-	snd_soc_write(codec, CS42L52_ADC_PGA_A, 0x90);
-	snd_soc_write(codec, CS42L52_ADC_PGA_B, 0x90);
-	u8 pgaa = snd_soc_read(codec, CS42L52_ADC_PGA_A);
-	u8 pgab = snd_soc_read(codec, CS42L52_ADC_PGA_B);
-	u8 misc = snd_soc_read(codec, CS42L52_MISC_CTL);
-	//snd_soc_write(codec, CS42L52_MISC_CTL, misc | 0xC0);
-	//misc = snd_soc_read(codec, CS42L52_MISC_CTL);
+
 	u8 pwrctl3 = snd_soc_read(codec, CS42L52_PWRCTL3);
 	snd_soc_write(codec, CS42L52_PWRCTL3, 0xAA);
 
@@ -1020,7 +1140,7 @@ static int cs42l52_i2c_probe(struct i2c_client *i2c_client,
 		dev_err(&i2c_client->dev, "could not allocate codec\n");
 		return -ENOMEM;
 	}
-
+//
 	i2c_set_clientdata(i2c_client, cs42l52);
 	cs42l52->control_data = i2c_client;
 	cs42l52->control_type = SND_SOC_I2C;
