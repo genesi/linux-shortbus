@@ -19,9 +19,7 @@
  */
 
 /*Misc defs*/
-#define DEBUG
-#define OV7690_MODE_ENABLE 0
-#define OV7690_FIX 1
+#define OV7690_MODE_ENABLE 	1
 
 #include <linux/module.h>
 #include <linux/init.h>
@@ -33,21 +31,18 @@
 #include <linux/i2c.h>
 #include <linux/regulator/consumer.h>
 #include <linux/fsl_devices.h>
+#include <linux/string.h>
 #include <media/ov7690.h>
 #include <media/v4l2-chip-ident.h>
 #include <media/v4l2-int-device.h>
 
 #include "mxc_v4l2_capture.h"
-#include "ov7690_regs.h"
+#include "ov7690.h"
 
 
 #define ov7690_VOLTAGE_ANALOG               2800000
 #define ov7690_VOLTAGE_DIGITAL_CORE         1500000
 #define ov7690_VOLTAGE_DIGITAL_IO           1800000
-
-#define MIN_FPS 15
-#define MAX_FPS 30
-#define DEFAULT_FPS 30
 
 #define ov7690_XCLK_MIN 6000000
 #define ov7690_XCLK_MAX 27000000
@@ -64,47 +59,6 @@
 #define CIF_HEIGHT	288
 #define QCIF_WIDTH	176
 #define	QCIF_HEIGHT	144
-
-/*
-	i2c defs
-	Terminating list entry for reg, val, len
-*/
-#define I2C_REG_TERM 	0xFF
-#define I2C_VAL_TERM 	0xFF
-#define I2C_LEN_TERM	0xFF
-
-
-struct ov7690_reg {
-	u8 addr;
-	u8 val;
-};
-
-#if OV7690_MODE_ENABLE
-enum ov7690_mode {
-	ov7690_mode_MIN = 0,
-	ov7690_mode_VGA_640_480 = 0,
-	ov7690_mode_QVGA_320_240 = 1,
-	ov7690_mode_NTSC_720_480 = 2,
-	ov7690_mode_PAL_720_576 = 3,
-	ov7690_mode_720P_1280_720 = 4,
-	ov7690_mode_1080P_1920_1080 = 5,
-	ov7690_mode_QSXGA_2592_1944 = 6,
-	ov7690_mode_MAX =6
-};
-
-enum ov7690_frame_rate {
-	ov7690_15_fps,
-	ov7690_30_fps
-};
-
-struct ov7690_mode_info {
-	enum ov7690_mode mode;
-	u32 width;
-	u32 height;
-	struct ov7690_reg *init_data_ptr;
-	u32 init_data_size;
-};
-#endif /*OV7690_MODE_ENABLE*/
 
 
 /*!
@@ -127,251 +81,54 @@ struct sensor {
 	int green;
 	int blue;
 	int ae_mode;
+	
+	enum ov7690_mode mode;				/*	TODO add code to keep track of this	*/
+	enum ov7690_frame_rate frame_rate;	/*										*/
 
 	u32 mclk;
 	int csi;
 } ov7690_data;
 
-/* attempts to solve high chroma noise
-	1) low frame rate, high exposure time
+
+/*!
+* Module global variables
 */
-static struct ov7690_reg low_fr_high_exp[] = {
-	/* decrease frame rate */
-	{ REG_CLKRC, 	0x03 & CLK_SCALE_MASK },
-	{ REG_PLL,	PLL_DIV_4 | PLL_4X },
-
-	/* increase exposure */
-	{ REG_AECH,	0x02 },
-	{ REG_AECL,	0xFF },
-
-	/*END MARKER*/
-	{ I2C_REG_TERM,	I2C_VAL_TERM }
-};
-
-/*
-	2) compromise: mid frame rate, mid exposure time
-*/
-static struct ov7690_reg mid_fr_mid_exp[] = {
-	/* decrease frame rate */
-	{ REG_CLKRC,	0x03 & CLK_SCALE_MASK },
-	{ REG_PLL,	PLL_DIV_1 | PLL_4X },
-
-	/* increase exposure */
-	{ REG_AECH,	0x02 },
-	{ REG_AECL,	0xFF },
-
-	/*END MARKER*/
-	{I2C_REG_TERM,	I2C_VAL_TERM }
-};
-
-/*! Manual white balance modes
-* To use these, you must first enable manual mode for AWB
-* i.e. bit 0 in REG_COM8 must be 0
-*
-* Taken and modified from:
-* https://github.com/omegamoon/rockchip-rk30xx-mk808/blob/master/drivers/media/video/ov7690.c
-*/
-
-/* Cloudy Colour Temperature : 6500K - 8000K */
-static struct ov7690_reg awb_cloudy[]=
-{
-	{ REG_BLUE,	0x40 },
-	{ REG_RED, 	0x5d },
-	{ REG_GREEN, 	0x40 },
-	{ I2C_REG_TERM,	I2C_VAL_TERM }
-};
-
-/* Clear Day Colour Temperature : 5000K - 6500K */
-static struct ov7690_reg awb_clear[]=
-{
-	{ REG_BLUE,	0x44 },
-	{ REG_RED,	0x55 },
-	{ REG_GREEN,	0x40 },
-	{ I2C_REG_TERM,	I2C_VAL_TERM }
-};
-
-/* Office Colour Temperature : 3500K - 5000K */
-static struct ov7690_reg awb_tungsten[]=
-{
-	{ REG_BLUE,	0x5b },
-	{ REG_RED,	0x4c },
-	{ REG_GREEN,	0x40 },	
-	{ I2C_REG_TERM,	I2C_VAL_TERM }
-
-};
-
-static struct ov7690_reg *awb_manual_mode_list[] = { 
-	awb_tungsten, awb_clear, awb_cloudy, NULL
-};
-
-/* Taken from https://gitorious.org/flow-g1-5/kernel_flow */
-/*	TODO Output is weird - 4 screens, first column duplicated QVGA, 
-second two green areas 
-*/
-static const struct ov7690_reg ov7690_qvga_regs[] = {
-	{ 0x16, 	0x03 },
-	{ 0x17, 	0x69 },
-	{ 0x18, 	0xa4 },
-	{ 0x19, 	0x06 },
-	{ 0x1a, 	0xf6 },
-	{ 0x22, 	0x10 },
-	{ 0xc8, 	0x02 },
-	{ 0xc9, 	0x80 },
-	{ 0xca, 	0x00 },
-	{ 0xcb, 	0xf0 },
-	{ 0xcc, 	0x01 },
-	{ 0xcd, 	0x40 },
-	{ 0xce, 	0x00 },
-	{ 0xcf, 	0xf0 },
-
-	/*END MARKER*/
-	{ I2C_REG_TERM, I2C_VAL_TERM }
-};
-
-#if OV7690_FIX
-static struct ov7690_reg ov7690_default_regs[] = {
-	{ REG_COM12,	COM12_RESET }, 			/*Reset registers*/
-
-	{ REG_COMB4, 	COMB4_BEST_EDGE }, 		/*best edge!*/
-	{ REG_COM13,	COM13_DEFAULT & (~COM13_AEC) },	/*manual exposure*/
-
-	/*END MARKER*/
-	{ I2C_REG_TERM,	I2C_VAL_TERM }
-};
-
-#else /* OV7690_FIX */
-static struct ov7690_reg ov7690_default_regs[] = {
-	{ REG_COM7, COM7_RESET },
-/*
- * Clock scale: 3 = 15fps
- *              2 = 20fps
- *              1 = 30fps
- */
-	{ REG_CLKRC, 0x1 },	/* OV: clock scale (30 fps) */
-	{ REG_TSLB,  0x04 },	/* OV */
-	{ REG_COM7, 0 },	/* VGA */
-	/*
-	 * Set the hardware window.  These values from OV don't entirely
-	 * make sense - hstop is less than hstart.  But they work...
-	 */
-	{ REG_HSTART, 0x13 },	{ REG_HSTOP, 0x01 },
-	{ REG_HREF, 0xb6 },	{ REG_VSTART, 0x02 },
-/*	{ REG_VSTOP, 0x7a },	{ REG_VREF, 0x0a }, */
-	{ REG_VSTOP, 0x7a },	{ REG_GREEN, 0x0a }, /* TODO Terrible mistake */
-
-	{ REG_COM0C, 0 },	{ REG_COM14, 0 },
-	/* Mystery scaling numbers */
-	{ 0x70, 0x3a },		{ 0x71, 0x35 },
-	{ 0x72, 0x11 },		{ 0x73, 0xf0 },
-	{ 0xa2, 0x02 },		{ REG_COM10, 0x0 },
-
-	/* Gamma curve values */
-	{ 0x7a, 0x20 },		{ 0x7b, 0x10 },
-	{ 0x7c, 0x1e },		{ 0x7d, 0x35 },
-	{ 0x7e, 0x5a },		{ 0x7f, 0x69 },
-	{ 0x80, 0x76 },		{ 0x81, 0x80 },
-	{ 0x82, 0x88 },		{ 0x83, 0x8f },
-	{ 0x84, 0x96 },		{ 0x85, 0xa3 },
-	{ 0x86, 0xaf },		{ 0x87, 0xc4 },
-	{ 0x88, 0xd7 },		{ 0x89, 0xe8 },
-
-	/* AGC and AEC parameters.  Note we start by disabling those features,
-	   then turn them only after tweaking the values. */
-	{ REG_COM8, COM8_FASTAEC | COM8_AECSTEP | COM8_BFILT },
-	{ REG_GAIN, 0 },	{ REG_AECH, 0 },
-	{ REG_COM4, 0x40 }, /* magic reserved bit */
-	{ REG_COM9, 0x18 }, /* 4x gain + magic rsvd bit */
-	{ REG_BD50MAX, 0x05 },	{ REG_BD60MAX, 0x07 },
-	{ REG_AEW, 0x95 },	{ REG_AEB, 0x33 },
-	{ REG_VPT, 0xe3 },	{ REG_HAECC1, 0x78 },
-	{ REG_HAECC2, 0x68 },	{ 0xa1, 0x03 }, /* magic */
-	{ REG_HAECC3, 0xd8 },	{ REG_HAECC4, 0xd8 },
-	{ REG_HAECC5, 0xf0 },	{ REG_HAECC6, 0x90 },
-	{ REG_HAECC7, 0x94 },
-	{ REG_COM8, COM8_FASTAEC|COM8_AECSTEP|COM8_BFILT|COM8_AGC|COM8_AEC },
-
-	/* Almost all of these are magic "reserved" values.  */
-	{ REG_COM5, 0x61 },	{ REG_AECH, 0x4b },
-	{ 0x16, 0x02 },		{ REG_MVFP, 0x07 },
-	{ 0x21, 0x02 },		{ 0x22, 0x91 },
-	{ 0x29, 0x07 },		{ 0x33, 0x0b },
-	{ 0x35, 0x0b },		{ 0x37, 0x1d },
-	{ 0x38, 0x71 },		{ 0x39, 0x2a },
-	{ REG_COM12, 0x78 },	{ 0x4d, 0x40 },
-	{ 0x4e, 0x20 },		{ REG_GFIX, 0 },
-	{ 0x6b, 0x4a },		{ 0x74, 0x10 },
-	{ 0x8d, 0x4f },		{ 0x8e, 0 },
-	{ 0x8f, 0 },		{ 0x90, 0 },
-	{ 0x91, 0 },		{ 0x96, 0 },
-	{ 0x9a, 0 },		{ 0xb0, 0x84 },
-	{ 0xb1, 0x0c },		{ 0xb2, 0x0e },
-	{ 0xb3, 0x82 },		{ 0xb8, 0x0a },
-
-	/* More reserved magic, some of which tweaks white balance */
-	{ 0x43, 0x0a },		{ 0x44, 0xf0 },
-	{ 0x45, 0x34 },		{ 0x46, 0x58 },
-	{ 0x47, 0x28 },		{ 0x48, 0x3a },
-	{ 0x59, 0x88 },		{ 0x5a, 0x88 },
-	{ 0x5b, 0x44 },		{ 0x5c, 0x67 },
-	{ 0x5d, 0x49 },		{ 0x5e, 0x0e },
-	{ 0x6c, 0x0a },		{ 0x6d, 0x55 },
-	{ 0x6e, 0x11 },		{ 0x6f, 0x9f }, /* "9e for advance AWB" */
-	{ 0x6a, 0x40 },		{ REG_BLUE, 0x40 },
-	{ REG_RED, 0x60 },
-	{ REG_COM8, COM8_FASTAEC|COM8_AECSTEP|COM8_BFILT|COM8_AGC|COM8_AEC|COM8_AWB },
-
-	/* Matrix coefficients */
-	{ 0x4f, 0x80 },		{ 0x50, 0x80 },
-	{ 0x51, 0 },		{ 0x52, 0x22 },
-	{ 0x53, 0x5e },		{ 0x54, 0x80 },
-	{ 0x58, 0x9e },
-
-	{ REG_COM16, COM16_AWBGAIN },	{ REG_EDGE, 0 },
-	{ 0x75, 0x05 },		{ 0x76, 0xe1 },
-	{ 0x4c, 0 },		{ 0x77, 0x01 },
-	{ REG_COM13, 0xc3 },	{ 0x4b, 0x09 },
-	{ 0xc9, 0x60 },		{ REG_COM16, 0x38 },
-	{ 0x56, 0x40 },
-
-	{ 0x34, 0x11 },		{ REG_COM11, COM11_EXP|COM11_HZAUTO },
-	{ 0xa4, 0x88 },		{ 0x96, 0 },
-	{ 0x97, 0x30 },		{ 0x98, 0x20 },
-	{ 0x99, 0x30 },		{ 0x9a, 0x84 },
-	{ 0x9b, 0x29 },		{ 0x9c, 0x03 },
-	{ 0x9d, 0x4c },		{ 0x9e, 0x3f },
-	{ 0x78, 0x04 },
-
-	/* Extra-weird stuff.  Some sort of multiplexor register */
-	{ 0x79, 0x01 },		{ 0xc8, 0xf0 },
-	{ 0x79, 0x0f },		{ 0xc8, 0x00 },
-	{ 0x79, 0x10 },		{ 0xc8, 0x7e },
-	{ 0x79, 0x0a },		{ 0xc8, 0x80 },
-	{ 0x79, 0x0b },		{ 0xc8, 0x01 },
-	{ 0x79, 0x0c },		{ 0xc8, 0x0f },
-	{ 0x79, 0x0d },		{ 0xc8, 0x20 },
-	{ 0x79, 0x09 },		{ 0xc8, 0x80 },
-	{ 0x79, 0x02 },		{ 0xc8, 0xc0 },
-	{ 0x79, 0x03 },		{ 0xc8, 0x40 },
-	{ 0x79, 0x05 },		{ 0xc8, 0x30 },
-	{ 0x79, 0x26 },
-
-	/* END MARKER */
-	{ I2C_REG_TERM,	I2C_VAL_TERM },
-};
-#endif /* OV7690_FIX */
-
 static struct regulator *io_regulator;
 static struct regulator *core_regulator;
 static struct regulator *analog_regulator;
 static struct regulator *gpo_regulator;
 static struct fsl_mxc_camera_platform_data *camera_plat;
 
+
+/*!
+*	Function prototypes
+*/
 static int ov7690_probe(struct i2c_client *adapter,
 				const struct i2c_device_id *device_id);
 static int ov7690_remove(struct i2c_client *client);
 
-static s32 ov7690_read_reg(u8 reg, u8 *val);
-static s32 ov7690_write_reg(u8 reg, u8 val);
+/*!
+* 	Function prototypes
+*/
+/* Helper register functions*/
+static s32 ov7690_read_reg_raw(u8 reg, u8 *val);
+static s32 ov7690_write_reg_raw(u8 reg, u8 val);
+static s32 ov7690_write_reg_struct(const struct ov7690_reg reg);
+static s32 ov7690_write_reg_control(const struct ov7690_reg_control ctrl);
+static s32 ov7690_write_regs(const struct ov7690_reg * reglist);
+
+/* Keeps v4l2 image data synced with registers */
+static s32
+ov7690_sync_data_and_regs(void);
+
+/* Mode functions */
+static s32
+ov7690_init_mode(enum ov7690_frame_rate frame_rate,	enum ov7690_mode mode);
+static enum ov7690_frame_rate
+ov7690_mode_get_closest_fps(struct v4l2_fract * timeperframe);
+static inline struct ov7690_mode_info
+ov7690_mode_get_best_fps_mode(enum ov7690_mode);
+
 
 static const struct i2c_device_id ov7690_id[] = {
 	{"ov7690", 0},
@@ -390,8 +147,11 @@ static struct i2c_driver ov7690_i2c_driver = {
 	.id_table = ov7690_id,
 };
 
-#if OV7690_FIX
-static s32 ov7690_read_reg(u8 reg, u8 *val)
+
+/*! 
+* Helper register functions (definitions)
+*/
+static s32 ov7690_read_reg_raw(u8 reg, u8 *val)
 {
         int ret = 0;
 
@@ -401,6 +161,8 @@ static s32 ov7690_read_reg(u8 reg, u8 *val)
                 return -ENODEV;
 
         ret = i2c_smbus_read_byte_data(client, reg);
+        pr_debug("ov7690.c:%s: %x %x\n",
+        	__func__, reg, ret);
 
         if (ret >= 0) {
                 *val = (uint8_t) ret;
@@ -410,7 +172,7 @@ static s32 ov7690_read_reg(u8 reg, u8 *val)
         return ret;
 }
 
-static s32 ov7690_write_reg(u8 reg, u8 val)
+static s32 ov7690_write_reg_raw(u8 reg, u8 val)
 {
         int ret = 0;
 
@@ -420,6 +182,8 @@ static s32 ov7690_write_reg(u8 reg, u8 val)
                 return -ENODEV;
 
         ret = i2c_smbus_write_byte_data(client, reg, val);
+        pr_debug("ov7690.c:%s: %x %x\n", 
+        	__func__, reg, val);
 
         if (reg == REG_COM12 && (val & COM12_RESET))
                 msleep(2); /*Wait for reset to run*/
@@ -427,141 +191,269 @@ static s32 ov7690_write_reg(u8 reg, u8 val)
         return ret;
 }
 
-#else
-
-static s32 ov7690_write_reg(u16 reg, u8 val)
+/* TODO I don't like this method. It returns a value by setting a field
+	in the struct
+*/
+static s32 ov7690_read_reg_struct(struct ov7690_reg * reg)
 {
-	u8 au8Buf[3] = {0};
+	int ret = 0;
+	u8 read_me = 0;
 
-	au8Buf[0] = reg >> 8;
-	au8Buf[1] = reg & 0xff;
-	au8Buf[2] = val;
-
-	if (i2c_master_send(ov7690_data.i2c_client, au8Buf, 3) < 0) {
-		pr_err("%s:write reg error:reg=%x,val=%x\n",
-			__func__, reg, val);
-		return -1;
+	if (IS_MASKED(*reg)) {
+		ret = ov7690_read_reg_raw(reg->addr, &read_me);
+		reg->val = read_me & reg->mask;
 	}
+	else 
+		ret = ov7690_read_reg_raw(reg->addr, &reg->val);
 
-	return 0;
+	return ret;
 }
 
-static s32 ov7690_read_reg(u16 reg, u8 *val)
+/* Takes a struct representing the register & value to write */
+static s32 ov7690_write_reg_struct(const struct ov7690_reg reg)
 {
-	u8 au8RegBuf[2] = {0};
-	u8 u8RdVal = 0;
+	int ret = 0;
+	u8 write_me = 0;
 
-	au8RegBuf[0] = reg >> 8;
-	au8RegBuf[1] = reg & 0xff;
-
-	if (2 != i2c_master_send(ov7690_data.i2c_client, au8RegBuf, 2)) {
-		pr_err("%s:write reg error:reg=%x\n",
-				__func__, reg);
-		return -1;
+	if (IS_MASKED(reg)) {
+		ret = ov7690_read_reg_raw(reg.addr, &write_me);
+		write_me &= ~(reg.mask); /* clear bits */
+		write_me |= reg.mask & reg.val; /* set bits */
+		ret |= ov7690_write_reg_raw(reg.addr, write_me);
 	}
+	else 
+		ret = ov7690_write_reg_raw(reg.addr, reg.val);
 
-	if (1 != i2c_master_recv(ov7690_data.i2c_client, &u8RdVal, 1)) {
-		pr_err("%s:read reg error:reg=%x,val=%x\n",
-				__func__, reg, u8RdVal);
-		return -1;
-	}
-
-	*val = u8RdVal;
-
-	return u8RdVal;
+	return ret;
 }
 
-#endif /* OV7690_FIX */
+static s32 ov7690_read_reg_control(struct ov7690_reg_control * ctrl)
+{
+	s32 ret = 0;
 
+	if (!IS_MASKED(*ctrl)) {
+		ret = ov7690_read_reg_raw(ctrl->addr, &(ctrl->bitfield_val));
+	}
+	else {
+		struct ov7690_reg read_reg = {ctrl->addr, 0, ctrl->mask};
+		ret = ov7690_read_reg_struct(&read_reg);
+		ctrl->bitfield_val = 
+			read_reg.val / (ctrl->mask & ~(ctrl->mask << 1)); /* TODO performance? */
+	}
+
+	return ret;
+}
+
+/* Takes a struct representing the register, mask, and bitfield value to write, 
+	shifts value into place
+*/
+static s32 ov7690_write_reg_control(const struct ov7690_reg_control ctrl)
+{
+	if (!IS_MASKED(ctrl)) {
+		return ov7690_write_reg_raw(ctrl.addr, ctrl.bitfield_val);
+	}
+	else {
+		u8 bitfield_shifted = 
+			ctrl.bitfield_val * (ctrl.mask & ~(ctrl.mask << 1));
+		struct ov7690_reg write_reg = {ctrl.addr, bitfield_shifted, ctrl.mask};
+		return ov7690_write_reg_struct(write_reg);
+	}
+}
+
+/* Writes list of register structs */
 static s32 ov7690_write_regs(const struct ov7690_reg *reglist)
 {
-	int err = 0;
+	int error = 0;
 	const struct ov7690_reg *reg_rover = &reglist[0];
 
 	while (!((reg_rover->addr == I2C_REG_TERM) 
 		&& (reg_rover->val == I2C_VAL_TERM))) {
 
-		err = ov7690_write_reg(reg_rover->addr, reg_rover->val);
-
-		if (err)
-			return err;
+		error = ov7690_write_reg_struct(*reg_rover);
+		if (error < 0)
+			goto err;
 
 		msleep(1); /* TODO ? */
 		++reg_rover;
 	}
 
 	return 0;
+
+err:
+	return error;
 }
 
-static s32 ov7690_init_regs()
+
+static s32 /* TODO finish */
+ov7690_sync_data_and_regs()
 {
-	s32 err = 0;
+	u8 tmp = 0;
+	s32 ret = 0;
+	struct ov7690_reg_control tmp_reg_ctrl = {0,0,0};
 
-	err = ov7690_write_regs(ov7690_default_regs);/*System reset, wait 2ms*/
-	err |=ov7690_write_regs(mid_fr_mid_exp);
 
-	return err;
+	/* Colors */
+	ret |= ov7690_read_reg_raw(REG_BLUE, &tmp);
+	ov7690_data.blue = tmp;
+
+	ret |= ov7690_read_reg_raw(REG_RED, &tmp);
+	ov7690_data.red = tmp;
+
+	ret |= ov7690_read_reg_raw(REG_GREEN, &tmp);
+	ov7690_data.green = tmp;
+
+
+	/* Brightness */
+	ret |= ov7690_read_reg_raw(REG_YBRIGHT, &tmp); /* TODO probably wrong! */
+	ov7690_data.brightness = tmp;
+
+
+	/* Contrast */
+	ret |= ov7690_read_reg_raw(REG_YOFFSET, &tmp);
+	ov7690_data.contrast = tmp;
+
+	/* Automatic exposure */
+	tmp_reg_ctrl.addr = REG_COM13;
+	tmp_reg_ctrl.mask = COM13_AEC_MASK;
+	ret |= ov7690_read_reg_control(&tmp_reg_ctrl);
+	ov7690_data.ae_mode = tmp_reg_ctrl.bitfield_val;
+
+	/*TODO: saturation, hue*/
+
+	return ret;
 }
 
-#if OV7690_MODE_ENABLE 
-static int ov7690_init_mode(enum ov7690_frame_rate frame_rate,
-			    enum ov7690_mode mode)
-{
-	struct ov7690_reg *pModeSetting = NULL;
-	s32 i = 0;
-	s32 iModeSettingArySize = 0;
-	register u32 Delay_ms = 0;
-	register u16 RegAddr = 0;
-	register u8 Mask = 0;
-	register u8 Val = 0;
-	u8 RegVal = 0;
-	int retval = 0;
+/*!
+*	Functions for modes
+*/
 
-	if (mode > ov7690_mode_MAX || mode < ov7690_mode_MIN) {
-		pr_err("Wrong ov7690 mode detected!\n");
+/*
+* ov7690_init_mode - Set the camera to the given mode of operation & frame rate
+* @frame_rate: frame rate
+* @mode: camera mode
+*
+* Will always reset to default register values before setting mode.
+* TODO: performance impact? unlikely
+*/
+static s32
+ov7690_init_mode(enum ov7690_frame_rate frame_rate, enum ov7690_mode mode)
+{
+	int error = 0;
+	const struct ov7690_mode_info * my_mode_info = NULL;
+	const struct ov7690_reg * my_mode_reg_list = NULL;
+
+	/* check bounds */
+	if (!IS_VALID_MODE(mode)) {
+		pr_err("%s: bad mode detected\n", __func__);
 		return -1;
 	}
 
-	pModeSetting = ov7690_mode_info_data[frame_rate][mode].init_data_ptr;
-	iModeSettingArySize =
-		ov7690_mode_info_data[frame_rate][mode].init_data_size;
+	/* fetch mode */
+	my_mode_info = &ov7690_mode_info_data[frame_rate][mode];
+	my_mode_reg_list = my_mode_info->reg_list;
 
-	ov7690_data.pix.width = ov7690_mode_info_data[frame_rate][mode].width;
-	ov7690_data.pix.height = ov7690_mode_info_data[frame_rate][mode].height;
+	/* check sane mode */
+	if (MODE_FPS_NOT_SUPPORTED(*my_mode_info))
+		goto err_fps_mode_unsup;
 
-	if (ov7690_data.pix.width == 0 || ov7690_data.pix.height == 0 ||
-	    pModeSetting == NULL || iModeSettingArySize == 0)
-		return -EINVAL;
+	/* write mode */
+	error = ov7690_write_regs(ov7690_default_regs);
+	error |= ov7690_write_regs(my_mode_reg_list);
 
-	for (i = 0; i < iModeSettingArySize; ++i, ++pModeSetting) {
-		Delay_ms = pModeSetting->u32Delay_ms;
-		RegAddr = pModeSetting->addr;
-		Val = pModeSetting->val;
-		Mask = pModeSetting->u8Mask;
+	if (error < 0)
+		goto err_bad_writes;
 
-		if (Mask) {
-			retval = ov7690_read_reg(RegAddr, &RegVal);
-			if (retval < 0)
-				goto err;
+	/* update ov7690_data */
+	ov7690_data.pix.width = my_mode_info->width;
+	ov7690_data.pix.height = my_mode_info->height;
+	ov7690_data.mode = mode;
+	ov7690_data.frame_rate = frame_rate;
+	ov7690_sync_data_and_regs();
 
-			RegVal &= ~(u8)Mask;
-			Val &= Mask;
-			Val |= RegVal;
-		}
+	pr_debug("ov7690:%s: success\n", __func__);
+	return 0;
 
-		retval = ov7690_write_reg(RegAddr, Val);
-		if (retval < 0)
-			goto err;
+err_fps_mode_unsup:
+	pr_err("ov7690.c:%s: frame-rate %d not supported for mode %s!\n", __func__,
+		ov7690_frame_rate_values[frame_rate], ov7690_mode_names[mode]);
+	return -EINVAL;
 
-		if (Delay_ms)
-			msleep(Delay_ms);
-	}
-err:
-	return retval;
+err_bad_writes:
+	pr_err("%s: something went horribly wrong writing registers!\n", __func__);
+	return error;
 }
-#endif /* OV7690_MODE_ENABLE */
+
+/*
+* ov790_mode_get_closest_fps - helper function
+* TODO: it's ugly to both return a value and change the value of your parameter
+*/
+static enum ov7690_frame_rate 
+ov7690_mode_get_closest_fps(struct v4l2_fract * timeperframe)
+{
+	u32 tgt_fps = 0; /* the fps asked for */
+	u32 act_fps = 0; /* the actual frame rate */
+
+	/* Check that framerate is allowed */
+	if (timeperframe->numerator == 0 || timeperframe->denominator == 0) {
+		timeperframe->numerator = 1;
+		timeperframe->denominator = DEFAULT_FPS;
+	}
+
+	tgt_fps = timeperframe->denominator / timeperframe->numerator;
+
+	if (tgt_fps > MAX_FPS) {
+		timeperframe->denominator = MAX_FPS;
+		timeperframe->numerator = 1;
+	}
+	else if (tgt_fps < MIN_FPS) {
+		timeperframe->denominator = MIN_FPS;
+		timeperframe->numerator = 1;
+	}
+
+	/* The actual frame rate we will use */
+	act_fps = timeperframe->denominator / timeperframe->numerator;
+
+	pr_debug("\ttarget fps: %d; actual fps: %d\n", tgt_fps, act_fps);
+
+	switch(act_fps) {
+		case 30:
+			return ov7690_30_fps;
+			break;
+		case 60:
+			return ov7690_60_fps;
+			break;
+		default:
+			return -EINVAL;
+	}
+}
+
+static inline struct ov7690_mode_info
+ov7690_mode_get_best_fps_mode(enum ov7690_mode requested_mode)
+{
+	struct ov7690_mode_info requested_mode_info;
+
+	/* prefer 60fps */
+	requested_mode_info = 
+		ov7690_mode_info_data[requested_mode][ov7690_60_fps];
+
+	/* ... but go to lowest if not supported */
+	if (MODE_FPS_NOT_SUPPORTED(requested_mode_info))
+		requested_mode_info = 
+			ov7690_mode_info_data[ov7690_30_fps][requested_mode];
+
+	return requested_mode_info;
+}
+
+
 /* --------------- IOCTL functions from v4l2_int_ioctl_desc --------------- */
 
+/*!
+* ioctl_g_ifparm - V4L2 sensort interface handler for VIDIOC_G_IFPARM ioctl
+* @s: pointer to standard V4L2 device structure
+* @p: pointer to structure containing low-level device parameters
+*
+* Provides the low level device paramters for this device
+*/
 static int ioctl_g_ifparm(struct v4l2_int_device *s, struct v4l2_ifparm *p)
 {
 	if (s == NULL) {
@@ -569,7 +461,7 @@ static int ioctl_g_ifparm(struct v4l2_int_device *s, struct v4l2_ifparm *p)
 		return -1;
 	}
 
-	printk("%s: setting parameters on device\n", __func__);
+	pr_debug("%s: getting low-level parameters on device\n", __func__);
 
 	memset(p, 0, sizeof(*p));
 	p->u.bt656.clock_curr = ov7690_data.mclk;
@@ -595,7 +487,7 @@ static int ioctl_s_power(struct v4l2_int_device *s, int on)
 {
 	struct sensor *sensor = s->priv;
 
-	printk("%s: setting power mode\n", __func__);
+	printk("ov7690.c:%s: setting power mode\n", __func__);
 
 	if (on && !sensor->on) {
 		if (io_regulator)
@@ -643,7 +535,7 @@ static int ioctl_g_parm(struct v4l2_int_device *s, struct v4l2_streamparm *a)
 	struct v4l2_captureparm *cparm = &a->parm.capture;
 	int ret = 0;
 
-	printk("%s: Trying to parameterize video capture settings\n", __func__);
+	printk("%s: Getting video capture parameters\n", __func__);
 
 	switch (a->type) {
 	/* This is the only case currently handled. */
@@ -688,11 +580,10 @@ static int ioctl_s_parm(struct v4l2_int_device *s, struct v4l2_streamparm *a)
 {
 	struct sensor *sensor = s->priv;
 	struct v4l2_fract *timeperframe = &a->parm.capture.timeperframe;
-	u32 tgt_fps;	/* target frames per secound */
-//	enum ov7690_frame_rate frame_rate;
+	enum ov7690_frame_rate frame_rate;
 	int ret = 0;
 
-	printk("%s: Trying to parameterize settings\n", __func__);
+	printk("ov7690.c:%s: Setting video capture parameters\n", __func__);
 
 	/* Make sure power on */
 	if (camera_plat->pwdn)
@@ -701,45 +592,25 @@ static int ioctl_s_parm(struct v4l2_int_device *s, struct v4l2_streamparm *a)
 	switch (a->type) {
 	/* This is the only case currently handled. */
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
-		/* Check that the new frame rate is allowed. */
-		if ((timeperframe->numerator == 0) ||
-		    (timeperframe->denominator == 0)) {
-			timeperframe->denominator = DEFAULT_FPS;
-			timeperframe->numerator = 1;
-		}
+		pr_debug("\tcase V4L2_BUF_TYPE_VIDEO_CAPTURE\n");
 
-		tgt_fps = timeperframe->denominator /
-			  timeperframe->numerator;
+		frame_rate = 
+			ov7690_mode_get_closest_fps(timeperframe);
 
-		if (tgt_fps > MAX_FPS) {
-			timeperframe->denominator = MAX_FPS;
-			timeperframe->numerator = 1;
-		} else if (tgt_fps < MIN_FPS) {
-			timeperframe->denominator = MIN_FPS;
-			timeperframe->numerator = 1;
-		}
+		if (frame_rate < 0)
+			goto err_frame_rate;
 
-		/* Actual frame rate we use */
-		tgt_fps = timeperframe->denominator /
-			  timeperframe->numerator;
-
-#if OV7690_MODE_ENABLE
-		if (tgt_fps == 15)
-			frame_rate = ov7690_15_fps;
-		else if (tgt_fps == 30)
-			frame_rate = ov7690_30_fps;
-		else {
-			pr_err(" The camera frame rate is not supported!\n");
-			return -EINVAL;
-		}
-#endif /* OV7690_MODE_ENABLE */
+		if (!IS_VALID_MODE((u32)a->parm.capture.capturemode) )
+			goto err_invalid_mode;
 
 		sensor->streamcap.timeperframe = *timeperframe;
 		sensor->streamcap.capturemode =
 				(u32)a->parm.capture.capturemode;
 
-		//ret = ov7690_init_mode(frame_rate,
-		//		       sensor->streamcap.capturemode);
+		pr_debug("\tabout to initialize mode: fps: %d, mode: %d\n",
+			frame_rate, sensor->streamcap.capturemode);
+		ret = ov7690_init_mode(ov7690_30_fps,			/* TODO temporary hack to test hypothesis */
+				       sensor->streamcap.capturemode);
 		break;
 
 	/* These are all the possible cases. */
@@ -761,7 +632,18 @@ static int ioctl_s_parm(struct v4l2_int_device *s, struct v4l2_streamparm *a)
 		break;
 	}
 
+	pr_debug("ov7690.c:%s: returing code %d\n",
+		__func__, ret);
 	return ret;
+
+err_frame_rate:
+	pr_err("ov7690.c:%s: could not match desired to available fps\n", __func__);
+	return -EINVAL;
+
+err_invalid_mode:
+	pr_err("ov7690.c%s: unsupported mode %d\n", 
+		__func__, (u32)a->parm.capture.capturemode);
+	return -EINVAL;
 }
 
 /*!
@@ -776,8 +658,9 @@ static int ioctl_g_fmt_cap(struct v4l2_int_device *s, struct v4l2_format *f)
 {
 	struct sensor *sensor = s->priv;
 
-	printk("%s: Setting image g format(?)\n", __func__);
+	pr_debug("ov7690.c:%s: getting sensor pixel format\n", __func__);
 
+	f->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	f->fmt.pix = sensor->pix;
 
 	return 0;
@@ -796,20 +679,20 @@ static int ioctl_g_ctrl(struct v4l2_int_device *s, struct v4l2_control *vc)
 {
 	int ret = 0;
 
-	printk("%s: called(?)\n", __func__);
+	printk("%s: getting value of camera control\n", __func__);
 
 	switch (vc->id) {
 	case V4L2_CID_BRIGHTNESS:
 		vc->value = ov7690_data.brightness;
 		break;
 	case V4L2_CID_HUE:
-		vc->value = ov7690_data.hue;
+		vc->value = ov7690_data.hue; /* TODO not implemented */
 		break;
 	case V4L2_CID_CONTRAST:
 		vc->value = ov7690_data.contrast;
 		break;
 	case V4L2_CID_SATURATION:
-		vc->value = ov7690_data.saturation;
+		vc->value = ov7690_data.saturation; /* TODO not implemented */
 		break;
 	case V4L2_CID_RED_BALANCE:
 		vc->value = ov7690_data.red;
@@ -836,15 +719,17 @@ static int ioctl_g_ctrl(struct v4l2_int_device *s, struct v4l2_control *vc)
  * value in HW (and updates the video_control[] array).  Otherwise,
  * returns -EINVAL if the control is not supported.
  */
+ /* TODO Implement! */
 static int ioctl_s_ctrl(struct v4l2_int_device *s, struct v4l2_control *vc)
 {
-	int retval = 0;
+	int ret = 0;
 
-	printk("In ov7690:ioctl_s_ctrl %d\n",
-		 vc->id);
+	printk("ov7690.c:%s: %d\n", __func__, vc->id);
 
 	switch (vc->id) {
 	case V4L2_CID_BRIGHTNESS:
+		ret = ov7690_write_reg_raw(REG_YBRIGHT, (u8) vc->value); /* TODO this is probably wrong! */
+		ov7690_data.brightness = vc->value;
 		break;
 	case V4L2_CID_CONTRAST:
 		break;
@@ -853,7 +738,12 @@ static int ioctl_s_ctrl(struct v4l2_int_device *s, struct v4l2_control *vc)
 	case V4L2_CID_HUE:
 		break;
 	case V4L2_CID_AUTO_WHITE_BALANCE:
+	{
+		u8 write_me = (vc->value != 0);
+		struct ov7690_reg_control awb = {REG_COM13, write_me, COM13_AWB};
+		ret = ov7690_write_reg_control(awb);
 		break;
+	}
 	case V4L2_CID_DO_WHITE_BALANCE:
 		break;
 	case V4L2_CID_RED_BALANCE:
@@ -865,19 +755,34 @@ static int ioctl_s_ctrl(struct v4l2_int_device *s, struct v4l2_control *vc)
 	case V4L2_CID_EXPOSURE:
 		break;
 	case V4L2_CID_AUTOGAIN:
+	{
+		u8 write_me = (vc->value != 0);
+		struct ov7690_reg_control agc = {REG_COM13, write_me, COM13_AGC};
+		ret = ov7690_write_reg_control(agc);
 		break;
-	case V4L2_CID_GAIN:
+	}
+	case V4L2_CID_GAIN: /* TODO only analog gain is supported */
+	{
+		u8 gain_value = min(max(0, vc->value + 40), 80); /* TODO magic numbers */
+		u8 gain_value_big_part = (gain_value / 16);
+		u8 gain_value_small_part = gain_value % 16;
+		u8 write_me_big_part = ((1 << gain_value_big_part) - 1) << 4; /* TODO unreadable */
+		u8 write_me_small_part = gain_value_small_part;
+		u8 write_me = write_me_small_part + write_me_big_part;
+
+		ret = ov7690_write_reg_raw(REG_GAIN, write_me);
 		break;
+	}
 	case V4L2_CID_HFLIP:
 		break;
 	case V4L2_CID_VFLIP:
 		break;
 	default:
-		retval = -EPERM;
+		ret = -EPERM;
 		break;
 	}
 
-	return retval;
+	return ret;
 }
 
 /*!
@@ -891,18 +796,26 @@ static int ioctl_s_ctrl(struct v4l2_int_device *s, struct v4l2_control *vc)
 static int ioctl_enum_framesizes(struct v4l2_int_device *s,
 				 struct v4l2_frmsizeenum *fsize)
 {
-//	if (fsize->index > ov7690_mode_MAX)
-//		return -EINVAL;
+	struct ov7690_mode_info requested_mode_info;
+	enum ov7690_mode requested_mode = fsize->index;
 
-	fsize->pixel_format = ov7690_data.pix.pixelformat;
-	fsize->discrete.width = 640;
-			//max(ov7690_mode_info_data[0][fsize->index].width,
-			//    ov7690_mode_info_data[1][fsize->index].width);
-	fsize->discrete.height = 480;
-			//max(ov7690_mode_info_data[0][fsize->index].height,
-			//    ov7690_mode_info_data[1][fsize->index].height);
+	pr_debug("ov7690.c:%s: asked to describe frame sizes for mode %d\n",
+		__func__, fsize->index);
 
-	printk("%s: setting framesize\n", __func__);
+	if (!IS_VALID_MODE(requested_mode)) {
+		pr_debug("ov7690.c:%s: mode %d is invalid\n",
+			__func__, requested_mode);
+		return -EINVAL;
+	}
+
+	requested_mode_info = ov7690_mode_get_best_fps_mode(requested_mode);
+
+	fsize->pixel_format = requested_mode_info.pixel_format;
+	fsize->type = V4L2_FRMSIZE_TYPE_DISCRETE;
+	fsize->discrete.width =
+		requested_mode_info.width;
+	fsize->discrete.height = 
+		requested_mode_info.height;
 
 	return 0;
 }
@@ -941,18 +854,28 @@ static int ioctl_init(struct v4l2_int_device *s)
  * ioctl_enum_fmt_cap - V4L2 sensor interface handler for VIDIOC_ENUM_FMT
  * @s: pointer to standard V4L2 device structure
  * @fmt: pointer to standard V4L2 fmt description structure
- *
- * Return 0.
  */
 static int ioctl_enum_fmt_cap(struct v4l2_int_device *s,
 			      struct v4l2_fmtdesc *fmt)
 {
-//	if (fmt->index > ov7690_mode_MAX)
-//		return -EINVAL;
+	struct ov7690_mode_info requested_mode_info;
+	enum ov7690_mode requested_mode = fmt->index;
 
-	printk("%s: handling video fmt\n", __func__);
+	pr_debug("ov7690.c:%s: asked to enumerate mode %d\n", 
+		__func__, fmt->index);
 
-	fmt->pixelformat = ov7690_data.pix.pixelformat;
+	if (!IS_VALID_MODE(requested_mode)) {
+		pr_debug("ov7690.c:%s: mode %d is invalid\n",
+			__func__, requested_mode);
+		return -EINVAL;
+	}
+
+	requested_mode_info = ov7690_mode_get_best_fps_mode(requested_mode);
+
+	fmt->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	fmt->pixelformat = requested_mode_info.pixel_format;
+	strncpy(fmt->description,
+		requested_mode_info.description, sizeof(fmt->description));
 
 	return 0;
 }
@@ -968,9 +891,11 @@ static int ioctl_dev_init(struct v4l2_int_device *s)
 	struct sensor *sensor = s->priv;
 	u32 tgt_xclk;	/* target xclk */
 	u32 tgt_fps;	/* target frames per secound */
-	//enum ov7690_frame_rate frame_rate;
+	enum ov7690_frame_rate frame_rate;
 
-	printk("%s: initializing ov7690\n", __func__);
+	int ret = 0;
+
+	printk("ov7690.c:%s: initializing ov7690\n", __func__);
 
 	ov7690_data.on = true;
 
@@ -987,19 +912,32 @@ static int ioctl_dev_init(struct v4l2_int_device *s)
 	tgt_fps = sensor->streamcap.timeperframe.denominator /
 		  sensor->streamcap.timeperframe.numerator;
 
-#if OV7690_MODE_ENABLE
-	if (tgt_fps == 15)
-		frame_rate = ov7690_15_fps;
-	else if (tgt_fps == 30)
+	if (tgt_fps == 30) /* TODO refactor into "get_closest_fps" */
 		frame_rate = ov7690_30_fps;
-	else
-		return -EINVAL; /* Only support 15fps or 30fps now. */
-#endif /* OV7690_MODE_ENABLE */
+	else if (tgt_fps == 60)
+		frame_rate = ov7690_60_fps;
+	else { /* Only support 15fps or 30fps now. */
+		printk("ov7690.c:%s: fps %d not supported!\n", 
+			__func__, tgt_fps);
+		return -EINVAL; 
+	}
 
-	ov7690_init_regs();
+	/* Initialize the mode for the camera at given fps */
+	ret = ov7690_init_mode(frame_rate, 
+		sensor->streamcap.capturemode);
+	ov7690_sync_data_and_regs();
 
-	return 0;//ov7690_init_mode(frame_rate,
-		//		sensor->streamcap.capturemode);
+	pr_debug("ov7690 picture settings:\n");
+	pr_debug("brightness:\t%d\n", ov7690_data.brightness);
+	pr_debug("contrast:\t%d\n", ov7690_data.contrast);
+
+	pr_debug("blue:\t%d\n", ov7690_data.blue);
+	pr_debug("red:\t%d\n", ov7690_data.red);
+	pr_debug("green:\t%d\n", ov7690_data.green);
+
+	pr_debug("exposure:\t%d\n", ov7690_data.ae_mode);
+
+	return ret;
 }
 
 /*!
@@ -1008,6 +946,7 @@ static int ioctl_dev_init(struct v4l2_int_device *s)
  *
  * Delinitialise the device when slave detaches to the master.
  */
+ /* TODO neither this nor ioctl_dev_init do anything! */
 static int ioctl_dev_exit(struct v4l2_int_device *s)
 {
 	printk("%s: exiting ov7690\n", __func__);

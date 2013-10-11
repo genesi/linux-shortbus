@@ -1336,6 +1336,28 @@ static int mxc_v4l2_s_std(cam_data *cam, v4l2_std_id e)
 }
 
 /*!
+ * V4L2 - mxc_v4l2_enum_std function
+ *
+ * Enumerate supported video standards
+ *
+ * @param cam		Camera data
+ * @param e			Standard V4L2 "video standard" struct
+ *
+ * TODO this function is a hack!
+ */
+static int
+mxc_v4l2_enum_std(cam_data *cam, struct v4l2_standard *std)
+{
+	/* should enforce this by talking to camera */
+	if (std->index != 0) {
+		return -EINVAL;
+	}
+
+	*std = cam->standard;
+	return 0;
+}
+
+/*!
  * V4L2 - mxc_v4l2_g_std function
  *
  * Gets the TV standard from the TV input device.
@@ -2092,7 +2114,12 @@ static long mxc_v4l_do_ioctl(struct file *file,
 	case VIDIOC_ENUMSTD: {
 		struct v4l2_standard *e = arg;
 		pr_debug("   case VIDIOC_ENUMSTD\n");
-		*e = cam->standard;
+		if (cam->sensor)
+			retval = mxc_v4l2_enum_std(cam, e);
+		else {
+			pr_err("ERROR: v4l2 capture: slave not found!\n");
+			retval = -ENODEV;
+		}
 		break;
 	}
 

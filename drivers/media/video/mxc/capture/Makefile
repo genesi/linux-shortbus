@@ -45,3 +45,6 @@ obj-$(CONFIG_MXC_CAMERA_OV5642) += ov5642_camera.o
 
 adv7180_tvin-objs := adv7180.o
 obj-$(CONFIG_MXC_TVIN_ADV7180) += adv7180_tvin.o
+
+CFLAGS_mxc_v4l2_capture.o := -DDEBUG
+CFLAGS_ov7690.o := -DDEBUG
