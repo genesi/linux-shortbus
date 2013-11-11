@@ -59,8 +59,7 @@
 #define	  COM13_EXP_SUB_LINE  0x08	  /* enable sub-line exposure */
 #define   COM13_AGC			  0x04	  /* Auto gain enable */
 #define   COM13_AWB			  0x02	  /* White balance enable */
-#define   COM13_AEC_MAN		  0x01	  /* Auto exposure enable */
-#define	  COM13_AEC_MASK	  0x01
+#define	  COM13_AEC			  0x01	  /* Auto exposure control enable */
 #define   COM13_DEFAULT		  0xf7	  /* Not datasheet, but actual */
 
 #define REG_COM14			0x14	/* Control 14: gain ceiling */
@@ -156,34 +155,32 @@ struct ov7690_reg_control {
 #define IS_MASKED(r) (r).mask
 
 
-
 /*!
 *	Data structures for OV7690 modes of operation
 */
 
 /* Mode enum */
 enum ov7690_mode {
-		ov7690_mode_MIN = 0,
+		ov7690_mode_MIN = -1,
 		ov7690_mode_VGA_640_480 = 0,
-/*
-		ov7690_mode_QVGA_320_240 = 1,
-		ov7690_mode_NTSC_720_480 = 2,
-		ov7690_mode_PAL_720_576 = 3,
-		ov7690_mode_720P_1280_720 = 4,
-		ov7690_mode_1080P_1920_1080 = 5,
-		ov7690_mode_QSXGA_2592_1944 = 6,
-*/
-		ov7690_mode_MAX = 0 /* TODO keep up to date! */
+		ov7690_mode_QVGA_320_240,
+		ov7690_mode_CIF_352_288,
+		ov7690_mode_QCIF_176_144,
+
+		ov7690_mode_MAX
 };
 
 /* Mode names (for debuging) */
 /* TODO needs to be kept up to date with above enum! */
-const char * ov7690_mode_names[] = {
-	"VGA (640, 480)"
+const char * ov7690_mode_names[ov7690_mode_MAX] = {
+	"VGA (640, 480)",
+	"QVGA (320, 240)",
+	"CIF (352, 288)",
+	"QCIF (176, 144)"
 };
 
 /* Helper mode check function */
-#define IS_VALID_MODE(m) ((m) <= ov7690_mode_MAX && (m) >= ov7690_mode_MIN)
+#define IS_VALID_MODE(m) ((m) < ov7690_mode_MAX && ((s32)(m)) > ov7690_mode_MIN)
 
 /* Frame rate enum */
 enum ov7690_frame_rate {
@@ -228,32 +225,41 @@ struct ov7690_mode_info {
 /* Our default register settings. 
 	Camera must be set to these *every* time we change modes */
 const struct ov7690_reg ov7690_default_regs[] = {
-		/* Reset registers */
-		{ REG_COM12,	COM12_RESET,	MASK_NONE },
+	/*
+	 * Reset registers
+	 */
+	{ REG_COM12,	COM12_RESET,	MASK_NONE },
 
-		/* Edge improvement */
-		{ REG_COMB4,	COMB4_BEST_EDGE,COMB4_EDGE_MASK },	/* best edge! */
+	/*
+	 * Improve edge definition
+	 */
+	{ REG_COMB4,	COMB4_BEST_EDGE,COMB4_EDGE_MASK },
 
-		/* Lower chroma gain through increased exposure time */
-		{ REG_CLKRC,	0x01,			CLK_SCALE_MASK },	/* lower clockspeed so more exposure happens */
+	/* 
+	 * Lower chroma gain through increased exposure time
+	 */
+	{ REG_CLKRC,	0x01,			CLK_SCALE_MASK },	/* lower clockspeed so more exposure happens */
+	{ REG_COM13,	0x00,			COM13_AEC },		/* disable automatic exposure control */
+	{ REG_AECH,		0x02,			MASK_NONE },		/* increase exposure time to "too high"  			*/
+	{ REG_AECL,		0xFF,			MASK_NONE },		/* (will automatically reduce to frame time if so)	*/
 
-		/*END MARKER*/
+	/*END MARKER*/
 	OV7690_REG_TERM
 };
 
 /* Solutions to high chroma noise */
 /* 1) low frame rate, high exposure time*/
 const struct ov7690_reg low_fr_high_exp[] = {
-		/* decrease frame rate */
-		{ REG_CLKRC,	0x03,		CLK_SCALE_MASK },
-		{ REG_PLL,		PLL_DIV_4,	PLL_DIV_MASK },
-		{ REG_PLL,		PLL_4X,		PLL_OUT_MASK },
+	/* decrease frame rate */
+	{ REG_CLKRC,	0x03,		CLK_SCALE_MASK },
+	{ REG_PLL,		PLL_DIV_4,	PLL_DIV_MASK },
+	{ REG_PLL,		PLL_4X,		PLL_OUT_MASK },
 	
-		/* increase exposure */
-		{ REG_AECH, 	0x02,		MASK_NONE },
-		{ REG_AECL, 	0xFF,		MASK_NONE },
+	/* increase exposure */
+	{ REG_AECH, 	0x02,		MASK_NONE },
+	{ REG_AECL, 	0xFF,		MASK_NONE },
 
-		/*END MARKER*/
+	/*END MARKER*/
 	OV7690_REG_TERM
 };
 
@@ -261,16 +267,16 @@ const struct ov7690_reg low_fr_high_exp[] = {
 /* TODO Exactly the same as VGA mode */
 const struct ov7690_reg mid_fr_mid_exp[] = 
 {
-		/* decrease frame rate */
-		{ REG_CLKRC,	0x03,		CLK_SCALE_MASK },
-		{ REG_PLL,		PLL_DIV_1,	PLL_DIV_MASK },
-		{ REG_PLL,		PLL_4X,		PLL_OUT_MASK },
+	/* decrease frame rate */
+	{ REG_CLKRC,	0x03,		CLK_SCALE_MASK },
+	{ REG_PLL,		PLL_DIV_1,	PLL_DIV_MASK },
+	{ REG_PLL,		PLL_4X,		PLL_OUT_MASK },
 
-		/* increase exposure */
-		{ REG_AECH,		0x02,		MASK_NONE },
-		{ REG_AECL,		0xFF,		MASK_NONE },
+	/* increase exposure */
+	{ REG_AECH,		0x02,		MASK_NONE },
+	{ REG_AECL,		0xFF,		MASK_NONE },
 
-		/*END MARKER*/
+	/*END MARKER*/
 	OV7690_REG_TERM
 };
 
@@ -284,9 +290,9 @@ const struct ov7690_reg mid_fr_mid_exp[] =
 /* Cloudy Colour Temperature : 6500K - 8000K */
 const struct ov7690_reg awb_cloudy[] = 
 {
-		{ REG_BLUE,		0x40,	MASK_NONE },
-		{ REG_RED,		0x5d,	MASK_NONE },
-		{ REG_GREEN,	0x40,	MASK_NONE },
+	{ REG_BLUE,		0x40,	MASK_NONE },
+	{ REG_RED,		0x5d,	MASK_NONE },
+	{ REG_GREEN,	0x40,	MASK_NONE },
 
 	/*END MARKER*/
 	OV7690_REG_TERM
@@ -295,9 +301,9 @@ const struct ov7690_reg awb_cloudy[] =
 /* Clear Day Colour Temperature : 5000K - 6500K */
 const struct ov7690_reg awb_clear[] =
 {
-		{ REG_BLUE,		0x44,	MASK_NONE },
-		{ REG_RED,		0x55,	MASK_NONE },
-		{ REG_GREEN,	0x40,	MASK_NONE },
+	{ REG_BLUE,		0x44,	MASK_NONE },
+	{ REG_RED,		0x55,	MASK_NONE },
+	{ REG_GREEN,	0x40,	MASK_NONE },
 
 	/*END MARKER*/
 	OV7690_REG_TERM
@@ -306,24 +312,85 @@ const struct ov7690_reg awb_clear[] =
 /* Office Colour Temperature : 3500K - 5000K */
 const struct ov7690_reg awb_tungsten[]=
 {
-		{ REG_BLUE,		0x5b,	MASK_NONE },
-		{ REG_RED,		0x4c,	MASK_NONE },
-		{ REG_GREEN,	0x40,	MASK_NONE }, 
+	{ REG_BLUE,		0x5b,	MASK_NONE },
+	{ REG_RED,		0x4c,	MASK_NONE },
+	{ REG_GREEN,	0x40,	MASK_NONE }, 
 
 	/*END MARKER*/
 	OV7690_REG_TERM
 };
 
 const struct ov7690_reg *awb_manual_mode_list[] = {
-		awb_tungsten, awb_clear, awb_cloudy, NULL
+	awb_tungsten, awb_clear, awb_cloudy, NULL
 };
 
 
 /*!
-*	Supported OV7690 Modes
-*/
-/* Currently no different from default register values */
+ *	Supported OV7690 Modes
+ *	These all assume that the registers have been reset to default before hand
+ */
+
+/* Custom VGA data 
+ * Currently no different from default register values
+ */
 const struct ov7690_reg ov7690_mode_VGA_data[] = { OV7690_REG_TERM };
+
+/* Custom QVGA data */
+const struct ov7690_reg ov7690_mode_QVGA_data[] = 
+{
+
+	{ REG_COM12,	COM12_SUBSAMPLE,	COM12_SUBSAMPLE },	/* Enable subsampling */
+	{ REG_VSTART,	0x00,				MASK_NONE },		/* TODO you can't explain that */
+
+	/* Our horizontal input size is 640 (subsampled) but output is 320 */
+	{ REG_COMCC,	0x01,				COMC8_CF_MSB_MASK },
+	{ REG_COMCD,	0x40,				COMC8_CF_LSB_MASK },
+
+	/* Sub-sampling already halves the vertical output, 
+		so no need to modify it here unless we change that */
+
+	/*END MARKER*/
+	OV7690_REG_TERM
+};
+
+/* Custom CIF data */
+const struct ov7690_reg ov7690_mode_CIF_data[] = 
+{
+
+	/* Our horizontal input size is 640 but output is 352 */
+	{ REG_COMCC,	0x01,				COMC8_CF_MSB_MASK },
+	{ REG_COMCD,	0x60,				COMC8_CF_LSB_MASK },
+
+	/* Our vertical input size is 480 but output is 288 */
+	{ REG_COMCE,	0x01,				COMC8_CF_MSB_MASK },
+	{ REG_COMCF,	0x20,				COMC8_CF_LSB_MASK },
+
+	/*END MARKER*/
+	OV7690_REG_TERM
+};
+
+/* Custom QCIF data */
+const struct ov7690_reg ov7690_mode_QCIF_data[] =
+{
+
+	{ REG_COM12,	COM12_SUBSAMPLE,	COM12_SUBSAMPLE },	/* Enable subsampling */
+	{ REG_VSTART,	0x00,				MASK_NONE },		/* TODO you can't explain that */
+
+	/* Our horizontal input size is 640 but output is 176 */
+	{ REG_COMCC,	0x00,				COMC8_CF_MSB_MASK },
+	{ REG_COMCD,	0xb0,				COMC8_CF_LSB_MASK },
+
+	/* Here's the exciting part: since subsampling halves vertical output,
+	 * we need to ask the device for twice the vertical output of QCIF.
+	 *
+	 * So, our capture size is subsampled 480 (240) but we want subsampled 288 (144)
+	 */
+	{ REG_COMCE,	0x01,				COMC8_CF_MSB_MASK },
+	{ REG_COMCF,	0x20,				COMC8_CF_LSB_MASK },
+
+	/*END MARKER*/
+	OV7690_REG_TERM
+};
 
 /* Taken from https://gitorious.org/flow-g1-5/kernel_flow */
 /*	TODO Output is weird - 4 screens, first column duplicated QVGA, 
@@ -368,21 +435,66 @@ ov7690_mode_info_data[ov7690_MAX_fps+1][ov7690_mode_MAX+1] =
 {
 		/* 30 fps */
 		{
+				/* VGA */
 				{
 					ov7690_mode_VGA_640_480, 
 					V4L2_PIX_FMT_YUYV, "YUYV",
 					640, 480,
 					ov7690_mode_VGA_data, ARRAY_SIZE(ov7690_mode_VGA_data)
+				}, 
+
+				/* QVGA */
+				{
+					ov7690_mode_QVGA_320_240,
+					V4L2_PIX_FMT_YUYV, "YUYV",
+					320, 240,
+					ov7690_mode_QVGA_data, ARRAY_SIZE(ov7690_mode_QVGA_data)
+				},
+
+				/* CIF */
+				{
+					ov7690_mode_CIF_352_288,
+					V4L2_PIX_FMT_YUYV, "YUYV",
+					352, 288,
+					ov7690_mode_CIF_data, ARRAY_SIZE(ov7690_mode_CIF_data)
+				},
+
+				/* QCIF */
+				{
+					ov7690_mode_QCIF_176_144,
+					V4L2_PIX_FMT_YUYV, "YUYV",
+					176, 144,
+					ov7690_mode_QCIF_data, ARRAY_SIZE(ov7690_mode_QCIF_data)
 				}
 		},
 
 		/* 60 fps */
 		{
-				DECLARE_MODE_FPS_NOT_SUPPORTED(ov7690_mode_VGA_640_480)
+				/* VGA */
+				DECLARE_MODE_FPS_NOT_SUPPORTED(ov7690_mode_VGA_640_480),
+
+				/* QVGA */
+				{
+					ov7690_mode_QVGA_320_240,
+					V4L2_PIX_FMT_YUYV, "YUYV",
+					320, 240,
+					ov7690_mode_QVGA_data, ARRAY_SIZE(ov7690_mode_QVGA_data)
+				},
+
+				/* CIF */
+				DECLARE_MODE_FPS_NOT_SUPPORTED(ov7690_mode_CIF_352_288),
+
+				/* QCIF */
+				{
+					ov7690_mode_QCIF_176_144,
+					V4L2_PIX_FMT_YUYV, "YUYV",
+					176, 240,
+					ov7690_mode_QCIF_data, ARRAY_SIZE(ov7690_mode_QCIF_data)
+				}
 		}
 };
-
 #undef DECLARE_MODE_FPS_NOT_SUPPORTED
+
 #define MODE_FPS_NOT_SUPPORTED(m) ((m).width == 0 || (m).height == 0 ||\
 	(m).reg_list == NULL || (m).reg_list_sz == 0)
 

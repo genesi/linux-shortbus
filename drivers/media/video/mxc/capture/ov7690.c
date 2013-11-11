@@ -161,8 +161,8 @@ static s32 ov7690_read_reg_raw(u8 reg, u8 *val)
                 return -ENODEV;
 
         ret = i2c_smbus_read_byte_data(client, reg);
-        pr_debug("ov7690.c:%s: %x %x\n",
-        	__func__, reg, ret);
+        // pr_debug("ov7690.c:%s: %x %x\n",
+        // 	__func__, reg, ret);
 
         if (ret >= 0) {
                 *val = (uint8_t) ret;
@@ -182,8 +182,8 @@ static s32 ov7690_write_reg_raw(u8 reg, u8 val)
                 return -ENODEV;
 
         ret = i2c_smbus_write_byte_data(client, reg, val);
-        pr_debug("ov7690.c:%s: %x %x\n", 
-        	__func__, reg, val);
+        // pr_debug("ov7690.c:%s: %x %x\n", 
+        // 	__func__, reg, val);
 
         if (reg == REG_COM12 && (val & COM12_RESET))
                 msleep(2); /*Wait for reset to run*/
@@ -314,7 +314,7 @@ ov7690_sync_data_and_regs()
 
 	/* Automatic exposure */
 	tmp_reg_ctrl.addr = REG_COM13;
-	tmp_reg_ctrl.mask = COM13_AEC_MASK;
+	tmp_reg_ctrl.mask = COM13_AEC;
 	ret |= ov7690_read_reg_control(&tmp_reg_ctrl);
 	ov7690_data.ae_mode = tmp_reg_ctrl.bitfield_val;
 
@@ -328,13 +328,13 @@ ov7690_sync_data_and_regs()
 */
 
 /*
-* ov7690_init_mode - Set the camera to the given mode of operation & frame rate
-* @frame_rate: frame rate
-* @mode: camera mode
-*
-* Will always reset to default register values before setting mode.
-* TODO: performance impact? unlikely
-*/
+ * ov7690_init_mode - Set the camera to the given mode of operation & frame rate
+ * @frame_rate: frame rate
+ * @mode: camera mode
+ *
+ * Will always reset to default register values before setting mode.
+ * TODO: performance impact? unlikely
+ */
 static s32
 ov7690_init_mode(enum ov7690_frame_rate frame_rate, enum ov7690_mode mode)
 {
@@ -434,7 +434,7 @@ ov7690_mode_get_best_fps_mode(enum ov7690_mode requested_mode)
 
 	/* prefer 60fps */
 	requested_mode_info = 
-		ov7690_mode_info_data[requested_mode][ov7690_60_fps];
+		ov7690_mode_info_data[ov7690_60_fps][requested_mode];
 
 	/* ... but go to lowest if not supported */
 	if (MODE_FPS_NOT_SUPPORTED(requested_mode_info))
@@ -641,8 +641,8 @@ err_frame_rate:
 	return -EINVAL;
 
 err_invalid_mode:
-	pr_err("ov7690.c%s: unsupported mode %d\n", 
-		__func__, (u32)a->parm.capture.capturemode);
+	pr_err("ov7690.c:%s: unsupported mode %d. mode must be between %d and %d (inclusive)\n", 
+		__func__, (u32)a->parm.capture.capturemode, ov7690_mode_MIN+1, ov7690_mode_MAX-1);
 	return -EINVAL;
 }
 
