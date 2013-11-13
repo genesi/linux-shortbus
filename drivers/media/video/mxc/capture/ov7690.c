@@ -18,9 +18,6 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-/*Misc defs*/
-#define OV7690_MODE_ENABLE 	1
-
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/slab.h>
@@ -40,6 +37,16 @@
 #include "ov7690.h"
 
 
+/*!
+ * Misc defs
+ */
+
+/* For future implementation of V4L2 Controls */
+#define OV7690_V4L2_CTRL_ENABLE 0
+
+/*
+ * Low-level device defs
+ */
 #define ov7690_VOLTAGE_ANALOG               2800000
 #define ov7690_VOLTAGE_DIGITAL_CORE         1500000
 #define ov7690_VOLTAGE_DIGITAL_IO           1800000
@@ -107,9 +114,6 @@ static int ov7690_probe(struct i2c_client *adapter,
 				const struct i2c_device_id *device_id);
 static int ov7690_remove(struct i2c_client *client);
 
-/*!
-* 	Function prototypes
-*/
 /* Helper register functions*/
 static s32 ov7690_read_reg_raw(u8 reg, u8 *val);
 static s32 ov7690_write_reg_raw(u8 reg, u8 val);
@@ -182,8 +186,8 @@ static s32 ov7690_write_reg_raw(u8 reg, u8 val)
                 return -ENODEV;
 
         ret = i2c_smbus_write_byte_data(client, reg, val);
-        // pr_debug("ov7690.c:%s: %x %x\n", 
-        // 	__func__, reg, val);
+        pr_debug("ov7690.c:%s: %x %x\n", 
+            __func__, reg, val);
 
         if (reg == REG_COM12 && (val & COM12_RESET))
                 msleep(2); /*Wait for reset to run*/
@@ -227,6 +231,15 @@ static s32 ov7690_write_reg_struct(const struct ov7690_reg reg)
 	return ret;
 }
 
+/*
+ * ov7690_read_reg_control - helper function to put reg control value 
+ *  in human-readable format
+ *
+ * @ctrl - the desired control. Should have addr, mask set, 
+ *  will set bitfield_value on successful execution
+ *
+ * returns success status
+ */
 static s32 ov7690_read_reg_control(struct ov7690_reg_control * ctrl)
 {
 	s32 ret = 0;
@@ -324,8 +337,8 @@ ov7690_sync_data_and_regs()
 }
 
 /*!
-*	Functions for modes
-*/
+ *	Functions for modes
+ */
 
 /*
  * ov7690_init_mode - Set the camera to the given mode of operation & frame rate
@@ -724,7 +737,10 @@ static int ioctl_s_ctrl(struct v4l2_int_device *s, struct v4l2_control *vc)
 {
 	int ret = 0;
 
-	printk("ov7690.c:%s: %d\n", __func__, vc->id);
+	pr_debug("ov7690.c:%s: %d\n", __func__, vc->id);
+
+
+#if OV7690_V4L2_CTRL_ENABLE
 
 	switch (vc->id) {
 	case V4L2_CID_BRIGHTNESS:
@@ -740,15 +756,21 @@ static int ioctl_s_ctrl(struct v4l2_int_device *s, struct v4l2_control *vc)
 	case V4L2_CID_AUTO_WHITE_BALANCE:
 	{
 		u8 write_me = (vc->value != 0);
-		struct ov7690_reg_control awb = {REG_COM13, write_me, COM13_AWB};
+		struct ov7690_reg_control awb = { REG_COM13, write_me, COM13_AWB };
 		ret = ov7690_write_reg_control(awb);
 		break;
 	}
 	case V4L2_CID_DO_WHITE_BALANCE:
 		break;
 	case V4L2_CID_RED_BALANCE:
+		u8 write_me = (u8) vc->value;
+		ret = ov7690_write_reg_raw(REG_RED, write_me);
+		ov7690_data.red = write_me;
 		break;
 	case V4L2_CID_BLUE_BALANCE:
+		u8 write_me = (u8) vc->value;
+		ret = ov7690_write_reg_raw(REG_BLUE, write_me);
+		ov7690_data.blue = write_me;
 		break;
 	case V4L2_CID_GAMMA:
 		break;
@@ -781,6 +803,44 @@ static int ioctl_s_ctrl(struct v4l2_int_device *s, struct v4l2_control *vc)
 		ret = -EPERM;
 		break;
 	}
+
+#else /* OV7690_V4L2_CTRL_ENABLE */
+
+    switch (vc->id) {
+    case V4L2_CID_BRIGHTNESS:
+        break;
+    case V4L2_CID_CONTRAST:
+        break;
+    case V4L2_CID_SATURATION:
+        break;
+    case V4L2_CID_HUE:
+        break;
+    case V4L2_CID_AUTO_WHITE_BALANCE:
+        break;
+    case V4L2_CID_DO_WHITE_BALANCE:
+        break;
+    case V4L2_CID_RED_BALANCE:
+        break;
+    case V4L2_CID_BLUE_BALANCE:
+        break;
+    case V4L2_CID_GAMMA:
+        break;
+    case V4L2_CID_EXPOSURE:
+        break;
+    case V4L2_CID_AUTOGAIN:
+        break;
+    case V4L2_CID_GAIN:
+        break;
+    case V4L2_CID_HFLIP:
+        break;
+    case V4L2_CID_VFLIP:
+        break;
+    default:
+        ret = -EPERM;
+        break;
+    }
+
+#endif /* OV7690_V4L2_CTRL_ENABLE */
 
 	return ret;
 }
@@ -1171,7 +1231,7 @@ static void __exit ov7690_clean(void)
 	i2c_del_driver(&ov7690_i2c_driver);
 }
 
-#undef OV7690_MODE_ENABLE
+#undef OV7690_V4L2_CTRL_ENABLE
 
 module_init(ov7690_init);
 module_exit(ov7690_clean);
