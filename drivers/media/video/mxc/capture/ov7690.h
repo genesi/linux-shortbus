@@ -65,18 +65,21 @@
 #define REG_COM14			0x14	/* Control 14: gain ceiling */
 
 #define REG_COM15			0x15	/* Control 15: frame rate ctrl */
-#define	  COM15_REDUCE_NONE	  0x00	  /* Do not reduce fps */
-#define	  COM15_REDUCE_1R2	  0x10	  /* Max reduce fps by 1/2 */
-#define	  COM15_REDUCE_1R3	  0x20	  /* Max reduce fps by 1/3 */
-#define	  COM15_REDUCE_1R4	  0x30	  /* Max reduce fps by 1/4 */
-#define	  COM15_REDUCE_1R8	  0x40	  /* Max reduce fps by 1/8 */
-#define	  COM15_AFR_1		  0x00	  /* Add frame when AGC=1*(1.9735) */
-#define	  COM15_AFR_2		  0x04	  /* Add frame when AGC=2*(1.9735) */
-#define	  COM15_AFR_4		  0x08	  /* Add frame when AGC=4*(1.9735) */
-#define	  COM15_AFR_8		  0x0C	  /* Add frame when AGC=8*(1.9735) */
-#define	  COM15_DIG_GAIN_NONE 0x00	  /* No digital gain */
-#define	  COM15_DIG_GAIN_2X	  0x01	  /* 2x digital gain */
-#define	  COM15_DIF_GAIN_4X	  0x03	  /* 4x digital gain */
+#define	  COM15_REDUCE_FPS	  0x70	  /* Mask for fps reduce settings */
+#define	  COM15_REDUCE__NONE	0x0 	/* Do not reduce fps */
+#define	  COM15_REDUCE__1R2		0x1		/* Max reduce fps by 1/2 */
+#define	  COM15_REDUCE__1R3		0x2		/* Max reduce fps by 1/3 */
+#define	  COM15_REDUCE__1R4		0x3		/* Max reduce fps by 1/4 */
+#define	  COM15_REDUCE__1R8		0x4		/* Max reduce fps by 1/8 */
+#define	  COM15_AFR			  0x0C	  /* Mask for add frame settings */
+#define	  COM15_AFR__1			0x0		/* Add frame when AGC=1*(1.9735) */
+#define	  COM15_AFR__2			0x1		/* Add frame when AGC=2*(1.9735) */
+#define	  COM15_AFR__4			0x2		/* Add frame when AGC=4*(1.9735) */
+#define	  COM15_AFR__8			0x3		/* Add frame when AGC=8*(1.9735) */
+#define	  COM15_DIG_GAIN	  0x03	  /* Mask for digital gain */
+#define	  COM15_DIG_GAIN__NONE	0x0	/* No digital gain */
+#define	  COM15_DIG_GAIN__2X	0x1	/* 2x digital gain */
+#define	  COM15_DIF_GAIN__4X	0x3	/* 4x digital gain */
 
 #define REG_COM16			0x16
 #define REG_HSTART			0x17	/* Horiz start point control */
@@ -89,23 +92,23 @@
 #define REG_MIDL			0x1d  /* Manuf. ID low */
 
 #define REG_COM22			0x22	/* Optical Black Output*/
-#define   COM22_BLACK_ENABLE  0x80
+#define   COM22_BLACK		  0x80
 
 #define REG_AGC_UL			0x24	/* AGC upper limit */
 #define REG_AGC_LL			0x25	/* AGC lower limit */
-#define REG_VPT				0x26  /* AGC/AEC fast mode op region */
+#define REG_VPT				0x26	/* AGC/AEC fast mode op region */
 
-#define REG_PLL				0x29  /* PLL settings */
-#define   PLL_DIV_1			  0x00
-#define   PLL_DIV_2			  0x40
-#define   PLL_DIV_3			  0x80
-#define   PLL_DIV_4			  0xC0
-#define	  PLL_DIV_MASK		  0xC0
-#define   PLL_BYPASS		  0x00
-#define   PLL_4X			  0x10
-#define   PLL_6X			  0x20
-#define   PLL_8X			  0x30
-#define	  PLL_OUT_MASK		  0x30
+#define REG_PLL				0x29	/* PLL settings */
+#define	  PLL_DIV			  0xC0	  /* PLL divider mask */
+#define   PLL_DIV__1			0x0
+#define   PLL_DIV__2			0x1
+#define   PLL_DIV__3			0x2
+#define   PLL_DIV__4			0x3
+#define	  PLL_OUT			  0x30	  /* PLL output control mask */
+#define   PLL_OUT__BYPASS		0x0
+#define   PLL_OUT__4X			0x1
+#define   PLL_OUT__6X			0x2
+#define   PLL_OUT__8X			0x3
 
 #define REG_COMB4			0xB4
 #define   COMB4_SHRP_AUTO	  0x20
@@ -122,7 +125,7 @@
 #define REG_COMCE			0xCE	/* 2 MSBs of vert output size */
 #define REG_COMCF			0xCF	/* 8 LSBs of vert output size */
 #define   COMC8_CF_MSB_MASK	  0x03
-#define   COMC8_CF_LSB_MASK	  0xFF
+#define   COMC8_CF_LSB_MASK	  MASK_NONE /* for readability */
 
 #define REG_YBRIGHT 		0xD3	/* "YBRIGHT" */
 #define REG_YOFFSET			0xD5	/* "YOFFSET" */
@@ -141,12 +144,11 @@ struct ov7690_reg {
 #define OV7690_REG_TERM { I2C_REG_TERM, I2C_VAL_TERM, MASK_NONE }
 
 /*!
-*	Data structure for easy bitfield read/write
+*	Data structure for aiding bitfield read/write
 */
 struct ov7690_reg_control {
 	u8 addr;
 	u8 mask;
-	u8 bitfield_val;
 };
 
 /* No mask */
@@ -252,8 +254,8 @@ const struct ov7690_reg ov7690_default_regs[] = {
 const struct ov7690_reg low_fr_high_exp[] = {
 	/* decrease frame rate */
 	{ REG_CLKRC,	0x03,		CLK_SCALE_MASK },
-	{ REG_PLL,		PLL_DIV_4,	PLL_DIV_MASK },
-	{ REG_PLL,		PLL_4X,		PLL_OUT_MASK },
+	{ REG_PLL,		PLL_DIV__4,	PLL_DIV },
+	{ REG_PLL,		PLL_OUT__4X,PLL_OUT },
 	
 	/* increase exposure */
 	{ REG_AECH, 	0x02,		MASK_NONE },
@@ -269,8 +271,8 @@ const struct ov7690_reg mid_fr_mid_exp[] =
 {
 	/* decrease frame rate */
 	{ REG_CLKRC,	0x03,		CLK_SCALE_MASK },
-	{ REG_PLL,		PLL_DIV_1,	PLL_DIV_MASK },
-	{ REG_PLL,		PLL_4X,		PLL_OUT_MASK },
+	{ REG_PLL,		PLL_DIV__1,	PLL_DIV },
+	{ REG_PLL,		PLL_OUT__4X,PLL_OUT },
 
 	/* increase exposure */
 	{ REG_AECH,		0x02,		MASK_NONE },
@@ -339,12 +341,12 @@ const struct ov7690_reg ov7690_mode_VGA_data[] = { OV7690_REG_TERM };
 const struct ov7690_reg ov7690_mode_QVGA_data[] = 
 {
 
-	{ REG_COM12,	COM12_SUBSAMPLE,	COM12_SUBSAMPLE },	/* Enable subsampling */
-	{ REG_VSTART,	0x00,				MASK_NONE },		/* TODO you can't explain that */
+	{ REG_COM12,	0x01,	COM12_SUBSAMPLE },	/* Enable subsampling */
+	{ REG_VSTART,	0x00,	MASK_NONE },		/* TODO you can't explain that */
 
 	/* Our horizontal input size is 640 (subsampled) but output is 320 */
-	{ REG_COMCC,	0x01,				COMC8_CF_MSB_MASK },
-	{ REG_COMCD,	0x40,				COMC8_CF_LSB_MASK },
+	{ REG_COMCC,	0x01,	COMC8_CF_MSB_MASK },
+	{ REG_COMCD,	0x40,	COMC8_CF_LSB_MASK },
 
 	/* Sub-sampling already halves the vertical output, 
 		so no need to modify it here unless we change that */
@@ -358,12 +360,12 @@ const struct ov7690_reg ov7690_mode_CIF_data[] =
 {
 
 	/* Our horizontal input size is 640 but output is 352 */
-	{ REG_COMCC,	0x01,				COMC8_CF_MSB_MASK },
-	{ REG_COMCD,	0x60,				COMC8_CF_LSB_MASK },
+	{ REG_COMCC,	0x01,	COMC8_CF_MSB_MASK },
+	{ REG_COMCD,	0x60,	COMC8_CF_LSB_MASK },
 
 	/* Our vertical input size is 480 but output is 288 */
-	{ REG_COMCE,	0x01,				COMC8_CF_MSB_MASK },
-	{ REG_COMCF,	0x20,				COMC8_CF_LSB_MASK },
+	{ REG_COMCE,	0x01,	COMC8_CF_MSB_MASK },
+	{ REG_COMCF,	0x20,	COMC8_CF_LSB_MASK },
 
 	/*END MARKER*/
 	OV7690_REG_TERM
@@ -373,20 +375,20 @@ const struct ov7690_reg ov7690_mode_CIF_data[] =
 const struct ov7690_reg ov7690_mode_QCIF_data[] =
 {
 
-	{ REG_COM12,	COM12_SUBSAMPLE,	COM12_SUBSAMPLE },	/* Enable subsampling */
-	{ REG_VSTART,	0x00,				MASK_NONE },		/* TODO you can't explain that */
+	{ REG_COM12,	0x01,	COM12_SUBSAMPLE },	/* Enable subsampling */
+	{ REG_VSTART,	0x00,	MASK_NONE },		/* TODO you can't explain that */
 
 	/* Our horizontal input size is 640 but output is 176 */
-	{ REG_COMCC,	0x00,				COMC8_CF_MSB_MASK },
-	{ REG_COMCD,	0xb0,				COMC8_CF_LSB_MASK },
+	{ REG_COMCC,	0x00,	COMC8_CF_MSB_MASK },
+	{ REG_COMCD,	0xb0,	COMC8_CF_LSB_MASK },
 
 	/* Here's the exciting part: since subsampling halves vertical output,
 	 * we need to ask the device for twice the vertical output of QCIF.
 	 *
 	 * So, our capture size is subsampled 480 (240) but we want subsampled 288 (144)
 	 */
-	{ REG_COMCE,	0x01,				COMC8_CF_MSB_MASK },
-	{ REG_COMCF,	0x20,				COMC8_CF_LSB_MASK },
+	{ REG_COMCE,	0x01,	COMC8_CF_MSB_MASK },
+	{ REG_COMCF,	0x20,	COMC8_CF_LSB_MASK },
 
 	/*END MARKER*/
 	OV7690_REG_TERM

@@ -117,8 +117,12 @@ static int ov7690_remove(struct i2c_client *client);
 /* Helper register functions*/
 static s32 ov7690_read_reg_raw(u8 reg, u8 *val);
 static s32 ov7690_write_reg_raw(u8 reg, u8 val);
-static s32 ov7690_write_reg_struct(const struct ov7690_reg reg);
-static s32 ov7690_write_reg_control(const struct ov7690_reg_control ctrl);
+
+static s32 
+ov7690_write_reg_control(const struct ov7690_reg_control ctrl, const u8 value);
+static s32
+ov7690_read_reg_control(const struct ov7690_reg_control ctrl, u8 *value);
+
 static s32 ov7690_write_regs(const struct ov7690_reg * reglist);
 
 /* Keeps v4l2 image data synced with registers */
@@ -165,8 +169,8 @@ static s32 ov7690_read_reg_raw(u8 reg, u8 *val)
                 return -ENODEV;
 
         ret = i2c_smbus_read_byte_data(client, reg);
-        // pr_debug("ov7690.c:%s: %x %x\n",
-        // 	__func__, reg, ret);
+        pr_debug("ov7690.c:%s: %x %x\n",
+         	__func__, reg, ret);
 
         if (ret >= 0) {
                 *val = (uint8_t) ret;
@@ -195,82 +199,86 @@ static s32 ov7690_write_reg_raw(u8 reg, u8 val)
         return ret;
 }
 
-/* TODO I don't like this method. It returns a value by setting a field
-	in the struct
-*/
-static s32 ov7690_read_reg_struct(struct ov7690_reg * reg)
-{
-	int ret = 0;
-	u8 read_me = 0;
-
-	if (IS_MASKED(*reg)) {
-		ret = ov7690_read_reg_raw(reg->addr, &read_me);
-		reg->val = read_me & reg->mask;
-	}
-	else 
-		ret = ov7690_read_reg_raw(reg->addr, &reg->val);
-
-	return ret;
-}
-
-/* Takes a struct representing the register & value to write */
-static s32 ov7690_write_reg_struct(const struct ov7690_reg reg)
-{
-	int ret = 0;
-	u8 write_me = 0;
-
-	if (IS_MASKED(reg)) {
-		ret = ov7690_read_reg_raw(reg.addr, &write_me);
-		write_me &= ~(reg.mask); /* clear bits */
-		write_me |= reg.mask & reg.val; /* set bits */
-		ret |= ov7690_write_reg_raw(reg.addr, write_me);
-	}
-	else 
-		ret = ov7690_write_reg_raw(reg.addr, reg.val);
-
-	return ret;
-}
 
 /*
  * ov7690_read_reg_control - helper function to put reg control value 
  *  in human-readable format
  *
- * @ctrl - the desired control. Should have addr, mask set, 
- *  will set bitfield_value on successful execution
+ * @ctrl	- the desired control to read. Should have addr, mask set
+ * @value	- location to write control value
  *
- * returns success status
+ * returns success status, does not touch value on failure
  */
-static s32 ov7690_read_reg_control(struct ov7690_reg_control * ctrl)
+static s32
+ov7690_read_reg_control(const struct ov7690_reg_control ctrl, u8 *value)
 {
 	s32 ret = 0;
+	u8 tmp_val = 0;
 
-	if (!IS_MASKED(*ctrl)) {
-		ret = ov7690_read_reg_raw(ctrl->addr, &(ctrl->bitfield_val));
+	ret = ov7690_read_reg_raw(ctrl.addr, &tmp_val);
+
+	if (ret < 0) /* Exit on error */
+		return ret;
+
+
+	if (!IS_MASKED(ctrl)) {
+		*value = tmp_val;
 	}
 	else {
-		struct ov7690_reg read_reg = {ctrl->addr, 0, ctrl->mask};
-		ret = ov7690_read_reg_struct(&read_reg);
-		ctrl->bitfield_val = 
-			read_reg.val / (ctrl->mask & ~(ctrl->mask << 1)); /* TODO performance? */
+		tmp_val &= ctrl.mask; /* Mask out control bits */
+		*value = /* Divide by power of two to right shift appropriately */
+			tmp_val / (ctrl.mask & ~(ctrl.mask << 1)); /* TODO performance impact? */
 	}
 
 	return ret;
 }
 
-/* Takes a struct representing the register, mask, and bitfield value to write, 
-	shifts value into place
-*/
-static s32 ov7690_write_reg_control(const struct ov7690_reg_control ctrl)
+/*
+ * ov7690_write_reg_control - helper function to write human-readable value
+ *	to register
+ *
+ * @ctrl	- the desired control to write. Should have addr, mask set
+ * @value	- value to write
+ *
+ * returns success status
+ */
+static s32
+ov7690_write_reg_control(const struct ov7690_reg_control ctrl, const u8 value)
 {
+	s32 ret = 0;
+	u8 tmp_val = 0;
+
 	if (!IS_MASKED(ctrl)) {
-		return ov7690_write_reg_raw(ctrl.addr, ctrl.bitfield_val);
+		ret = ov7690_write_reg_raw(ctrl.addr, value);
 	}
 	else {
-		u8 bitfield_shifted = 
-			ctrl.bitfield_val * (ctrl.mask & ~(ctrl.mask << 1));
-		struct ov7690_reg write_reg = {ctrl.addr, bitfield_shifted, ctrl.mask};
-		return ov7690_write_reg_struct(write_reg);
+		u8 shifted_value = /* Multiply by power of two to left shift appropriately */
+			value * (ctrl.mask & ~(ctrl.mask << 1));
+		ret = ov7690_read_reg_raw(ctrl.addr, &tmp_val);
+
+		if (ret < 0) /* Error, exit without writing */
+			goto read_err;
+
+		tmp_val &= ~(ctrl.mask); /* clear bits */
+		tmp_val |= (ctrl.mask & shifted_value); /* set bits */
+
+		ret |= ov7690_write_reg_raw(ctrl.addr, tmp_val);
+
+		if (ret < 0)
+			goto write_err;
 	}
+
+	return ret;
+
+read_err:
+	pr_err("%s: could not read register %x",
+		__func__, ctrl.addr);
+	return ret;
+
+write_err:
+	pr_err("%s: could not write %d to control in register %x",
+		__func__, value, ctrl.addr);
+	return ret;
 }
 
 /* Writes list of register structs */
@@ -278,21 +286,30 @@ static s32 ov7690_write_regs(const struct ov7690_reg *reglist)
 {
 	int error = 0;
 	const struct ov7690_reg *reg_rover = &reglist[0];
+	struct ov7690_reg_control temp_ctrl = {0, 0};
+
+	temp_ctrl.addr = reg_rover->addr;
+	temp_ctrl.mask = reg_rover->mask;
 
 	while (!((reg_rover->addr == I2C_REG_TERM) 
 		&& (reg_rover->val == I2C_VAL_TERM))) {
 
-		error = ov7690_write_reg_struct(*reg_rover);
+		error = ov7690_write_reg_control(temp_ctrl, reg_rover->val);
 		if (error < 0)
 			goto err;
 
 		msleep(1); /* TODO ? */
+
+		/* update loop variables */
 		++reg_rover;
+		temp_ctrl.addr = reg_rover->addr;
+		temp_ctrl.mask = reg_rover->mask;
 	}
 
 	return 0;
 
 err:
+	pr_err("%s: unable to write registers!", __func__);
 	return error;
 }
 
@@ -302,7 +319,7 @@ ov7690_sync_data_and_regs()
 {
 	u8 tmp = 0;
 	s32 ret = 0;
-	struct ov7690_reg_control tmp_reg_ctrl = {0,0,0};
+	struct ov7690_reg_control tmp_reg_ctrl = {0,0};
 
 
 	/* Colors */
@@ -326,10 +343,9 @@ ov7690_sync_data_and_regs()
 	ov7690_data.contrast = tmp;
 
 	/* Automatic exposure */
-	tmp_reg_ctrl.addr = REG_COM13;
-	tmp_reg_ctrl.mask = COM13_AEC;
-	ret |= ov7690_read_reg_control(&tmp_reg_ctrl);
-	ov7690_data.ae_mode = tmp_reg_ctrl.bitfield_val;
+	tmp_reg_ctrl.addr = REG_COM13; tmp_reg_ctrl.mask = COM13_AEC;
+	ret |= ov7690_read_reg_control(tmp_reg_ctrl, &tmp);
+	ov7690_data.ae_mode = tmp;
 
 	/*TODO: saturation, hue*/
 
@@ -756,8 +772,8 @@ static int ioctl_s_ctrl(struct v4l2_int_device *s, struct v4l2_control *vc)
 	case V4L2_CID_AUTO_WHITE_BALANCE:
 	{
 		u8 write_me = (vc->value != 0);
-		struct ov7690_reg_control awb = { REG_COM13, write_me, COM13_AWB };
-		ret = ov7690_write_reg_control(awb);
+		struct ov7690_reg_control awb = { REG_COM13, COM13_AWB };
+		ret = ov7690_write_reg_control(awb, write_me);
 		break;
 	}
 	case V4L2_CID_DO_WHITE_BALANCE:
@@ -779,8 +795,8 @@ static int ioctl_s_ctrl(struct v4l2_int_device *s, struct v4l2_control *vc)
 	case V4L2_CID_AUTOGAIN:
 	{
 		u8 write_me = (vc->value != 0);
-		struct ov7690_reg_control agc = {REG_COM13, write_me, COM13_AGC};
-		ret = ov7690_write_reg_control(agc);
+		struct ov7690_reg_control agc = { REG_COM13, COM13_AGC };
+		ret = ov7690_write_reg_control(agc, write_me);
 		break;
 	}
 	case V4L2_CID_GAIN: /* TODO only analog gain is supported */
