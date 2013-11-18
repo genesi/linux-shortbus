@@ -26,8 +26,6 @@
 #include <linux/mmc/mmc.h>
 #include <linux/mmc/host.h>
 
-#include <mach/iomux-mx53.h>
-
 #include "sdhci.h"
 
 #define DRIVER_NAME "sdhci"
@@ -1366,8 +1364,6 @@ static void sdhci_tasklet_finish(unsigned long param)
 		   controllers do not like that. */
 		sdhci_reset(host, SDHCI_RESET_CMD);
 		sdhci_reset(host, SDHCI_RESET_DATA);
-
-		mxc_iomux_v3_setup_pad(MX53_PAD_SD1_DATA3__GPIO1_21);
 	}
 
 	host->mrq = NULL;
