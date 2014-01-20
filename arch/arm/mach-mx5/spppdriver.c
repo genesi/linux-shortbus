@@ -83,7 +83,7 @@ EXPORT_SYMBOL(sppp_client_remove);
 static int decode(void)
 {
 	int i;
-
+#if 0
 	switch (sppp_rx_g.id) {
 	case SPPP_IDENTIFICATION_ID:
 		printk(KERN_ERR "IDENTIFICATION\n");
@@ -119,7 +119,46 @@ static int decode(void)
 	default:
 		break;
 	}
+#else
+	switch (sppp_rx_g.id) {
+	case SPPP_IDENTIFICATION_ID:
+		printk(KERN_ERR "IDENTIFICATION\n");
+		for (i = 0; i < sppp_rx_g.pos; i++)
+			printk(KERN_ERR "%02x", sppp_rx_g.input[i]);
+		printk(KERN_ERR "\n");
+		break;
+	case SPPP_PS2_ID:
+		if (array_of_clients[TRACKPAD] != NULL)
+			array_of_clients[TRACKPAD]->decode(&sppp_rx_g);
+		break;
+	case SPPP_KEY_ID:
+		if (array_of_clients[KEYBOARD] != NULL)
+			array_of_clients[KEYBOARD]->decode(&sppp_rx_g);
+		break;
 
+	/*	case SPPP_RTC_ID:
+			if (array_of_clients[RTC] != NULL)
+				array_of_clients[RTC]->decode(&sppp_rx_g);
+			break;
+
+		case SPPP_PWR_ID:
+			if (array_of_clients[POWER] != NULL)
+				array_of_clients[POWER]->decode(&sppp_rx_g);
+			break;
+	*/
+	/*	case SPPP_STRING_ID:
+			printk(KERN_ERR "STRING\n");
+			for (i = 0; i < sppp_rx_g.pos; i++)
+				printk(KERN_ERR "%c", sppp_rx_g.input[i]);
+			printk(KERN_ERR "\n");
+			break;*/
+	default:
+		if (array_of_clients[ANY] != NULL)
+			array_of_clients[ANY]->decode(&sppp_rx_g);
+		break;
+		break;
+	}
+#endif
 	return 0;
 }
 
@@ -210,9 +249,9 @@ void serial_putc(const char c)
 
 	/* wait for transmitter to be ready */
 	while
-	    (!(__REG(baseint + USR1) & USR1_TRDY));
+	(!(__REG(baseint + USR1) & USR1_TRDY));
 	/* STM needs time for processing... */
-	    msleep(1);
+	msleep(1);
 }
 
 /* Writing a string, uses polled serial_putc() */
@@ -237,7 +276,7 @@ static int imx_setup_ufcr(struct uart_port *port, unsigned int mode)
 	 */
 	val = TXTL << 10 | RXTL;
 	ufcr_rfdiv = (clk_get_rate(clk_get_sys("imx-uart.1", NULL)) + 24000000 / 2)
-			/ 24000000;
+	             / 24000000;
 
 	if (!ufcr_rfdiv)
 		ufcr_rfdiv = 1;
@@ -281,7 +320,7 @@ static int sppp_setup(void)
 
 	/* Wait for SW reset */
 	while
-	    (!(__REG(baseint + UCR2) & UCR2_SRST));
+	(!(__REG(baseint + UCR2) & UCR2_SRST));
 
 	/* disable the DREN bit (Data Ready interrupt enable) before
 	 * requesting IRQs

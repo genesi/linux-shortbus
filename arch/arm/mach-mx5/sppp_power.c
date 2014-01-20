@@ -26,6 +26,13 @@
 #include <linux/delay.h>
 #include <linux/sppp.h>
 
+#define STATUS_POWER_STATE_START_BIT    (8)
+#define STATUS_POWER_STATE_SHIFT(val)   ((val)<<STATUS_POWER_STATE_START_BIT)
+#define STATUS_POWER_STATE_MASK         STATUS_POWER_STATE_SHIFT(0x3)
+#define STATUS_POWER_STATE_COLD_RESET   STATUS_POWER_STATE_SHIFT(1)
+#define STATUS_POWER_STATE_WARM_RESET   STATUS_POWER_STATE_SHIFT(2)
+#define STATUS_POWER_STATE_OFF          STATUS_POWER_STATE_SHIFT(3)
+
 static struct sppp_client sppp_pwr_client;
 
 /* Callback for incoming data from SPM */
@@ -36,11 +43,18 @@ static void sppp_get_data(sppp_rx_t *packet)
 /* Send power suspend sequence to SPM */
 static void sppp_pwr_suspend(void)
 {
-	sppp_tx_t sppp_tx_g;
+	uint32_t fw_status;
 
-	sppp_start(&sppp_tx_g, SPPP_PWR_ID);
-	sppp_data(&sppp_tx_g, PWR_ID_GOTO_STANDY);
-	sppp_stop(&sppp_tx_g);
+	sppp_tx_t sppp_tx;
+
+	fw_status = STATUS_POWER_STATE_OFF;
+	sppp_start(&sppp_tx, SPPP_STATUS_ID);
+	sppp_data(&sppp_tx, STATUS_ID_SET);
+	sppp_data(&sppp_tx, (fw_status>>24) );
+	sppp_data(&sppp_tx, (fw_status>>16) );
+	sppp_data(&sppp_tx, (fw_status>> 8) );
+	sppp_data(&sppp_tx, (fw_status>> 0) );
+	sppp_stop(&sppp_tx);
 }
 
 static int __init sppp_pwr_init(void)

@@ -35,6 +35,7 @@ static struct sppp_client sppp_keyboard_client;
 char keyboard_g[MAXCOL][MAXROW];	/* raw keys from keyboard */
 char keypress_g[MAXCOL][MAXROW];	/* current keys reported to the system */
 char keyvalid_g[MAXCOL][MAXROW] = {	/* valid key and scancodes on current keyboard */
+#if 0
 	{ 66, 12, 82, 83,  0,  8,  0, 52 },          /* COL 0 a '0' indicates none existing==invalid */
 	{  0,  0,  0, 25,  0,  0,  0, 13 },          /* COL 1 */
 	{  0,  0,  9,  0,  0,  2,  0,  0 },
@@ -51,6 +52,49 @@ char keyvalid_g[MAXCOL][MAXROW] = {	/* valid key and scancodes on current keyboa
 	{  4,  6,  0,  0,  0,  0,  0,  0 },
 	{  5, 10, 76, 77, 64, 36, 22, 49 },          /* COL 14 */
 	{ 15,  0, 68, 55, 40, 27, 28, 41 }           /* COL 15 */
+#else
+
+	/* some KEY_xxx use fancy names. Pls. check and correct. Some keys are missing using a KEY_NUxxx (xxx=index from datasheet) */
+
+#define KEY_NU14  0
+#define KEY_NU29  0
+#define KEY_NU56  0
+#define KEY_NU129 0
+
+#define KEY_WINLEFT  0
+#define KEY_WINRIGHT  0
+#define KEY_FUNCTION  0
+#define KEY_PRINTSRC  0
+#define KEY_P1R  0
+#define KEY_L1R  0
+#define KEY_L2R  0
+
+#define KEY_RETURN1U  0
+#define KEY_01R  0
+#define KEY_OBENRECHT  0
+#define KEY_COM  0
+#define KEY_NK28  0
+#define KEY_NU45  0
+#define KEY_GROSKLEIN  0
+
+	{  KEY_PAUSE,  KEY_WINLEFT,  KEY_WINRIGHT,            0,  KEY_RIGHTCTRL,            0,  KEY_LEFTCTRL,  KEY_F5       }, /* Col 0 */
+	{          0,            0,  KEY_FUNCTION,  KEY_LEFTALT,              0,            0,  KEY_RIGHTALT,  KEY_PRINTSRC }, /* COL 1 */
+	{      KEY_P,      KEY_P1R,       KEY_L1R,      KEY_L2R,   KEY_RETURN1U,  KEY_UNKNOWN,       KEY_01R,  KEY_0        },
+	{  KEY_NU14,KEY_BACKSPACE,       KEY_NU29,      KEY_F11,      KEY_ENTER,      KEY_F12,        KEY_F9,  KEY_F10      },
+	{          0,KEY_LEFTSHIFT,KEY_RIGHTSHIFT,            0,              0,            0,             0,  0            },
+	{          0,            0,              0,   KEY_SPACE,              0,     KEY_DOWN, KEY_OBENRECHT,  0            },
+	{          0,            0,              0,           0,              0,    KEY_RIGHT,    KEY_INSERT,  0            },
+	{          0,            0,              0,           0,              0,            0,             0,  0            },
+	{          0,            0,              0,      KEY_UP,              0,     KEY_LEFT,       KEY_COM,  0            },
+	{      KEY_O,       KEY_F7,          KEY_L,           0,        KEY_DOT,    KEY_NU129,        KEY_F9,  KEY_9        },
+	{      KEY_I,     KEY_NK28,          KEY_K,      KEY_F6,      KEY_COMMA,     KEY_NU56,         KEY_2,  KEY_8        },
+	{      KEY_U,        KEY_Y,          KEY_J,       KEY_H,          KEY_M,        KEY_N,         KEY_6,  KEY_7        },
+	{      KEY_R,        KEY_T,          KEY_F,       KEY_G,          KEY_V,        KEY_B,         KEY_5,  KEY_4        },
+	{      KEY_E,       KEY_F3,          KEY_D,      KEY_F4,          KEY_C,            0,        KEY_F2,  KEY_3        },
+	{      KEY_W, KEY_CAPSLOCK,          KEY_S,    KEY_NU45,          KEY_X,            0,        KEY_F1,  KEY_2        }, /* COL 14 */
+	{      KEY_Q,      KEY_TAB,          KEY_A,     KEY_ESC,          KEY_Z,            0, KEY_GROSKLEIN,  KEY_1        }  /* COL 15 */
+
+#endif
 };
 
 int key_sync_g;
@@ -85,11 +129,11 @@ static int kbd_is_ghost(int col, int row)	/* check for ghosting */
 				if (i == col)			/* don't test ourself */
 					continue;
 				if (keyboard_g[i][row] != 0 &&		/* we found a rectangle with */
-						keyboard_g[i][j] != 0) {		/* col/row , col/j , i/j , i/row */
+				    keyboard_g[i][j] != 0) {		/* col/row , col/j , i/j , i/row */
 #if 1
 					if (keyvalid_g[col][j] != 0 && /* complex check tests other three */
-							keyvalid_g[i][j] != 0 &&  /* corners to be a valid key */
-							keyvalid_g[i][row] != 0)
+					    keyvalid_g[i][j] != 0 &&  /* corners to be a valid key */
+					    keyvalid_g[i][row] != 0)
 #endif
 						return 1;	/* simple check returns true here */
 				}
@@ -111,6 +155,8 @@ static void key_do(unsigned char scancode)
 	makebreak = scancode & 0x80 ? 0 : 1;
 	scancode  = scancode & 0x7f;	/* NOTE: scancode is limited to 128 entries here */
 
+	/*printk(KERN_ERR "%s: scancode %d (0x%02x)", makebreak==1 ? "pressed " : "released", scancode, scancode);*/
+
 	input_report_key(keyb_dev, scancode, makebreak);
 	input_sync(keyb_dev);
 }
@@ -129,7 +175,7 @@ static void kbd_handle(void)
 		for (j = 0 ; j < MAXROW; j++) {
 			if (keyboard_g[i][j] == 0) {				/* mark key up */
 				if (keyvalid_g[i][j] != 0 &&			/* a valid key changed its state */
-						keypress_g[i][j] == 1) {
+				    keypress_g[i][j] == 1) {
 					key_do(keyvalid_g[i][j]|0x80);		/* send break code to handler */
 				}
 				keypress_g[i][j] = 0;		/* key is up */
@@ -137,7 +183,7 @@ static void kbd_handle(void)
 				if (keyvalid_g[i][j] != 0) {
 					if (!kbd_is_ghost(i, j)) {
 						if (keyvalid_g[i][j] != 0 &&		/* a valid key changed its state */
-								keypress_g[i][j] == 0) {
+						    keypress_g[i][j] == 0) {
 							key_do(keyvalid_g[i][j]);	/* send break code to handler */
 						}
 						keypress_g[i][j] = 1;		/* key is down */
@@ -236,6 +282,7 @@ static int __init sppp_kbd_init(void)
 
 	sppp_client_register(&sppp_keyboard_client);
 
+	printk(KERN_ERR "Keyboard input device registration done.\n");
 	return 0;
 }
 

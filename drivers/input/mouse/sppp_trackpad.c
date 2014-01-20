@@ -67,7 +67,7 @@ static void trackpad_decode(sppp_rx_t *packet)
 
 				input_sync(track_dev);
 			}
-						ps2_count = 0;
+			ps2_count = 0;
 		}
 	}
 }

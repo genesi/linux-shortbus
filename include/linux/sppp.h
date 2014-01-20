@@ -30,25 +30,41 @@
 #define SPPP_PKT_STOP    0xC0
 #define IsBitSet(val, bit) ((val) & (1 << (bit)))
 
-#define SPPP_IDENTIFICATION_ID  0
-#define SPPP_KEY_ID     1
-#define SPPP_PS2_ID     2
-#define SPPP_RTC_ID     3
-	#define RTC_ID_SET              0x73
-	#define RTC_ID_GET              0xAA
-#define SPPP_PWR_ID     4
-	#define PWR_ID_SET_RTC_ALARM       2
-	#define PWR_ID_GET_RTC_ALARM       3
-	#define PWR_ID_GOTO_STANDY         4
+#define SPPP_IDENTIFICATION_ID              0
+#define SPPP_KEY_ID                         1
+#define SPPP_PS2_ID                         2
+#define SPPP_RTC_ID                         3
+#define RTC_ID_SET              0
+#define RTC_ID_GET              1
+#define RTC_ID_SET_ALARM        2
+#define RTC_ID_GET_ALARM        3
+#define SPPP_BKL_ID                         4
+#define SPPP_STATUS_ID                      5
+#define STATUS_ID_EVENT           0
+#define STATUS_ID_SET             1
+#define STATUS_ID_CLEAR           2
+#define STATUS_ID_GET             3
 
-#define SPPP_STRING_ID  60
-#define SPPP_BINARY_ID  61
+
+#define SPPP_FLASH_WRITE_BUF_ID             6
+#define SPPP_FLASH_READ_BUF_ID              7
+#define SPPP_FLASH_WRITE_ID                 8
+#define SPPP_FLASH_READ_ID                  9
+
+#define SPPP_VBAT_ID                      10
+
 
 #define SPPP_NOSYNC 0x00
 #define SPPP_SYNC   0xff
 
 #define FLASH_FW_START_PAGE   8
 
+
+/* OLD stuff*/
+/*
+#define SPPP_PWR_ID                         4
+#define PWR_ID_GOTO_STANDY         4
+*/
 typedef struct {
 	uint8_t input[MAX_RECV_PKG_SIZE];
 	uint8_t id;
@@ -72,6 +88,7 @@ enum clients {
 	TRACKPAD,
 	RTC,
 	POWER,
+	ANY,
 };
 
 /* Each SPPP client has these */
@@ -89,5 +106,7 @@ void sppp_send(sppp_tx_t *sppp_tx, unsigned char *buf, int size, int pkg_id);
 
 void sppp_client_register(struct sppp_client *client);
 void sppp_client_remove(struct sppp_client *client);
+
+void dummy_status_requested(void);
 
 #endif /* _SPPP_H_ */
