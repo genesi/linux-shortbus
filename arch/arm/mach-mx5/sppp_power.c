@@ -47,6 +47,10 @@ static void sppp_pwr_suspend(void)
 
 	sppp_tx_t sppp_tx;
 
+	sppp_start(&sppp_tx, SPPP_BKL_ID);
+	sppp_data(&sppp_tx, 0);
+	sppp_stop(&sppp_tx);
+
 	fw_status = STATUS_POWER_STATE_OFF;
 	sppp_start(&sppp_tx, SPPP_STATUS_ID);
 	sppp_data(&sppp_tx, STATUS_ID_SET);
