@@ -23,7 +23,7 @@
 
 #include <linux/sppp.h>
 
-#define VERBOSE		0	/* show some (not all) debug */
+#define VERBOSE		1	/* show some (not all) debug */
 #define KBD_SYNC	0xAA	/* keyboard inserts a SYNC after each full matrix scan */
 #define MAXROW		8
 #define MAXCOL		16
@@ -77,12 +77,12 @@ char keyvalid_g[MAXCOL][MAXROW] = {	/* valid key and scancodes on current keyboa
 #define KEY_NU45  0
 #define KEY_GROSKLEIN  0
 
-	{  KEY_PAUSE,  KEY_WINLEFT,  KEY_WINRIGHT,            0,  KEY_RIGHTCTRL,            0,  KEY_LEFTCTRL,  KEY_F5       }, /* Col 0 */
+	{  KEY_PAUSE,  KEY_WINLEFT,  KEY_WINRIGHT,            0,  KEY_RIGHTCTRL,            0,  KEY_LEFTCTRL,  KEY_F5       }, /* COL 0 */
 	{          0,            0,  KEY_FUNCTION,  KEY_LEFTALT,              0,            0,  KEY_RIGHTALT,  KEY_PRINTSRC }, /* COL 1 */
 	{      KEY_P,      KEY_P1R,       KEY_L1R,      KEY_L2R,   KEY_RETURN1U,  KEY_UNKNOWN,       KEY_01R,  KEY_0        },
-	{  KEY_NU14,KEY_BACKSPACE,       KEY_NU29,      KEY_F11,      KEY_ENTER,      KEY_F12,        KEY_F9,  KEY_F10      },
+	{  KEY_NU14,KEY_BACKSPACE,       KEY_NU29, KEY_VOLUMEUP,      KEY_ENTER,      KEY_F12,        KEY_F9,KEY_VOLUMEDOWN },
 	{          0,KEY_LEFTSHIFT,KEY_RIGHTSHIFT,            0,              0,            0,             0,  0            },
-	{          0,            0,              0,   KEY_SPACE,              0,     KEY_DOWN, KEY_OBENRECHT,  0            },
+	{          0,            0,              0,   KEY_SPACE,              0,     KEY_DOWN, KEY_OBENRECHT,  0            }, /* COL 5 */
 	{          0,            0,              0,           0,              0,    KEY_RIGHT,    KEY_INSERT,  0            },
 	{          0,            0,              0,           0,              0,            0,             0,  0            },
 	{          0,            0,              0,      KEY_UP,              0,     KEY_LEFT,       KEY_COM,  0            },
@@ -155,7 +155,9 @@ static void key_do(unsigned char scancode)
 	makebreak = scancode & 0x80 ? 0 : 1;
 	scancode  = scancode & 0x7f;	/* NOTE: scancode is limited to 128 entries here */
 
-	/*printk(KERN_ERR "%s: scancode %d (0x%02x)", makebreak==1 ? "pressed " : "released", scancode, scancode);*/
+#if VERBOSE
+	printk(KERN_ERR "%s: scancode %d (0x%02x)", makebreak==1 ? "pressed " : "released", scancode, scancode);
+#endif
 
 	input_report_key(keyb_dev, scancode, makebreak);
 	input_sync(keyb_dev);
