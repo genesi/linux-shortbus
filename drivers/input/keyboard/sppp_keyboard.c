@@ -23,7 +23,10 @@
 
 #include <linux/sppp.h>
 
-#define VERBOSE		1	/* show some (not all) debug */
+
+#define VERBOSE			1	/* show some (not all) debug */
+#define COMPLEX_GHOST_CHECK	1
+
 #define KBD_SYNC	0xAA	/* keyboard inserts a SYNC after each full matrix scan */
 #define MAXROW		8
 #define MAXCOL		16
@@ -77,22 +80,22 @@ char keyvalid_g[MAXCOL][MAXROW] = {	/* valid key and scancodes on current keyboa
 #define KEY_NU45  0
 #define KEY_GROSKLEIN  0
 
-	{  KEY_PAUSE,  KEY_WINLEFT,  KEY_WINRIGHT,            0,  KEY_RIGHTCTRL,            0,  KEY_LEFTCTRL,  KEY_F5       }, /* COL 0 */
-	{          0,            0,  KEY_FUNCTION,  KEY_LEFTALT,              0,            0,  KEY_RIGHTALT,  KEY_PRINTSRC }, /* COL 1 */
-	{      KEY_P,      KEY_P1R,       KEY_L1R,      KEY_L2R,   KEY_RETURN1U,  KEY_UNKNOWN,       KEY_01R,  KEY_0        },
-	{  KEY_NU14,KEY_BACKSPACE,       KEY_NU29, KEY_VOLUMEUP,      KEY_ENTER,      KEY_F12,        KEY_F9,KEY_VOLUMEDOWN },
-	{          0,KEY_LEFTSHIFT,KEY_RIGHTSHIFT,            0,              0,            0,             0,  0            },
-	{          0,            0,              0,   KEY_SPACE,              0,     KEY_DOWN, KEY_OBENRECHT,  0            }, /* COL 5 */
-	{          0,            0,              0,           0,              0,    KEY_RIGHT,    KEY_INSERT,  0            },
-	{          0,            0,              0,           0,              0,            0,             0,  0            },
-	{          0,            0,              0,      KEY_UP,              0,     KEY_LEFT,       KEY_COM,  0            },
-	{      KEY_O,       KEY_F7,          KEY_L,           0,        KEY_DOT,    KEY_NU129,        KEY_F9,  KEY_9        },
-	{      KEY_I,     KEY_NK28,          KEY_K,      KEY_F6,      KEY_COMMA,     KEY_NU56,         KEY_2,  KEY_8        },
-	{      KEY_U,        KEY_Y,          KEY_J,       KEY_H,          KEY_M,        KEY_N,         KEY_6,  KEY_7        },
-	{      KEY_R,        KEY_T,          KEY_F,       KEY_G,          KEY_V,        KEY_B,         KEY_5,  KEY_4        },
-	{      KEY_E,       KEY_F3,          KEY_D,      KEY_F4,          KEY_C,            0,        KEY_F2,  KEY_3        },
-	{      KEY_W, KEY_CAPSLOCK,          KEY_S,    KEY_NU45,          KEY_X,            0,        KEY_F1,  KEY_2        }, /* COL 14 */
-	{      KEY_Q,      KEY_TAB,          KEY_A,     KEY_ESC,          KEY_Z,            0, KEY_GROSKLEIN,  KEY_1        }  /* COL 15 */
+	{  KEY_PAUSE,  KEY_LEFTMETA, KEY_RIGHTMETA,             0,  KEY_RIGHTCTRL,            0,  KEY_LEFTCTRL,  KEY_F5       }, /* COL 0 */
+	{          0,             0,  KEY_FUNCTION,   KEY_LEFTALT,              0,            0,  KEY_RIGHTALT,  KEY_PRINTSRC }, /* COL 1 */
+	{      KEY_P, KEY_LEFTBRACE, KEY_SEMICOLON,KEY_APOSTROPHE,  KEY_BACKSLASH,    KEY_SLASH,     KEY_MINUS,  KEY_0        },
+	{   KEY_NU14, KEY_BACKSPACE,      KEY_NU29,  KEY_VOLUMEUP,      KEY_ENTER,      KEY_F12,        KEY_F9,KEY_VOLUMEDOWN },
+	{          0, KEY_LEFTSHIFT,KEY_RIGHTSHIFT,             0,              0,            0,             0,  0            },
+	{          0,             0,             0,     KEY_SPACE,              0,     KEY_DOWN,    KEY_DELETE,  0            }, /* COL 5 */
+	{          0,             0,             0,             0,              0,    KEY_RIGHT,    KEY_INSERT,  0            },
+	{          0,             0,             0,             0,              0,            0,             0,  0            },
+	{          0,             0,             0,        KEY_UP,              0,     KEY_LEFT,       KEY_COM,  0            },
+	{      KEY_O,        KEY_F7,         KEY_L,             0,        KEY_DOT,    KEY_NU129,        KEY_F9,  KEY_9        },
+	{      KEY_I,KEY_RIGHTBRACE,         KEY_K,        KEY_F6,      KEY_COMMA,     KEY_NU56,     KEY_EQUAL,  KEY_8        }, /* COL a */
+	{      KEY_U,         KEY_Y,         KEY_J,         KEY_H,          KEY_M,        KEY_N,         KEY_6,  KEY_7        },
+	{      KEY_R,         KEY_T,         KEY_F,         KEY_G,          KEY_V,        KEY_B,         KEY_5,  KEY_4        },
+	{      KEY_E,        KEY_F3,         KEY_D,        KEY_F4,          KEY_C,            0,        KEY_F2,  KEY_3        },
+	{      KEY_W,  KEY_CAPSLOCK,         KEY_S,      KEY_NU45,          KEY_X,            0,        KEY_F1,  KEY_2        }, /* COL e */
+	{      KEY_Q,       KEY_TAB,         KEY_A,       KEY_ESC,          KEY_Z,            0,     KEY_GRAVE,  KEY_1        }  /* COL f */
 
 #endif
 };
@@ -130,11 +133,11 @@ static int kbd_is_ghost(int col, int row)	/* check for ghosting */
 					continue;
 				if (keyboard_g[i][row] != 0 &&		/* we found a rectangle with */
 				    keyboard_g[i][j] != 0) {		/* col/row , col/j , i/j , i/row */
-#if 1
+#if 	COMPLEX_GHOST_CHECK
 					if (keyvalid_g[col][j] != 0 && /* complex check tests other three */
 					    keyvalid_g[i][j] != 0 &&  /* corners to be a valid key */
 					    keyvalid_g[i][row] != 0)
-#endif
+#endif	/* COMPLEX_GHOST_CHECK */
 						return 1;	/* simple check returns true here */
 				}
 			}
@@ -299,4 +302,3 @@ module_exit(sppp_kbd_exit);
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("SPPP keyboard client");
 MODULE_AUTHOR("Johan Dams <jdmm@genesi-usa.com>");
-
