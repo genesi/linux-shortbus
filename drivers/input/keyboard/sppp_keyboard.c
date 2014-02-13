@@ -24,20 +24,34 @@
 #include <linux/sppp.h>
 
 
-#define VERBOSE			1	/* show some (not all) debug */
+#define VERBOSE			0	/* show some (not all) debug */
 #define COMPLEX_GHOST_CHECK	1
+
+#if VERBOSE
+ #define VERBOSE_PRINT(...) printk(KERN_ERR __VA_ARGS__)
+#else
+ #define VERBOSE_PRINT(...)
+#endif
+
 
 #define KBD_SYNC	0xAA	/* keyboard inserts a SYNC after each full matrix scan */
 #define MAXROW		8
 #define MAXCOL		16
 
+#define KEY_IS_PRESSED	0x01
+#define KEY_NOT_PRESSED	0x00
+
+
 static struct input_dev *keyb_dev;
 
 static struct sppp_client sppp_keyboard_client;
 
-char keyboard_g[MAXCOL][MAXROW];	/* raw keys from keyboard */
-char keypress_g[MAXCOL][MAXROW];	/* current keys reported to the system */
-char keyvalid_g[MAXCOL][MAXROW] = {	/* valid key and scancodes on current keyboard */
+
+typedef uint16_t scancode_t;
+
+scancode_t keyboard_g[MAXCOL][MAXROW];	/* raw keys from keyboard */
+scancode_t keypress_g[MAXCOL][MAXROW];	/* current keys reported to the system */
+scancode_t keyvalid_g[MAXCOL][MAXROW] = {	/* valid key and scancodes on current keyboard */
 #if 0
 	{ 66, 12, 82, 83,  0,  8,  0, 52 },          /* COL 0 a '0' indicates none existing==invalid */
 	{  0,  0,  0, 25,  0,  0,  0, 13 },          /* COL 1 */
@@ -66,42 +80,55 @@ char keyvalid_g[MAXCOL][MAXROW] = {	/* valid key and scancodes on current keyboa
 
 #define KEY_WINLEFT  0
 #define KEY_WINRIGHT  0
-#define KEY_FUNCTION  0
 #define KEY_PRINTSRC  0
-#define KEY_P1R  0
-#define KEY_L1R  0
-#define KEY_L2R  0
+#define KEY_FUNCTION 0
 
-#define KEY_RETURN1U  0
-#define KEY_01R  0
-#define KEY_OBENRECHT  0
 #define KEY_COM  0
 #define KEY_NK28  0
 #define KEY_NU45  0
-#define KEY_GROSKLEIN  0
 
-	{  KEY_PAUSE,  KEY_LEFTMETA, KEY_RIGHTMETA,             0,  KEY_RIGHTCTRL,            0,  KEY_LEFTCTRL,  KEY_F5       }, /* COL 0 */
-	{          0,             0,  KEY_FUNCTION,   KEY_LEFTALT,              0,            0,  KEY_RIGHTALT,  KEY_PRINTSRC }, /* COL 1 */
-	{      KEY_P, KEY_LEFTBRACE, KEY_SEMICOLON,KEY_APOSTROPHE,  KEY_BACKSLASH,    KEY_SLASH,     KEY_MINUS,  KEY_0        },
-	{   KEY_NU14, KEY_BACKSPACE,      KEY_NU29,  KEY_VOLUMEUP,      KEY_ENTER,      KEY_F12,        KEY_F9,KEY_VOLUMEDOWN },
-	{          0, KEY_LEFTSHIFT,KEY_RIGHTSHIFT,             0,              0,            0,             0,  0            },
-	{          0,             0,             0,     KEY_SPACE,              0,     KEY_DOWN,    KEY_DELETE,  0            }, /* COL 5 */
-	{          0,             0,             0,             0,              0,    KEY_RIGHT,    KEY_INSERT,  0            },
-	{          0,             0,             0,             0,              0,            0,             0,  0            },
-	{          0,             0,             0,        KEY_UP,              0,     KEY_LEFT,       KEY_COM,  0            },
-	{      KEY_O,        KEY_F7,         KEY_L,             0,        KEY_DOT,    KEY_NU129,        KEY_F9,  KEY_9        },
-	{      KEY_I,KEY_RIGHTBRACE,         KEY_K,        KEY_F6,      KEY_COMMA,     KEY_NU56,     KEY_EQUAL,  KEY_8        }, /* COL a */
-	{      KEY_U,         KEY_Y,         KEY_J,         KEY_H,          KEY_M,        KEY_N,         KEY_6,  KEY_7        },
-	{      KEY_R,         KEY_T,         KEY_F,         KEY_G,          KEY_V,        KEY_B,         KEY_5,  KEY_4        },
-	{      KEY_E,        KEY_F3,         KEY_D,        KEY_F4,          KEY_C,            0,        KEY_F2,  KEY_3        },
-	{      KEY_W,  KEY_CAPSLOCK,         KEY_S,      KEY_NU45,          KEY_X,            0,        KEY_F1,  KEY_2        }, /* COL e */
-	{      KEY_Q,       KEY_TAB,         KEY_A,       KEY_ESC,          KEY_Z,            0,     KEY_GRAVE,  KEY_1        }  /* COL f */
+	{  KEY_PAUSE,  KEY_LEFTMETA, KEY_RIGHTMETA,               0,  KEY_RIGHTCTRL,            0,      KEY_LEFTCTRL, 	KEY_ZOOM       }, /* COL 0 */
+	{          0,             0,  KEY_FUNCTION,     KEY_LEFTALT,              0,            0,      KEY_RIGHTALT, 	KEY_PRINTSRC   }, /* COL 1 */
+	{      KEY_P, KEY_LEFTBRACE, KEY_SEMICOLON,  KEY_APOSTROPHE,  KEY_BACKSLASH,    KEY_SLASH,         KEY_MINUS, 	KEY_0          },
+	{   KEY_NU14, KEY_BACKSPACE,      KEY_NU29,    KEY_VOLUMEUP,      KEY_ENTER,   KEY_COFFEE,          KEY_MUTE, 	KEY_VOLUMEDOWN },
+	{          0, KEY_LEFTSHIFT,KEY_RIGHTSHIFT,               0,              0,            0,                 0, 	0              },
+	{          0,             0,             0,       KEY_SPACE,              0,     KEY_DOWN,        KEY_DELETE, 	0              }, /* COL 5 */
+	{          0,             0,             0,               0,              0,    KEY_RIGHT,        KEY_INSERT, 	0              },
+	{          0,             0,             0,               0,              0,            0,                 0, 	0              },
+	{          0,             0,             0,          KEY_UP,              0,     KEY_LEFT,           KEY_COM, 	0              },
+	{      KEY_O, KEY_PLAYPAUSE,         KEY_L,               0,        KEY_DOT,    KEY_NU129,      KEY_NEXTSONG, 	KEY_9          },
+	{      KEY_I,KEY_RIGHTBRACE,         KEY_K,KEY_PREVIOUSSONG,      KEY_COMMA,     KEY_NU56,         KEY_EQUAL, 	KEY_8          }, /* COL a */
+	{      KEY_U,         KEY_Y,         KEY_J,           KEY_H,          KEY_M,        KEY_N,             KEY_6, 	KEY_7          },
+	{      KEY_R,         KEY_T,         KEY_F,           KEY_G,          KEY_V,        KEY_B,             KEY_5, 	KEY_4          },
+	{      KEY_E,    KEY_LOGOFF,         KEY_D,    KEY_KEYBOARD,          KEY_C,            0,  KEY_BRIGHTNESSUP, 	KEY_3          },
+	{      KEY_W,  KEY_CAPSLOCK,         KEY_S,        KEY_NU45,          KEY_X,            0,KEY_BRIGHTNESSDOWN, 	KEY_2          }, /* COL e */
+	{      KEY_Q,       KEY_TAB,         KEY_A,         KEY_ESC,          KEY_Z,            0,         KEY_GRAVE, 	KEY_1          }  /* COL f */
 
 #endif
 };
 
 int key_sync_g;
 int key_ghost_g;
+
+
+/* Code for special Fn keys */
+#define FN_KEYS_NUM	16
+struct {
+	scancode_t key_orig;
+	scancode_t key_fn;
+
+} fn_keys[FN_KEYS_NUM] = 
+{
+	{ KEY_BRIGHTNESSDOWN, 	KEY_F1     },	{ KEY_BRIGHTNESSUP, 	KEY_F2       },	{ KEY_LOGOFF,		KEY_F3  },
+	{ KEY_KEYBOARD,		KEY_F4     },	{ KEY_ZOOM,		KEY_F5       },	{ KEY_PREVIOUSSONG, 	KEY_F6  },
+	{ KEY_PLAYPAUSE, 	KEY_F7     },	{ KEY_NEXTSONG,		KEY_F8       },	{ KEY_MUTE, 		KEY_F9  },
+	{ KEY_VOLUMEDOWN, 	KEY_F10    },	{ KEY_VOLUMEUP,		KEY_F11      },	{ KEY_COFFEE, 		KEY_F12 },
+
+	{ KEY_UP,		KEY_PAGEUP },	{ KEY_DOWN,		KEY_PAGEDOWN },
+	{ KEY_LEFT,		KEY_HOME   },	{ KEY_RIGHT,		KEY_END }
+};
+#define IS_FN_KEY_PRESSED()	keyboard_g[1][2]
+
 
 /* Reset 'raw' and 'clean' versions of the key matix */
 static void kbd_clear(void)
@@ -114,6 +141,23 @@ static void kbd_clear(void)
 			keypress_g[i][j] = 0;
 		}
 }
+
+/* if this is a key affected by Fn pressed, send Fn-pressed scancode
+ * otherwise just return the argument
+ */
+static int get_fn_key(scancode_t sc)
+{
+	int i;
+
+
+	for (i = 0; i < FN_KEYS_NUM; ++i) {
+		if (fn_keys[i].key_orig == sc)
+			return fn_keys[i].key_fn;
+	}
+
+	return sc;
+}
+
 
 /* Key ghosting is checked by looking for a rectangle of four keys. Due too
  * the HW limits the diagonal key pair can NOT be diferenciated from real
@@ -138,7 +182,7 @@ static int kbd_is_ghost(int col, int row)	/* check for ghosting */
 					    keyvalid_g[i][j] != 0 &&  /* corners to be a valid key */
 					    keyvalid_g[i][row] != 0)
 #endif	/* COMPLEX_GHOST_CHECK */
-						return 1;	/* simple check returns true here */
+						{VERBOSE_PRINT("ghost detected!\n"); return 1;}	/* simple check returns true here */
 				}
 			}
 		}
@@ -151,15 +195,19 @@ static int kbd_is_ghost(int col, int row)	/* check for ghosting */
  * Takes the scancode and make/break value and passes it on to
  * Linux input
  */
-static void key_do(unsigned char scancode)
+static void key_do(scancode_t scancode, int makebreak)
 {
-	int makebreak;
+#if VERBOSE
+	printk(KERN_ERR "%s: scancode %d (0x%02x)", makebreak==KEY_IS_PRESSED ? "pressed " : "released", scancode, scancode);
+	printk(KERN_ERR "Fn key pressed when this event occured: %d\n", IS_FN_KEY_PRESSED());
+#endif
 
-	makebreak = scancode & 0x80 ? 0 : 1;
-	scancode  = scancode & 0x7f;	/* NOTE: scancode is limited to 128 entries here */
+	if (IS_FN_KEY_PRESSED()) {
+		scancode = get_fn_key(scancode);
+	}
 
 #if VERBOSE
-	printk(KERN_ERR "%s: scancode %d (0x%02x)", makebreak==1 ? "pressed " : "released", scancode, scancode);
+	printk(KERN_ERR "will report %d (0x%02x)", scancode, scancode);
 #endif
 
 	input_report_key(keyb_dev, scancode, makebreak);
@@ -169,8 +217,8 @@ static void key_do(unsigned char scancode)
 /* Due too HW limitations (no diodes at col/row connections) the 'raw' data
  * show ghost/phantom keys, a special 'find key rectangle' algorithm is
  * used to remove those keys. A clean version of the data is created at
- * keypress_g[][] and coresponding scancodes with make/break bit at pos 7
- * are send to a keyboard handler/driver
+ * keypress_g[][] and coresponding scancodes with make/break bit are sent
+ * to a keyboard handler/driver
  */
 static void kbd_handle(void)
 {
@@ -178,22 +226,22 @@ static void kbd_handle(void)
 
 	for (i = 0; i < MAXCOL; i++) {
 		for (j = 0 ; j < MAXROW; j++) {
-			if (keyboard_g[i][j] == 0) {				/* mark key up */
-				if (keyvalid_g[i][j] != 0 &&			/* a valid key changed its state */
-				    keypress_g[i][j] == 1) {
-					key_do(keyvalid_g[i][j]|0x80);		/* send break code to handler */
+			if (keyboard_g[i][j] == KEY_NOT_PRESSED) {					/* key is up */
+				if (keyvalid_g[i][j] != 0 &&						/* a valid key changed its state (was down) */
+				    keypress_g[i][j] == KEY_IS_PRESSED) {
+					key_do(keyvalid_g[i][j], KEY_NOT_PRESSED);			/* send break code to handler */
 				}
-				keypress_g[i][j] = 0;		/* key is up */
-			} else {
+				keypress_g[i][j] = 0;							/* key is up */
+			} else { /* keyboard_g[i][j] == KEY_IS_PRESSED */
 				if (keyvalid_g[i][j] != 0) {
 					if (!kbd_is_ghost(i, j)) {
-						if (keyvalid_g[i][j] != 0 &&		/* a valid key changed its state */
-						    keypress_g[i][j] == 0) {
-							key_do(keyvalid_g[i][j]);	/* send break code to handler */
+						if (keyvalid_g[i][j] != 0 &&				/* a valid key changed its state (was up) */
+						    keypress_g[i][j] == KEY_NOT_PRESSED) {
+							key_do(keyvalid_g[i][j], KEY_IS_PRESSED);	/* send break code to handler */
 						}
-						keypress_g[i][j] = 1;		/* key is down */
+						keypress_g[i][j] = 1;					/* key is down */
 					} else {
-						key_ghost_g++;		/* statistics only */
+						key_ghost_g++;						/* statistics only */
 					}
 				}
 			}
@@ -212,7 +260,7 @@ static void kbd_add_col(int col, int key)
 		return;
 
 	for (j = 0; j < MAXROW; j++) {
-		keyboard_g[col][j] = key&1 ? 0 : 1;		/* note: keyboard reports active lo signals */
+		keyboard_g[col][j] = key&1 ? KEY_NOT_PRESSED : KEY_IS_PRESSED;	/* note: keyboard reports active lo signals */
 		key >>= 1;
 	}
 }
@@ -269,9 +317,15 @@ static int __init sppp_kbd_init(void)
 
 	keyb_dev->evbit[0] = BIT_MASK(EV_KEY);
 
+	/* set bits of normal keys */
 	for (i = 0; i < MAXCOL; i++)
 		for (j = 0; j < MAXROW; j++)
 			set_bit(keyvalid_g[i][j], keyb_dev->keybit);
+
+	/* set bits of Fn keys */
+	for (i = 0; i < FN_KEYS_NUM; ++i)
+		set_bit(fn_keys[i].key_fn, keyb_dev->keybit);
+
 
 	error = input_register_device(keyb_dev);
 	if (error) {
