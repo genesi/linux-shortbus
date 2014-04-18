@@ -200,13 +200,14 @@ static struct mxc_dvfs_platform_data efikasb_dvfs_core_data = {
 };
 
 static const struct esdhc_platform_data mx53_efikasb_sd1_data __initconst = {
-	.always_present = true,
+	.cd_type = ESDHC_CD_CONTROLLER,
 	.wp_gpio = SD1_WP,
 //	.cd_gpio = SD1_CD,
+	.cd_gpio = -EINVAL
 };
 
 static const struct esdhc_platform_data mx53_efikasb_sd2_data __initconst = {
-	.always_present = true,
+	.cd_type = ESDHC_CD_PERMANENT,
 };
 
 static void mx53_efikasb_camera_power(int off);

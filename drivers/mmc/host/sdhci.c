@@ -33,6 +33,8 @@
 #define DBG(f, x...) \
 	pr_debug(DRIVER_NAME " [%s()]: " f, __func__,## x)
 
+#define IS_FLAG_SET(flags, flag)	(((flags) & (flag)) != 0)
+
 #if defined(CONFIG_LEDS_CLASS) || (defined(CONFIG_LEDS_CLASS_MODULE) && \
 	defined(CONFIG_MMC_SDHCI_MODULE))
 #define SDHCI_USE_LEDS_CLASS
@@ -45,6 +47,16 @@ static void sdhci_finish_data(struct sdhci_host *);
 
 static void sdhci_send_command(struct sdhci_host *, struct mmc_command *);
 static void sdhci_finish_command(struct sdhci_host *);
+
+/* #ifdef CONFIG_PM_RUNTIME */
+static inline int sdhci_runtime_pm_get(struct sdhci_host *host)
+{
+	return 0;
+}
+static inline int sdhci_runtime_pm_put(struct sdhci_host *host)
+{
+	return 0;
+}
 
 static void sdhci_dumpregs(struct sdhci_host *host)
 {
@@ -1237,6 +1249,39 @@ out:
 	spin_unlock_irqrestore(&host->lock, flags);
 }
 
+/* Taken from upstream (3.10.9_1.0.0_alpha) Freescale kernel */
+static int sdhci_do_get_cd(struct sdhci_host *host)
+{
+/*	int gpio_cd = mmc_gpio_get_cd(host->mmc); */
+	int gpio_cd = -ENOSYS; /* TODO want to read this from esdhc_platform_data in host */
+
+	if (host->flags & SDHCI_DEVICE_DEAD)
+		return 0;
+
+	/* If polling/nonremovable, assume that the card is always present. */
+	if ((host->quirks & SDHCI_QUIRK_BROKEN_CARD_DETECTION) ||
+	    (host->mmc->caps & MMC_CAP_NONREMOVABLE))
+		return 1;
+
+	/* Try slot gpio detect */
+	if (!IS_ERR_VALUE(gpio_cd))
+		return !!gpio_cd;
+
+	/* Host native card detect */
+	return !!(sdhci_readl(host, SDHCI_PRESENT_STATE) & SDHCI_CARD_PRESENT);
+}
+
+static int sdhci_get_cd(struct mmc_host *mmc)
+{
+	struct sdhci_host *host = mmc_priv(mmc);
+	int ret;
+
+	sdhci_runtime_pm_get(host);
+	ret = sdhci_do_get_cd(host);
+	sdhci_runtime_pm_put(host);
+	return ret;
+}
+
 static int sdhci_get_ro(struct mmc_host *mmc)
 {
 	struct sdhci_host *host;
@@ -1287,6 +1332,7 @@ out:
 static const struct mmc_host_ops sdhci_ops = {
 	.request	= sdhci_request,
 	.set_ios	= sdhci_set_ios,
+	.get_cd		= sdhci_get_cd,
 	.get_ro		= sdhci_get_ro,
 	.enable_sdio_irq = sdhci_enable_sdio_irq,
 };
@@ -1895,8 +1941,11 @@ int sdhci_add_host(struct sdhci_host *host)
 		mmc->caps |= MMC_CAP_SD_HIGHSPEED | MMC_CAP_MMC_HIGHSPEED;
 
 	if ((host->quirks & SDHCI_QUIRK_BROKEN_CARD_DETECTION) &&
-	    mmc_card_is_removable(mmc))
+	    mmc_card_is_removable(mmc)) {
+	
 		mmc->caps |= MMC_CAP_NEEDS_POLL;
+		printk(KERN_INFO "%s: needs polling\n", mmc_hostname(mmc) );
+	}
 
 	ocr_avail = 0;
 	if (caps & SDHCI_CAN_VDD_330)
