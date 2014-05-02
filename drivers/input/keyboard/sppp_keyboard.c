@@ -73,6 +73,9 @@ scancode_t keyvalid_g[MAXCOL][MAXROW] = {	/* valid key and scancodes on current 
 
 	/* some KEY_xxx use fancy names. Pls. check and correct. Some keys are missing using a KEY_NUxxx (xxx=index from datasheet) */
 
+/* No definition for this in include/linux/input.h so making a def sure not to colide (max uint16_t) */
+#define KEY_DCOM  0xFFFF
+
 #define KEY_NU14  0
 #define KEY_NU29  0
 #define KEY_NU56  0
@@ -83,7 +86,6 @@ scancode_t keyvalid_g[MAXCOL][MAXROW] = {	/* valid key and scancodes on current 
 #define KEY_PRINTSRC  0
 #define KEY_FUNCTION 0
 
-#define KEY_COM  0
 #define KEY_NK28  0
 #define KEY_NU45  0
 
@@ -95,7 +97,7 @@ scancode_t keyvalid_g[MAXCOL][MAXROW] = {	/* valid key and scancodes on current 
 	{          0,             0,             0,       KEY_SPACE,              0,     KEY_DOWN,        KEY_DELETE, 	0              }, /* COL 5 */
 	{          0,             0,             0,               0,              0,    KEY_RIGHT,        KEY_INSERT, 	0              },
 	{          0,             0,             0,               0,              0,            0,                 0, 	0              },
-	{          0,             0,             0,          KEY_UP,              0,     KEY_LEFT,           KEY_COM, 	0              },
+	{          0,             0,             0,          KEY_UP,              0,     KEY_LEFT,          KEY_DCOM, 	0              },
 	{      KEY_O, KEY_PLAYPAUSE,         KEY_L,               0,        KEY_DOT,    KEY_NU129,      KEY_NEXTSONG, 	KEY_9          },
 	{      KEY_I,KEY_RIGHTBRACE,         KEY_K,KEY_PREVIOUSSONG,      KEY_COMMA,     KEY_NU56,         KEY_EQUAL, 	KEY_8          }, /* COL a */
 	{      KEY_U,         KEY_Y,         KEY_J,           KEY_H,          KEY_M,        KEY_N,             KEY_6, 	KEY_7          },
@@ -127,8 +129,12 @@ struct {
 	{ KEY_UP,		KEY_PAGEUP },	{ KEY_DOWN,		KEY_PAGEDOWN },
 	{ KEY_LEFT,		KEY_HOME   },	{ KEY_RIGHT,		KEY_END }
 };
-#define IS_FN_KEY_PRESSED()	keyboard_g[1][2]
+#define IS_FN_KEY_PRESSED()	(keyboard_g[1][2])
 
+#define IS_LSHIFT_PRESSED()	(keyboard_g[4][1])
+#define IS_RSHIFT_PRESSED()	(keyboard_g[4][2])
+
+#define IS_RALT_PRESSED()	(keyboard_g[1][6])
 
 /* Reset 'raw' and 'clean' versions of the key matix */
 static void kbd_clear(void)
@@ -190,6 +196,55 @@ static int kbd_is_ghost(int col, int row)	/* check for ghosting */
 	return 0;
 }
 
+static inline void
+sppp_dotcom_workaround(int makebreak)
+{
+	VERBOSE_PRINT("Special .com key pressed, handling\n");
+
+	if (IS_RALT_PRESSED() ) {
+		input_report_key(keyb_dev, KEY_RIGHTALT, 0);
+		input_sync(keyb_dev);
+	}
+
+	if (IS_LSHIFT_PRESSED() ) {
+		input_report_key(keyb_dev, KEY_LEFTSHIFT, 0);
+		input_sync(keyb_dev);
+	}
+
+	if (IS_RSHIFT_PRESSED() ) {
+		input_report_key(keyb_dev, KEY_RIGHTSHIFT, 0);
+		input_sync(keyb_dev);
+	}
+
+	input_report_key(keyb_dev, KEY_DOT, makebreak);
+	input_sync(keyb_dev);
+
+	if (IS_LSHIFT_PRESSED() ) {
+		input_report_key(keyb_dev, KEY_LEFTSHIFT, 1);
+		input_sync(keyb_dev);
+	}
+
+	if (IS_RSHIFT_PRESSED() ) {
+		input_report_key(keyb_dev, KEY_RIGHTSHIFT, 1);
+		input_sync(keyb_dev);
+	}
+
+	input_report_key(keyb_dev, KEY_C, makebreak);
+	input_sync(keyb_dev);
+
+	input_report_key(keyb_dev, KEY_O, makebreak);
+	input_sync(keyb_dev);
+
+	input_report_key(keyb_dev, KEY_M, makebreak);
+	input_sync(keyb_dev);
+
+	if (IS_RALT_PRESSED() ) {
+		input_report_key(keyb_dev, KEY_RIGHTALT, 1);
+		input_sync(keyb_dev);
+	}
+
+	return;
+}
 
 /* keyboard handler
  * Takes the scancode and make/break value and passes it on to
@@ -201,6 +256,12 @@ static void key_do(scancode_t scancode, int makebreak)
 	printk(KERN_ERR "%s: scancode %d (0x%02x)", makebreak==KEY_IS_PRESSED ? "pressed " : "released", scancode, scancode);
 	printk(KERN_ERR "Fn key pressed when this event occured: %d\n", IS_FN_KEY_PRESSED());
 #endif
+
+	/* special workaround for special .com key */
+	if (unlikely(scancode == KEY_DCOM)) {
+		sppp_dotcom_workaround(makebreak);
+		return;
+	}
 
 	if (IS_FN_KEY_PRESSED()) {
 		scancode = get_fn_key(scancode);
