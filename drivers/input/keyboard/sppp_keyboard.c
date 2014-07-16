@@ -333,7 +333,7 @@ static void kbd_add_col(int col, int key)
  * full scan of the key matix. The keyboard ONLY reports the key deltas
  * between two consecutive scans.
  */
-static void kbd_decode(sppp_rx_t *packet)
+static void kbd_decode(const sppp_rx_t *packet)
 {
 	unsigned char *keys = packet->input;
 	int keyc = packet->pos;

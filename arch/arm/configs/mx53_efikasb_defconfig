@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux/arm 2.6.38.3 Kernel Configuration
-# Mon Jul 14 18:42:37 2014
+# Fri Jul 18 15:49:53 2014
 #
 CONFIG_ARM=y
 CONFIG_HAVE_PWM=y
@@ -1268,6 +1268,7 @@ CONFIG_POWER_SUPPLY=y
 # CONFIG_BATTERY_MAX17042 is not set
 # CONFIG_CHARGER_ISP1704 is not set
 # CONFIG_CHARGER_GPIO is not set
+CONFIG_BATTERY_SPPP=y
 CONFIG_HWMON=y
 # CONFIG_HWMON_VID is not set
 # CONFIG_HWMON_DEBUG_CHIP is not set

@@ -212,4 +212,10 @@ config BATTERY_DA9052
 	  Say Y here to enable support for batteries charger integrated into
 	  DA9052 PMIC.
 
+config BATTERY_SPPP
+	tristate "Efika MX53 SB Battery"
+	depends on MACH_MX53_EFIKASB
+	help
+	  Say Y here to enable support for the Efika MX53 SPPP battery
+
 endif # POWER_SUPPLY
