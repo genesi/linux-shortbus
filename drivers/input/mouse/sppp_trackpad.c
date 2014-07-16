@@ -37,7 +37,7 @@ static struct sppp_client sppp_trackpad_client;
  * have the same sequence number. We use this to correctly identify the message
  * start and ending of a multibyte message (streaming data from pointing device)
  */
-static void trackpad_decode(sppp_rx_t *packet)
+static void trackpad_decode(const sppp_rx_t *packet)
 {
 	static uint8_t ps2_byte[3];
 	static uint8_t ps2_seq;

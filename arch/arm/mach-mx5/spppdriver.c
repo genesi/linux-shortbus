@@ -47,7 +47,7 @@ struct sppp_device {
 	struct clk *clk;
 };
 
-/* Array od SPPP clients */
+/* Array of SPPP clients */
 static struct sppp_client *array_of_clients[MAX_CLIENTS] = {NULL};
 
 /* baseint contains the address as a 32 bit integer */
@@ -58,11 +58,48 @@ static struct sppp_device sppp __initdata;
 
 /* Receive structure */
 static sppp_rx_t sppp_rx_g;
+static uint32_t sppp_status_lstn_ids = 0;
+
+/*
+ * Private SPPP client functions
+ */
+static inline int sppp_client_is_registered(struct sppp_client *client)
+{
+	return (client != NULL)           &&
+	       (client->id < MAX_CLIENTS) &&
+	       (array_of_clients[client->id] != NULL);
+}
+
+static inline void sppp_client_mark_lstn(struct sppp_client *client)
+{
+	sppp_status_lstn_ids |= (1 << client->id);
+}
+
+static inline int sppp_client_is_lstn(struct sppp_client *client)
+{
+	return (sppp_status_lstn_ids & (1 << client->id)) != 0;
+}
+
+static inline void sppp_clr_lstn(void)
+{
+	sppp_status_lstn_ids = 0;
+}
+
+/*
+ * Public SPPP client API
+ */
+void sppp_client_status_listen(struct sppp_client *client)
+{
+	if (sppp_client_is_registered(client))
+	        sppp_client_mark_lstn(client);
+	else
+		printk(KERN_ERR "Unrecognized / invalid client!");
+}
 
 /* Registers an SPPP client with the driver */
 void sppp_client_register(struct sppp_client *client)
 {
-	if (client->id <= MAX_CLIENTS)
+	if (client->id < MAX_CLIENTS)
 		array_of_clients[client->id] = client;
 	else
 		printk(KERN_ERR "Wrong client id\n");
@@ -72,12 +109,27 @@ EXPORT_SYMBOL(sppp_client_register);
 /* Removes an SPPP client from the driver */
 void sppp_client_remove(struct sppp_client *client)
 {
-	if (client->id <= MAX_CLIENTS)
+	if (sppp_client_is_registered(client))
 		array_of_clients[client->id] = NULL;
 	else
 		printk(KERN_ERR "Wrong client id\n");
 }
 EXPORT_SYMBOL(sppp_client_remove);
+
+static void send_status(void)
+{
+	int i;
+	struct sppp_client *client;
+
+	for (i = 0; i < MAX_CLIENTS; ++i) {
+		client = array_of_clients[i];
+		if (sppp_client_is_registered(client) &&
+		    sppp_client_is_lstn(client))
+			client->decode(&sppp_rx_g);
+	}
+
+	sppp_clr_lstn();
+}
 
 /* Process, identify and decode packet after full encapulated packet received */
 static int decode(void)
@@ -134,6 +186,16 @@ static int decode(void)
 	case SPPP_KEY_ID:
 		if (array_of_clients[KEYBOARD] != NULL)
 			array_of_clients[KEYBOARD]->decode(&sppp_rx_g);
+		break;
+	case SPPP_VBAT_ID:
+		if (array_of_clients[POWER] != NULL)
+			array_of_clients[POWER]->decode(&sppp_rx_g);
+		break;
+	case SPPP_STATUS_ID:
+		if (sppp_status_lstn_ids != 0) {
+			send_status();
+		} else
+			printk(KERN_ERR "STM status received, but no listeners!");
 		break;
 
 	/*	case SPPP_RTC_ID:
@@ -350,6 +412,26 @@ void _sppp_write(sppp_tx_t *sppp_tx, uint8_t data)
 {
 	sppp_tx->crc += data;
 	serial_putc(data);
+}
+
+void sppp_client_send_start(struct sppp_client *client,
+	sppp_tx_t *sppp_tx, uint8_t pkg_id)
+{
+	/* TOOD implement */
+	return;
+}
+
+void sppp_client_send_data(struct sppp_client *client,
+	sppp_tx_t *sppp_tx, uint8_t data)
+{
+	/* TOOD implement */
+	return;
+}
+void sppp_client_send_stop(struct sppp_client *client,
+	sppp_tx_t *sppp_tx)
+{
+	/* TOOD implement */
+	return;
 }
 
 /* Send Start */
