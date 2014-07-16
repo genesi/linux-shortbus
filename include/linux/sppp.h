@@ -51,7 +51,7 @@
 #define SPPP_FLASH_WRITE_ID                 8
 #define SPPP_FLASH_READ_ID                  9
 
-#define SPPP_VBAT_ID                      10
+#define SPPP_VBAT_ID                       10
 
 
 #define SPPP_NOSYNC 0x00
@@ -94,7 +94,7 @@ enum clients {
 /* Each SPPP client has these */
 struct sppp_client {
 	unsigned int id;
-	void (*decode)(sppp_rx_t *);
+	void (*decode)(const sppp_rx_t *);
 };
 
 int sppp_recv(int comd, sppp_rx_t *sppp_rx);
@@ -104,6 +104,7 @@ void sppp_stop(sppp_tx_t *sppp_tx);
 
 void sppp_send(sppp_tx_t *sppp_tx, unsigned char *buf, int size, int pkg_id);
 
+void sppp_client_status_listen(struct sppp_client *client);
 void sppp_client_register(struct sppp_client *client);
 void sppp_client_remove(struct sppp_client *client);
 
