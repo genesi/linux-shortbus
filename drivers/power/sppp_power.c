@@ -107,7 +107,7 @@ static inline void sppp_pwr_cache_clear(struct sppp_pwr_cache_info *sppp_cache)
 
 static inline void sppp_pwr_cache_vbat_update(const uint8_t *vbat)
 {
-	printk(KERN_ERR "%s VBAT data %x %x", __func__, vbat[0], vbat[1]);
+	/* printk(KERN_ERR "%s VBAT data %x %x", __func__, vbat[0], vbat[1]); */
 
  	memcpy(sppp_cache.vbat, vbat, sizeof sppp_cache.vbat);
 
@@ -121,9 +121,9 @@ static inline void sppp_pwr_cache_stat_update(const sppp_rx_t *resp)
 		return;
 	}
 
-	printk(KERN_ERR "%s STATUS data: type %d; %x %x %x %x",
-	       __func__, resp->input[0] == STATUS_ID_GET,
-	       resp->input[1], resp->input[2], resp->input[3], resp->input[4]);
+	/* printk(KERN_ERR "%s STATUS data: type %d; %x %x %x %x", */
+	/*        __func__, resp->input[0] == STATUS_ID_GET, */
+	/*        resp->input[1], resp->input[2], resp->input[3], resp->input[4]); */
 
 	memcpy(sppp_cache.stat, &resp->input[1], sizeof sppp_cache.stat);
 	sppp_cache.was_updated |= STAT_UPDATED;
@@ -172,28 +172,17 @@ static void sppp_do_suspend(void)
 
 static void sppp_request_vbat(void) 
 {
-	sppp_tx_t sppp_tx_vbat;
-
-	sppp_start(&sppp_tx_vbat, SPPP_VBAT_ID);
-	sppp_stop( &sppp_tx_vbat);
+	sppp_client_send_start(POWER, SPPP_VBAT_ID);
+	sppp_client_send_stop(POWER);
 }
 
 static void sppp_request_status(void)
 {
-	sppp_tx_t sppp_tx_status;
+	sppp_client_status_listen(POWER);
 
-	sppp_client_status_listen(&sppp_pwr_client);
-	sppp_start(&sppp_tx_status, SPPP_STATUS_ID);
-	sppp_data( &sppp_tx_status, STATUS_ID_GET);
-	sppp_stop( &sppp_tx_status);
-}
-
-static void sppp_do_iden(void)
-{
-	sppp_tx_t sppp_tx_iden;
-
-	sppp_start(&sppp_tx_iden, SPPP_IDENTIFICATION_ID);
-	sppp_stop(&sppp_tx_iden);
+	sppp_client_send_start(POWER, SPPP_STATUS_ID);
+	sppp_client_send_data(POWER, STATUS_ID_GET);
+	sppp_client_send_stop(POWER);
 }
 
 /*
@@ -293,7 +282,7 @@ sppp_pwr_update_status_voltage(struct sppp_pwr_device_info *di)
 
 	/* TODO checking for garbage voltage to determine battery
 	   presence is an ineffective workaround */
-	if (di->voltage_raw < 1000) {
+	if (di->voltage_raw < 4000) {
 		di->present = 0;
 		return;
 	}
@@ -352,7 +341,6 @@ static void sppp_pwr_monitor_work(struct work_struct *work)
 #define sppp_pwr_external_power_changed NULL
 #define sppp_pwr_set_charged NULL
 
-/* TODO fill power supply API function stubs */
 static int sppp_pwr_get_property(struct power_supply *psy,
                                  enum power_supply_property psp,
                                  union power_supply_propval *val)
@@ -377,10 +365,12 @@ static int sppp_pwr_get_property(struct power_supply *psy,
 		val->intval = di->voltage_uV;
 		break;
 
-	/* This data is used only to get upower to show 'best guess' percentages */
+	/* NOTE This data is used only to get upower
+	        to show 'best guess' percentages */
 	case POWER_SUPPLY_PROP_ENERGY_FULL:
 		/* units of uWh = mAh * mV */
-		val->intval = CHARGE_AVERAGE_mAh * (VOLTAGE_MAX_mV - VOLTAGE_MIN_mV);
+		val->intval = CHARGE_AVERAGE_mAh *
+			(VOLTAGE_MAX_mV - VOLTAGE_MIN_mV);
 		break;
 	case POWER_SUPPLY_PROP_ENERGY_EMPTY:
 		val->intval = 0;
@@ -388,7 +378,8 @@ static int sppp_pwr_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_ENERGY_NOW:
 		/* units of uWh = mAh * mV */
 		val->intval = CHARGE_AVERAGE_mAh *
-			((VOLTAGE_MAX_mV - VOLTAGE_MIN_mV) * di->rem_capacity) / 100;
+			((VOLTAGE_MAX_mV - VOLTAGE_MIN_mV) *
+			 di->rem_capacity) / 100;
 		break;
 
 	case POWER_SUPPLY_PROP_CAPACITY:
@@ -482,7 +473,7 @@ static int sppp_pwr_probe(struct platform_device *pdev)
 		goto register_failed;
 	}
 
-	/* initialized and fire off delayed work */
+	/* initialize and fire off delayed work */
 	INIT_DELAYED_WORK(&di->monitor_work, sppp_pwr_monitor_work);
 	di->monitor_wqueue = create_singlethread_workqueue(dev_name(&pdev->dev));
 	if (!di->monitor_wqueue) {
@@ -491,10 +482,7 @@ static int sppp_pwr_probe(struct platform_device *pdev)
 	}
 	queue_delayed_work(di->monitor_wqueue, &di->monitor_work, HZ * 1);
 
-
-	/* TODO register battery as power supply */
-
-	goto success;
+	return 0;
 
 register_failed:
 	{} /* fallthrough */
@@ -502,8 +490,6 @@ workqueue_failed:
         power_supply_unregister(&di->bat);
 di_alloc_failed:
 	kfree(di);
-	return -ENOMEM;
-success:
 	return retval;
 }
 
@@ -545,7 +531,7 @@ static int __init sppp_pwr_init(void)
 	pm_power_off = sppp_do_suspend;
 	
 	status = platform_driver_register(&sppp_pwr_driver);
-	printk(KERN_ERR "\tregister platform driver: %d", status);
+	printk(KERN_INFO "\tregister platform driver: %d", status);
 	return status;
 }
 
