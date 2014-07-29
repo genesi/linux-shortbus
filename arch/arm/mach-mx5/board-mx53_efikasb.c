@@ -324,6 +324,10 @@ struct platform_device mxc_nandv2_mtd_device = {
 	.num_resources = ARRAY_SIZE(mxc_nand_resources),
 };
 
+struct platform_device mxc_battery = {
+	.name = "sppp_power",
+	.id = -1,
+};
 
 static void mx53_efikasb_usbh1_vbus(bool on)
 {
@@ -529,6 +533,9 @@ static void __init mx53_efikasb_board_init(void)
 
 	/* NAND */
 	mxc_register_device(&mxc_nandv2_mtd_device, &efikasb_nand_data);
+
+	/* Battery */
+	mxc_register_device(&mxc_battery, NULL);
 
 	/*GPU*/
 	if (mx53_revision() >= IMX_CHIP_REVISION_2_0)
