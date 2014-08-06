@@ -22,6 +22,7 @@
 #ifndef _SPPP_H_
 #define _SPPP_H_
 
+/* WARN SPPP implementation requires these to be powers of 2 */
 #define MAX_RECV_PKG_SIZE 1024
 #define MAX_PKG_SIZE  MAX_RECV_PKG_SIZE
 
@@ -51,7 +52,7 @@
 #define SPPP_FLASH_WRITE_ID                 8
 #define SPPP_FLASH_READ_ID                  9
 
-#define SPPP_VBAT_ID                      10
+#define SPPP_VBAT_ID                       10
 
 
 #define SPPP_NOSYNC 0x00
@@ -94,16 +95,28 @@ enum clients {
 /* Each SPPP client has these */
 struct sppp_client {
 	unsigned int id;
-	void (*decode)(sppp_rx_t *);
+	void (*decode)(const sppp_rx_t *);
 };
 
 int sppp_recv(int comd, sppp_rx_t *sppp_rx);
+
+/*
+ * SPPP TX API (Unsafe)
+ */
 void sppp_start(sppp_tx_t *sppp_tx, uint8_t pkg_id);
 void sppp_data(sppp_tx_t *sppp_tx, uint8_t data);
 void sppp_stop(sppp_tx_t *sppp_tx);
+void sppp_send(sppp_tx_t *sppp_tx, unsigned char *buf,
+               int size, int pkg_id);
 
-void sppp_send(sppp_tx_t *sppp_tx, unsigned char *buf, int size, int pkg_id);
+/*
+ * SPPP TX API (Safe)
+ */
+void sppp_client_send_start(enum clients, uint8_t pkg_id);
+void sppp_client_send_data(enum clients, uint8_t data);
+void sppp_client_send_stop(enum clients);
 
+void sppp_client_status_listen(enum clients cl);
 void sppp_client_register(struct sppp_client *client);
 void sppp_client_remove(struct sppp_client *client);
 

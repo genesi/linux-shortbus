@@ -27,18 +27,24 @@
 #include <linux/clk.h>
 #include <linux/serial_core.h>
 #include <linux/delay.h>
+#include <linux/spinlock.h>
+#include <linux/spinlock_types.h>
+#include <linux/kfifo.h>
 #include <linux/sppp.h>
 
 #include <mach/mx53.h>
 #include <mach/hardware.h>
 
 #include "spppdriver.h"
+#include "sppp_priv.h"
 
 /* Read and write registers */
 #define __REG(x)	(*((volatile u32 *)(x)))
 
 /* Maximum number of SPPP clients */
 #define MAX_CLIENTS  10
+
+#define SPPP_PKT_GET_TYPE(pkt) ((pkt) & (~SPPP_PKT_ID_MASK))
 
 /* Simple device structure for the SPPP driver */
 struct sppp_device {
@@ -47,8 +53,9 @@ struct sppp_device {
 	struct clk *clk;
 };
 
-/* Array od SPPP clients */
+/* Array of SPPP clients */
 static struct sppp_client *array_of_clients[MAX_CLIENTS] = {NULL};
+static struct kfifo sppp_client_msgs[MAX_CLIENTS];
 
 /* baseint contains the address as a 32 bit integer */
 static volatile u32 *base, baseint;
@@ -59,25 +66,54 @@ static struct sppp_device sppp __initdata;
 /* Receive structure */
 static sppp_rx_t sppp_rx_g;
 
+
+/*
+ * Private SPPP client functions
+ */
+static inline int sppp_client_is_registered(int i)
+{
+	return (array_of_clients[i] != NULL);
+}
+
+static inline void sppp_clr_lstn(void) {}
+
+
+/*
+ * Public SPPP client API
+ */
+void sppp_client_status_listen(enum clients cl) {}
+
 /* Registers an SPPP client with the driver */
 void sppp_client_register(struct sppp_client *client)
 {
-	if (client->id <= MAX_CLIENTS)
-		array_of_clients[client->id] = client;
+	if (client == NULL)
+		printk(KERN_ERR "%s null client!\n", __func__);
+	else if (client->id >= MAX_CLIENTS)
+		printk(KERN_ERR "%s wrong client id\n", __func__);
 	else
-		printk(KERN_ERR "Wrong client id\n");
+		array_of_clients[client->id] = client;
 }
 EXPORT_SYMBOL(sppp_client_register);
 
 /* Removes an SPPP client from the driver */
 void sppp_client_remove(struct sppp_client *client)
 {
-	if (client->id <= MAX_CLIENTS)
-		array_of_clients[client->id] = NULL;
-	else
+	if (client == NULL)
+		printk(KERN_ERR "null client!\n");
+	else if (!sppp_client_is_registered(client->id))
 		printk(KERN_ERR "Wrong client id\n");
+	else
+		array_of_clients[client->id] = NULL;
 }
 EXPORT_SYMBOL(sppp_client_remove);
+
+/* TODO workaround */
+static void send_status(void)
+{
+	array_of_clients[POWER]->decode(&sppp_rx_g);
+
+	sppp_clr_lstn();
+}
 
 /* Process, identify and decode packet after full encapulated packet received */
 static int decode(void)
@@ -134,6 +170,16 @@ static int decode(void)
 	case SPPP_KEY_ID:
 		if (array_of_clients[KEYBOARD] != NULL)
 			array_of_clients[KEYBOARD]->decode(&sppp_rx_g);
+		break;
+	case SPPP_VBAT_ID:
+		if (array_of_clients[POWER] != NULL)
+			array_of_clients[POWER]->decode(&sppp_rx_g);
+		break;
+	case SPPP_STATUS_ID:
+		if (/* sppp_status_lstn_ids != 0 */ 1) {
+			send_status();
+		} else
+			printk(KERN_ERR "STM status received, but no listeners!");
 		break;
 
 	/*	case SPPP_RTC_ID:
@@ -343,7 +389,7 @@ static int sppp_setup(void)
 	return 0;
 }
 
-/* SPPP send operations */
+/* SPPP send operations (unsafe) */
 
 /* Low Level write */
 void _sppp_write(sppp_tx_t *sppp_tx, uint8_t data)
@@ -404,11 +450,91 @@ void sppp_send(sppp_tx_t *sppp_tx, unsigned char *buf, int size, int pkg_id)
 }
 EXPORT_SYMBOL(sppp_send);
 
+/* SPPP send operations (safe) */
+void sppp_client_send_start(enum clients cl, uint8_t pkg_id)
+{
+	struct kfifo *cl_fifo;
+	int status;
+	uint8_t tmp = 0;
+
+	if (!sppp_client_is_registered(cl)) {
+		printk(KERN_ERR "%s unregistered client!\n", __func__);
+		return;
+	}
+	cl_fifo = &sppp_client_msgs[cl];
+
+	if (kfifo_initialized(cl_fifo)) {
+		printk(KERN_ERR "%s discarding previous message from %d",
+		       __func__, cl);
+		kfifo_free(cl_fifo);
+	}
+
+	/* WARN must be power of 2 */
+	status = kfifo_alloc(cl_fifo, MAX_PKG_SIZE, GFP_KERNEL);
+	if (status) {
+		printk(KERN_ERR "could not allocate kfifo!");
+		return;
+	}
+
+	tmp = pkg_id | SPPP_PKT_START;
+	kfifo_put(cl_fifo, &tmp);
+
+	return;
+}
+EXPORT_SYMBOL(sppp_client_send_start);
+
+void sppp_client_send_data(enum clients cl, uint8_t data)
+{
+	struct kfifo *cl_fifo;
+
+	if (!sppp_client_is_registered(cl)) {
+		printk(KERN_ERR "%s unregistered client!\n", __func__);
+		return;
+	}
+
+	cl_fifo = &sppp_client_msgs[cl];
+	if (!kfifo_initialized(cl_fifo)) {
+		printk(KERN_ERR "%s client %d sends malformed message!",
+		       __func__, cl);
+		return;
+	}
+
+	kfifo_put(cl_fifo, &data);
+
+	return;
+}
+EXPORT_SYMBOL(sppp_client_send_data);
+
+void sppp_client_send_stop(enum clients cl)
+{
+	struct kfifo *cl_fifo;
+
+	if (!sppp_client_is_registered(cl)) {
+		printk(KERN_ERR "%s unregistered client!\n", __func__);
+		return;
+	}
+
+	cl_fifo = &sppp_client_msgs[cl];
+	if (!kfifo_initialized(cl_fifo)) {
+		printk(KERN_ERR "%s client %d sends malformed message!",
+		       __func__, cl);
+		return;
+	}
+
+	sppp_msgs_set_active(cl_fifo);
+
+	kfifo_free(cl_fifo);
+	return;
+}
+EXPORT_SYMBOL(sppp_client_send_stop);
+
 static int __init sppp_init(void)
 {
 	printk(KERN_INFO "Inserting SPPP driver.\n");
 	sppp_setup();
 	sppp_rx_g.sync = SPPP_NOSYNC;
+
+	sppp_priv_init();
 
 	return 0;
 }
@@ -418,8 +544,10 @@ static void __exit sppp_exit(void)
 	printk(KERN_INFO "Removing SPPP driver.\n");
 
 	/* free_irq(port->irq, NULL); //--> needs fixing, blows up with segfault... */
+
 	clk_disable(clk_get_sys("imx-uart.1", NULL));
 	iounmap(base);
+	sppp_priv_exit();
 }
 
 module_init(sppp_init);

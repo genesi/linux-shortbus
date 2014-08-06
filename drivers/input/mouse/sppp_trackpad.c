@@ -37,7 +37,7 @@ static struct sppp_client sppp_trackpad_client;
  * have the same sequence number. We use this to correctly identify the message
  * start and ending of a multibyte message (streaming data from pointing device)
  */
-static void trackpad_decode(sppp_rx_t *packet)
+static void trackpad_decode(const sppp_rx_t *packet)
 {
 	static uint8_t ps2_byte[3];
 	static uint8_t ps2_seq;
@@ -75,7 +75,6 @@ static void trackpad_decode(sppp_rx_t *packet)
 static int __init sppp_trackpad_init(void)
 {
 	int error;
-	sppp_tx_t sppp_tx_g;
 
 	track_dev = input_allocate_device();
 
@@ -101,38 +100,44 @@ static int __init sppp_trackpad_init(void)
 	sppp_trackpad_client.id = TRACKPAD;
 	sppp_trackpad_client.decode = trackpad_decode;
 
-	/* Low Level PS/2 trackpad init */
-	sppp_start(&sppp_tx_g, SPPP_PS2_ID);
-	sppp_data(&sppp_tx_g, 0xFF); /* reset */
-	sppp_stop(&sppp_tx_g);
-
-	sppp_start(&sppp_tx_g, SPPP_PS2_ID);
-	sppp_data(&sppp_tx_g, 0xF3); /* going to set sample rate */
-	sppp_stop(&sppp_tx_g);
-
-	sppp_start(&sppp_tx_g, SPPP_PS2_ID);
-	sppp_data(&sppp_tx_g, 0x50);  /* sample rate */
-	/* Valid sample rates are 10, 20, 40, 60, 80, 100, and 200 samples/sec */
-	sppp_stop(&sppp_tx_g);
-
-	sppp_start(&sppp_tx_g, SPPP_PS2_ID);
-	sppp_data(&sppp_tx_g, 0xE6);  /* Scaling 2:1; 1:1 = 0xE6 */
-	sppp_stop(&sppp_tx_g);
-
-	sppp_start(&sppp_tx_g, SPPP_PS2_ID);
-	sppp_data(&sppp_tx_g, 0xE8);  /* Going to set resolution */
-	sppp_stop(&sppp_tx_g);
-
-	sppp_start(&sppp_tx_g, SPPP_PS2_ID);
-	/* 00,01,02,03 -> 1, 2, 4, 8 counts/mm */
-	sppp_data(&sppp_tx_g, 0x03); /* set resolution */
-	sppp_stop(&sppp_tx_g);
-
-	sppp_start(&sppp_tx_g, SPPP_PS2_ID);
-	sppp_data(&sppp_tx_g, 0xF4); /* enable data reporting */
-	sppp_stop(&sppp_tx_g);
-
 	sppp_client_register(&sppp_trackpad_client);
+	printk(KERN_ERR "%s sending initializing data\n", __func__);
+
+	/* Low Level PS/2 trackpad init */
+	sppp_client_send_start(TRACKPAD, SPPP_PS2_ID);
+	sppp_client_send_data(TRACKPAD, 0xFF); /* reset */
+	sppp_client_send_stop(TRACKPAD);
+
+	/* going to set sample rate */
+	sppp_client_send_start(TRACKPAD, SPPP_PS2_ID);
+	sppp_client_send_data(TRACKPAD, 0xF3);
+	sppp_client_send_stop(TRACKPAD);
+
+	/* Valid sample rates are 10, 20, 40, 60, 80, 100,
+	   and 200 samples/sec */
+	sppp_client_send_start(TRACKPAD, SPPP_PS2_ID);
+	sppp_client_send_data(TRACKPAD, 0x50);
+	sppp_client_send_stop(TRACKPAD);
+
+	/* Scaling 2:1; 1:1 = 0xE6 */
+	sppp_client_send_start(TRACKPAD, SPPP_PS2_ID);
+	sppp_client_send_data(TRACKPAD, 0xE6);
+	sppp_client_send_stop(TRACKPAD);
+
+	/* Going to set resolution */
+	sppp_client_send_start(TRACKPAD, SPPP_PS2_ID);
+	sppp_client_send_data(TRACKPAD, 0xE8);
+	sppp_client_send_stop(TRACKPAD);
+
+	/* 00,01,02,03 -> 1, 2, 4, 8 counts/mm */
+	sppp_client_send_start(TRACKPAD, SPPP_PS2_ID);
+	sppp_client_send_data(TRACKPAD, 0x03); /* set resolution */
+	sppp_client_send_stop(TRACKPAD);
+
+	/* enable data reporting */
+	sppp_client_send_start(TRACKPAD, SPPP_PS2_ID);
+	sppp_client_send_data(TRACKPAD, 0xF4);
+	sppp_client_send_stop(TRACKPAD);
 
 	return 0;
 }
