@@ -222,7 +222,6 @@ static inline int __NORMALIZE(int64_t y)
 static int calculate_capacity_percentage(int16_t mv)
 {
 	if (mv <= VOLTAGE_WARN_LOW_mV) {
-		printk(KERN_WARNING "battery lifetime at risk at low voltage!");
 		return 0;
 	} else if (mv <= VOLTAGE_MIN_mV) {
 		return __NORMALIZE(__P1(VOLTAGE_MIN_mV));
@@ -285,8 +284,12 @@ sppp_pwr_update_status_voltage(struct sppp_pwr_device_info *di)
 	if (di->voltage_raw < 4000) {
 		di->present = 0;
 		return;
+	} else {
+		di->present = 1;
+		if (di->voltage_raw < VOLTAGE_WARN_LOW_mV)
+			printk(KERN_WARNING
+			       "battery lifetime at risk at low voltage\n");
 	}
-	di->present = 1;
 }
 
 /* 
