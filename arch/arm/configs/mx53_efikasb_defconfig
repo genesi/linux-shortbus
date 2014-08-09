@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux/arm 2.6.38.3 Kernel Configuration
-# Fri Jul 18 15:49:53 2014
+# Sun Aug 10 17:38:03 2014
 #
 CONFIG_ARM=y
 CONFIG_HAVE_PWM=y
@@ -1619,6 +1619,7 @@ CONFIG_BACKLIGHT_CLASS_DEVICE=y
 CONFIG_BACKLIGHT_GENERIC=y
 CONFIG_BACKLIGHT_PWM=y
 # CONFIG_BACKLIGHT_ADP8860 is not set
+CONFIG_BACKLIGHT_SPPP=y
 
 #
 # Display device support

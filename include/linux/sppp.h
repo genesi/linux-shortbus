@@ -89,6 +89,7 @@ enum clients {
 	TRACKPAD,
 	RTC,
 	POWER,
+	BACKLIGHT,
 	ANY,
 };
 

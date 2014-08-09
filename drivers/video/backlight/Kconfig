@@ -313,6 +313,12 @@ config BACKLIGHT_DA9052
 	help
 	  Enable the DA9052 Backlight Driver
 
+config BACKLIGHT_SPPP
+	tristate "Backlight driver for Efika MX53SB"
+	depends on MACH_MX53_EFIKASB
+	help
+	  Say Y here to enable the backlight driver for the Efika MX53SB
+
 endif # BACKLIGHT_CLASS_DEVICE
 
 endif # BACKLIGHT_LCD_SUPPORT
