@@ -61,7 +61,7 @@ static void sppp_msgs_hard_reset(sppp_tx_t *sppp_tx)
 /* function to send periodically the accumulated messages to STM */
 void sppp_msgs_work(struct work_struct *work)
 {
-	const int interval = 1 * HZ;
+	const int interval = HZ / 2;
 	uint8_t tmp = 0;
 	int msg_len = 0;
 	sppp_tx_t sppp_tx;

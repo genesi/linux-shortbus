@@ -329,6 +329,11 @@ struct platform_device mxc_battery = {
 	.id = -1,
 };
 
+struct platform_device mxc_backlight = {
+	.name = "sppp_backlight",
+	.id = -1,
+};
+
 static void mx53_efikasb_usbh1_vbus(bool on)
 {
 	if (on)
@@ -536,6 +541,9 @@ static void __init mx53_efikasb_board_init(void)
 
 	/* Battery */
 	mxc_register_device(&mxc_battery, NULL);
+
+	/* Backlight */
+	mxc_register_device(&mxc_backlight, NULL);
 
 	/*GPU*/
 	if (mx53_revision() >= IMX_CHIP_REVISION_2_0)
