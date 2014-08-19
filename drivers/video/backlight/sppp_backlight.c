@@ -118,6 +118,15 @@ static int sppp_backlight_probe(struct platform_device *pdev)
 
 static int sppp_backlight_remove(struct platform_device *pdev)
 {
+	struct backlight_device *bd = platform_get_drvdata(pdev);
+
+	bd->props.power = 0;
+	bd->props.brightness = 0;
+	backlight_update_status(bd);
+
+	backlight_device_unregister(bd);
+
+	printk(KERN_INFO "%s unloaded\n", __func__);
 	return 0;
 }
 
