@@ -334,6 +334,11 @@ struct platform_device mxc_backlight = {
 	.id = -1,
 };
 
+struct platform_device mxc_rtc = {
+	.name = "sppp_rtc",
+	.id = -1,
+};
+
 static void mx53_efikasb_usbh1_vbus(bool on)
 {
 	if (on)
@@ -544,6 +549,9 @@ static void __init mx53_efikasb_board_init(void)
 
 	/* Backlight */
 	mxc_register_device(&mxc_backlight, NULL);
+
+	/* Real-Time Clock */
+	mxc_register_device(&mxc_rtc, NULL);
 
 	/*GPU*/
 	if (mx53_revision() >= IMX_CHIP_REVISION_2_0)

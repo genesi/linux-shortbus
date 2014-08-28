@@ -164,15 +164,15 @@ static int decode(void)
 		printk(KERN_ERR "\n");
 		break;
 	case SPPP_PS2_ID:
-		if (array_of_clients[TRACKPAD] != NULL)
+		if (sppp_client_is_registered(TRACKPAD))
 			array_of_clients[TRACKPAD]->decode(&sppp_rx_g);
 		break;
 	case SPPP_KEY_ID:
-		if (array_of_clients[KEYBOARD] != NULL)
+		if (sppp_client_is_registered(KEYBOARD))
 			array_of_clients[KEYBOARD]->decode(&sppp_rx_g);
 		break;
 	case SPPP_VBAT_ID:
-		if (array_of_clients[POWER] != NULL)
+		if (sppp_client_is_registered(POWER))
 			array_of_clients[POWER]->decode(&sppp_rx_g);
 		break;
 	case SPPP_STATUS_ID:
@@ -182,12 +182,12 @@ static int decode(void)
 			printk(KERN_ERR "STM status received, but no listeners!");
 		break;
 
-	/*	case SPPP_RTC_ID:
-			if (array_of_clients[RTC] != NULL)
-				array_of_clients[RTC]->decode(&sppp_rx_g);
-			break;
+	case SPPP_RTC_ID:
+		if (sppp_client_is_registered(RTC))
+			array_of_clients[RTC]->decode(&sppp_rx_g);
+		break;
 
-		case SPPP_PWR_ID:
+	/*	case SPPP_PWR_ID:
 			if (array_of_clients[POWER] != NULL)
 				array_of_clients[POWER]->decode(&sppp_rx_g);
 			break;
