@@ -24,6 +24,7 @@
 #include <linux/init.h>
 #include <linux/io.h>
 #include <linux/platform_device.h>
+#include <linux/fsl_devices.h>
 #include <linux/slab.h>
 #include <asm/uaccess.h>
 #include <mach/clock.h>
@@ -127,11 +128,11 @@ void *get_ssi_base_addr(unsigned int ssi)
 {
 	if (ssi_platform_data->ssi_num == 2) {
 		if (ssi == SSI1)
-			return IO_ADDRESS(base_addr_1);
+			return MX53_IO_ADDRESS(base_addr_1);
 		else
-			return IO_ADDRESS(base_addr_2);
+			return MX53_IO_ADDRESS(base_addr_2);
 	}
-	return IO_ADDRESS(base_addr_1);
+	return MX53_IO_ADDRESS(base_addr_1);
 }
 
 void set_register_bits(unsigned int mask, unsigned int data,
@@ -565,11 +566,11 @@ unsigned char ssi_rx_fifo_counter(ssi_mod module, fifo_nb fifo)
 
 	if (ssi_fifo_0 == fifo) {
 		result = getreg_value(MXC_SSISFCSR, module);
-		result &= (0xF << SSI_RX_FIFO_0_COUNT_SHIFT);
+		result &= (unsigned char)(0xF << SSI_RX_FIFO_0_COUNT_SHIFT);
 		result = result >> SSI_RX_FIFO_0_COUNT_SHIFT;
 	} else {
 		result = getreg_value(MXC_SSISFCSR, module);
-		result &= (0xF << SSI_RX_FIFO_1_COUNT_SHIFT);
+		result &= (unsigned char)(0xF << SSI_RX_FIFO_1_COUNT_SHIFT);
 		result = result >> SSI_RX_FIFO_1_COUNT_SHIFT;
 	}
 
@@ -936,11 +937,11 @@ unsigned char ssi_tx_fifo_counter(ssi_mod module, fifo_nb fifo)
 
 	if (ssi_fifo_0 == fifo) {
 		result = getreg_value(MXC_SSISFCSR, module);
-		result &= (0xF << SSI_TX_FIFO_0_COUNT_SHIFT);
+		result &= (unsigned char)(0xF << SSI_TX_FIFO_0_COUNT_SHIFT);
 		result >>= SSI_TX_FIFO_0_COUNT_SHIFT;
 	} else {
 		result = getreg_value(MXC_SSISFCSR, module);
-		result &= (0xF << SSI_TX_FIFO_1_COUNT_SHIFT);
+		result &= (unsigned char)(0xF << SSI_TX_FIFO_1_COUNT_SHIFT);
 		result >>= SSI_TX_FIFO_1_COUNT_SHIFT;
 	}
 

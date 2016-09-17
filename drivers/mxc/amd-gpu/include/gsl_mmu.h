@@ -97,9 +97,9 @@ typedef struct _gsl_mh_intr_t
 // page table stats
 // ----------------
 typedef struct _gsl_ptstats_t {
-    __int64  maps;
-    __int64  unmaps;
-	__int64  switches;
+    __s64  maps;
+    __s64  unmaps;
+	__s64  switches;
 } gsl_ptstats_t;
 
 // ---------
@@ -107,7 +107,7 @@ typedef struct _gsl_ptstats_t {
 // ---------
 typedef struct _gsl_mmustats_t {
 	gsl_ptstats_t  pt;
-	__int64        tlbflushes;
+	__s64        tlbflushes;
 } gsl_mmustats_t;
 
 // -----------------
@@ -135,9 +135,6 @@ typedef struct _gsl_tlbflushfilter_t {
 // mmu object
 // ----------
 typedef struct _gsl_mmu_t {
-#ifdef GSL_LOCKING_FINEGRAIN
-    oshandle_t            mutex;
-#endif
     unsigned int          refcnt;
     gsl_flags_t           flags;
     gsl_device_t          *device;
@@ -159,7 +156,7 @@ typedef struct _gsl_mmu_t {
 //////////////////////////////////////////////////////////////////////////////
 //  inline functions
 //////////////////////////////////////////////////////////////////////////////
-OSINLINE int
+static __inline int
 kgsl_mmu_isenabled(gsl_mmu_t *mmu)
 {
     // address translation enabled

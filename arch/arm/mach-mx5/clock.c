@@ -87,7 +87,7 @@ extern int dvfs_core_is_active;
 /* To keep compatible with some NAND flash, limit
  * max NAND clk to 34MHZ. The user can modify it for
  * dedicate NAND flash */
-#define MAX_NFC_CLK		34000000
+#define MAX_NFC_CLK     48000000 /* Default: 34000000 Micron: 48000000 */
 
 #define UART1_DMA_ENABLE	0
 #define UART2_DMA_ENABLE	0
